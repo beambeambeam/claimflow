@@ -9,7 +9,10 @@ tool (
 	gotest.tools/gotestsum
 )
 
-require github.com/gin-gonic/gin v1.12.0
+require (
+	github.com/caarlos0/env/v11 v11.4.1
+	github.com/gin-gonic/gin v1.12.0
+)
 
 require (
 	dario.cat/mergo v1.0.2 // indirect

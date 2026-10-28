@@ -13,16 +13,20 @@ import (
 )
 
 const (
-	defaultPort       = "8080"
 	readHeaderTimeout = 5 * time.Second
 	shutdownTimeout   = 10 * time.Second
 )
 
-// run listens on $PORT and serves the API until ctx is canceled.
-func run(ctx context.Context, getenv func(string) string, logger *slog.Logger) error {
-	configureMode(getenv)
+// run loads the config from environ and serves the API until ctx is canceled.
+func run(ctx context.Context, environ map[string]string, logger *slog.Logger) error {
+	cfg, err := loadConfig(environ)
+	if err != nil {
+		return err
+	}
 
-	addr := listenAddr(getenv)
+	gin.SetMode(cfg.GinMode)
+
+	addr := cfg.listenAddr()
 
 	listener, err := new(net.ListenConfig).Listen(ctx, "tcp", addr)
 	if err != nil {
@@ -30,22 +34,6 @@ func run(ctx context.Context, getenv func(string) string, logger *slog.Logger) e
 	}
 
 	return serve(ctx, listener, newRouter(logger), logger)
-}
-
-// configureMode runs gin in release mode unless GIN_MODE is set.
-func configureMode(getenv func(string) string) {
-	if getenv(gin.EnvGinMode) == "" {
-		gin.SetMode(gin.ReleaseMode)
-	}
-}
-
-func listenAddr(getenv func(string) string) string {
-	port := getenv("PORT")
-	if port == "" {
-		port = defaultPort
-	}
-
-	return ":" + port
 }
 
 // serve handles requests on listener until ctx is canceled, then shuts down gracefully.

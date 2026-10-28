@@ -4,7 +4,10 @@ go 1.27.3
 
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
-require github.com/gin-gonic/gin v1.12.0
+require (
+	github.com/caarlos0/env/v11 v11.4.1
+	github.com/gin-gonic/gin v1.12.0
+)
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.4.0 // indirect
