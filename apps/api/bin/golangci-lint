@@ -1,0 +1,4 @@
+#!/bin/sh
+# Runs the golangci-lint version pinned in golangci-lint.mod (used by editors).
+api_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec go -C "$api_dir" tool -modfile=golangci-lint.mod golangci-lint "$@"

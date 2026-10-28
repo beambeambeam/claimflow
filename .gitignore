@@ -18,3 +18,7 @@ todos.json
 !.env.example
 
 coverage
+
+# Go (apps/api)
+apps/api/tmp
+apps/api/coverage.out

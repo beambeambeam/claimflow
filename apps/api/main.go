@@ -1,30 +1,26 @@
 package main
 
 import (
-	"log"
-	"net/http"
+	"context"
+	"log/slog"
 	"os"
-
-	"github.com/gin-gonic/gin"
+	"os/signal"
+	"syscall"
 )
 
-func newRouter() *gin.Engine {
-	router := gin.Default()
+func main() { // coverage-ignore
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
-
-	return router
+	if err := runUntilSignal(logger); err != nil {
+		logger.Error("server stopped", slog.Any("error", err))
+		os.Exit(1)
+	}
 }
 
-func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+// runUntilSignal runs the server until SIGINT or SIGTERM.
+func runUntilSignal(logger *slog.Logger) error { // coverage-ignore
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	if err := newRouter().Run(":" + port); err != nil {
-		log.Fatal(err)
-	}
+	return run(ctx, os.Getenv, logger)
 }

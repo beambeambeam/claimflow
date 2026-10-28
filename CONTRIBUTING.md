@@ -109,9 +109,11 @@ Run the checks that match the change from the repository root. For a full change
 ```sh
 bun run lint:fix
 bun run format
-bun run lint --deny-warnings --format=agent
+bun run check
 bun run test:coverage
 bun run build
 ```
+
+For Go changes, also run `bun run vuln` in `apps/api`, and `bun run tidy` after dependency changes.
 
 Do not commit secrets, production environment files, database dumps, or generated output that is ignored by the repository.

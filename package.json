@@ -19,12 +19,12 @@
     "build": "vp run -r build",
     "test": "vp run -r test",
     "test:coverage": "vp run -r test:coverage",
-    "check": "vp check",
-    "lint": "vp lint",
-    "lint:fix": "vp lint --fix",
+    "check": "vp check && bun run --cwd apps/api check",
+    "lint": "vp lint && bun run --cwd apps/api lint",
+    "lint:fix": "vp lint --fix && bun run --cwd apps/api lint:fix",
     "lint:github": "vp lint --deny-warnings --format=github",
-    "format": "vp fmt",
-    "format:check": "vp fmt --check",
+    "format": "vp fmt && bun run --cwd apps/api format",
+    "format:check": "vp fmt --check && bun run --cwd apps/api format:check",
     "prepare": "vp config"
   },
   "devDependencies": {

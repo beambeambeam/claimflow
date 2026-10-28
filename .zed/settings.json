@@ -17,6 +17,12 @@
           "run": "onSave"
         }
       }
+    },
+    "gopls": {
+      "initialization_options": {
+        "formatting.gofumpt": true,
+        "formatting.local": "github.com/beambeambeam/karupan"
+      }
     }
   },
   "languages": {
@@ -243,6 +249,17 @@
           }
         }
       ]
+    },
+    "Go": {
+      "format_on_save": "on",
+      "formatter": {
+        "language_server": {
+          "name": "gopls"
+        }
+      },
+      "code_actions_on_format": {
+        "source.organizeImports": true
+      }
     }
   }
 }

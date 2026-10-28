@@ -24,6 +24,12 @@ const config = defineConfig({
   },
   staged: {
     "*": "vp check --fix",
+    // Go tools work on whole packages, so these ignore the staged file list.
+    "apps/api/**/*.go": () => [
+      "bun run --cwd apps/api format",
+      "bun run --cwd apps/api lint:fix",
+    ],
+    "apps/api/*.{mod,sum}": () => "bun run --cwd apps/api tidy",
   },
 });
 

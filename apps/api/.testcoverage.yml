@@ -1,0 +1,7 @@
+# go-test-coverage: https://github.com/vladopajic/go-test-coverage
+# Mark untestable blocks with a `// coverage-ignore` comment.
+profile: coverage.out
+threshold:
+  file: 100
+  package: 100
+  total: 100
