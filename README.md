@@ -29,7 +29,7 @@ Run these at the repository root:
 | `bun run format` / `bun run format:check` | Format the whole repository  |
 | `bun run check`                           | Format, lint, and type-check |
 
-Lint, format, and pre-commit rules live in the root `vite.config.ts`. Share dependency versions through `workspaces.catalog` in the root `package.json` and reference them with `"catalog:"`.
+Repository-wide lint, format, and pre-commit rules live in the root `vite.config.ts`; app-specific rules live in each app (for example `apps/web/check.config.ts`). Share dependency versions through `workspaces.catalog` in the root `package.json` and reference them with `"catalog:"`.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the workflow.
 

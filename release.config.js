@@ -1,7 +1,5 @@
 export default {
   branches: ["main"],
-  // eslint-disable-next-line no-template-curly-in-string
-  tagFormat: "v${version}",
   plugins: [
     [
       "@semantic-release/commit-analyzer",
@@ -22,4 +20,6 @@ export default {
     ],
     "@semantic-release/github",
   ],
+  // eslint-disable-next-line no-template-curly-in-string
+  tagFormat: "v${version}",
 };
