@@ -16,6 +16,8 @@ bun install
 bun run dev
 ```
 
+The web app runs on http://localhost:3000 and the API on http://localhost:8080. The web dev server proxies `/api` requests to the API, so the browser calls the same origin and needs no CORS setup. To use another API, copy `apps/web/.env.example` to `apps/web/.env` and change `API_URL`.
+
 ## Scripts
 
 Run these at the repository root:
