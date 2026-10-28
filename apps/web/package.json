@@ -23,6 +23,7 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@t3-oss/env-core": "^0.13.11",
     "@tanstack/devtools-vite": "^0.8.5",
     "@tanstack/router-cli": "^1.167.45",
     "@tanstack/router-plugin": "^1.168.47",
@@ -33,6 +34,7 @@
     "@vitest/coverage-v8": "5.0.5",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "zod": "^4.6.7"
   }
 }
