@@ -5,10 +5,11 @@ Bun workspace monorepo. Apps live in `apps/*`.
 | Path       | Description                                    |
 | ---------- | ---------------------------------------------- |
 | `apps/web` | Web app (React, TanStack Router, Tailwind CSS) |
+| `apps/api` | API (Go, Gin)                                  |
 
 ## Getting started
 
-Requires [Bun](https://bun.sh) and Node.js (version in `.node-version`).
+Requires [Bun](https://bun.sh), Node.js (version in `.node-version`), and Go (version in `apps/api/go.mod`).
 
 ```sh
 bun install

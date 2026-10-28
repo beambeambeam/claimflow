@@ -46,6 +46,21 @@ jobs:
             apps/web/coverage/
           retention-days: 7
 
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+      - run: go test -cover ./...
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -54,16 +69,22 @@ jobs:
         with:
           node-version-file: .node-version
           cache: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
       - run: bun run build
       - uses: actions/upload-artifact@v7
         with:
-          name: web-dist
-          path: apps/web/dist/
+          name: dist
+          path: |
+            apps/web/dist/
+            apps/api/dist/
           retention-days: 7
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [code_quality, test, build]
+    needs: [code_quality, test, api, build]
     runs-on: ubuntu-latest
     concurrency:
       group: release

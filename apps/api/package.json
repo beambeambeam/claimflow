@@ -1,0 +1,10 @@
+{
+  "name": "@karupan/api",
+  "private": true,
+  "scripts": {
+    "dev": "go run .",
+    "build": "go build -o dist/api .",
+    "test": "go test ./...",
+    "test:coverage": "go test -cover ./..."
+  }
+}
