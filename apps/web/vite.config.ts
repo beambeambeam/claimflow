@@ -4,10 +4,10 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig, lazyPlugins, loadEnv } from "vite-plus";
 
-const defaultApiUrl = "http://localhost:8080";
+import { createConfigEnv } from "./env.ts";
 
 const config = defineConfig(({ mode }) => {
-  const env = loadEnv(mode, import.meta.dirname, "");
+  const env = createConfigEnv(loadEnv(mode, import.meta.dirname, ""));
 
   return {
     plugins: lazyPlugins(() => [
@@ -17,7 +17,7 @@ const config = defineConfig(({ mode }) => {
       viteReact(),
     ]),
     resolve: { tsconfigPaths: true },
-    server: { proxy: { "/api": env.API_URL || defaultApiUrl } },
+    server: { proxy: { "/api": env.API_URL } },
     test: {
       coverage: {
         include: ["src/**/*.{ts,tsx}"],
