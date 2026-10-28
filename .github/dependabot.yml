@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    groups:
+      bun:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directories:
+      - /apps/api
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    groups:
+      gomod:
+        patterns: ["*"]
