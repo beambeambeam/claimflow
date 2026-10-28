@@ -25,10 +25,6 @@ func discardLogger() *slog.Logger {
 	return slog.New(slog.DiscardHandler)
 }
 
-func env(values map[string]string) func(string) string {
-	return func(key string) string { return values[key] }
-}
-
 func freePort(t *testing.T) string {
 	t.Helper()
 
@@ -94,38 +90,13 @@ func TestRecoverer(t *testing.T) {
 	}
 }
 
-func TestConfigureMode(t *testing.T) {
-	t.Cleanup(func() { gin.SetMode(gin.TestMode) })
-
-	configureMode(env(nil))
-	if gin.Mode() != gin.ReleaseMode {
-		t.Fatalf("mode = %s, want %s", gin.Mode(), gin.ReleaseMode)
-	}
-
-	gin.SetMode(gin.DebugMode)
-	configureMode(env(map[string]string{gin.EnvGinMode: gin.DebugMode}))
-	if gin.Mode() != gin.DebugMode {
-		t.Fatalf("mode = %s, want %s", gin.Mode(), gin.DebugMode)
-	}
-}
-
-func TestListenAddr(t *testing.T) {
-	if got := listenAddr(env(nil)); got != ":"+defaultPort {
-		t.Fatalf("listenAddr() = %s, want :%s", got, defaultPort)
-	}
-
-	if got := listenAddr(env(map[string]string{"PORT": "9000"})); got != ":9000" {
-		t.Fatalf("listenAddr() = %s, want :9000", got)
-	}
-}
-
 func TestRunServesAndShutsDown(t *testing.T) {
 	port := freePort(t)
 	ctx, cancel := context.WithCancel(t.Context())
 
 	done := make(chan error, 1)
 	go func() {
-		done <- run(ctx, env(map[string]string{gin.EnvGinMode: gin.TestMode, "PORT": port}), discardLogger())
+		done <- run(ctx, map[string]string{gin.EnvGinMode: gin.TestMode, "PORT": port}, discardLogger())
 	}()
 
 	body := getWhenReady(t, "http://127.0.0.1:"+port+"/health")
@@ -140,9 +111,24 @@ func TestRunServesAndShutsDown(t *testing.T) {
 	}
 }
 
+func TestRunConfigError(t *testing.T) {
+	err := run(t.Context(), map[string]string{"PORT": "invalid"}, discardLogger())
+	if err == nil || !strings.Contains(err.Error(), "parse env") {
+		t.Fatalf("run() = %v, want config error", err)
+	}
+}
+
 func TestRunListenError(t *testing.T) {
-	err := run(t.Context(), env(map[string]string{gin.EnvGinMode: gin.TestMode, "PORT": "invalid"}), discardLogger())
-	if err == nil || !strings.Contains(err.Error(), "listen on :invalid") {
+	listener, err := new(net.ListenConfig).Listen(t.Context(), "tcp", ":0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+
+	port := strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+
+	err = run(t.Context(), map[string]string{gin.EnvGinMode: gin.TestMode, "PORT": port}, discardLogger())
+	if err == nil || !strings.Contains(err.Error(), "listen on :"+port) {
 		t.Fatalf("run() = %v, want listen error", err)
 	}
 }

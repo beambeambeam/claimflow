@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/caarlos0/env/v11"
 )
 
 func main() { // coverage-ignore
@@ -22,5 +24,5 @@ func runUntilSignal(logger *slog.Logger) error { // coverage-ignore
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	return run(ctx, os.Getenv, logger)
+	return run(ctx, env.ToMap(os.Environ()), logger)
 }

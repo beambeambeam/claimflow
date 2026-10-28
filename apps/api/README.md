@@ -4,10 +4,12 @@ Go API built with [Gin](https://gin-gonic.com). It logs JSON with `slog` and shu
 
 ## Configuration
 
-| Variable   | Default   | Description                           |
-| ---------- | --------- | ------------------------------------- |
-| `PORT`     | `8080`    | Listen port                           |
-| `GIN_MODE` | `release` | Gin mode (`bun run dev` sets `debug`) |
+`config.go` reads these variables with [`caarlos0/env`](https://github.com/caarlos0/env) and validates them at startup. An invalid value stops the server with an error.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORT` | `8080` | Listen port (0–65535) |
+| `GIN_MODE` | `release` | `debug`, `release`, or `test` (`bun run dev` sets `debug`) |
 
 ## Endpoints
 
