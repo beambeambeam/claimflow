@@ -1,3 +1,8 @@
+---
+name: Task
+about: Plan a focused change with scope and acceptance criteria.
+---
+
 ## Objective
 
 <!-- State the concrete outcome this task must produce. -->
@@ -39,4 +44,4 @@
 
 ## Related work
 
-<!-- Link related issues, merge requests, ADRs, or documents. -->
+<!-- Link related issues, pull requests, ADRs, or documents. -->

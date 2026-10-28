@@ -1,15 +1,15 @@
 # Contributing
 
-This project uses GitLab issues and merge requests to plan, review, and ship changes. Keep issue and merge request content in English so the project history remains searchable and consistent.
+This project uses GitHub issues and pull requests to plan, review, and ship changes. Keep issue and pull request content in English so the project history remains searchable and consistent.
 
 ## Workflow
 
 1. Start from the latest `main` branch.
 2. Choose or create a focused issue before making a change.
 3. Create a short-lived branch using the pattern `<type>/<short-kebab-name>`.
-4. Keep the change focused and link the issue from the merge request.
+4. Keep the change focused and link the issue from the pull request.
 5. Run the relevant validation commands locally.
-6. Open a merge request and complete its description before requesting review.
+6. Open a pull request and complete its description before requesting review.
 
 See [Branch, commit, and release naming](#branch-commit-and-release-naming) for the allowed branch types and release impact.
 
@@ -68,13 +68,13 @@ semantic-release reads the final commit subjects on `main`:
 | `feat!: description` or `fix!: description` | Major release (`X.0.0`) |
 | `chore:`, `ci:`, `docs:`, `refactor:`, `test:`, `build:`, or `style:` | No release |
 
-Use `type!: description` for breaking changes. When squash-merging, set the merge request title to the final commit subject because it becomes the release signal.
+Use `type!: description` for breaking changes. When squash-merging, set the pull request title to the final commit subject because it becomes the release signal.
 
 ### Version and tag ownership
 
 - `apps/web/package.json` `version` is the application release version.
 - Release tags use `vX.Y.Z`, for example `v2.1.4`.
-- semantic-release runs after the `main` pipeline passes, updates `package.json`, creates the release commit, creates the tag, and publishes the GitLab Release.
+- semantic-release runs after the `main` workflow passes, updates `package.json`, creates the release commit, creates the tag, and publishes the GitHub Release.
 - This is a private application. The release flow does not publish to npm.
 - For one-time bootstrap or reconciliation, set `package.json` to the latest existing SemVer tag in a `chore:` change. After that, leave normal version updates to semantic-release.
 
@@ -99,8 +99,8 @@ Expected result: the package version on the release commit equals the `vX.Y.Z` t
 - The implementation satisfies the issue acceptance criteria.
 - Tests cover the important behavior and failure paths.
 - Relevant documentation and generated route or type artifacts are updated.
-- The merge request explains the change, validation, risk, and follow-up work.
-- The required CI pipeline passes.
+- The pull request explains the change, validation, risk, and follow-up work.
+- The required CI workflow passes.
 
 ## Local validation
 

@@ -14,7 +14,7 @@
     "test:coverage": "vp test run --coverage",
     "lint": "vp lint",
     "lint:fix": "vp lint --fix",
-    "lint:gitlab": "vp lint --deny-warnings --format=gitlab > gitlab-oxlint-report.json",
+    "lint:github": "vp lint --deny-warnings --format=github",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
     "preview": "vp preview",
@@ -32,7 +32,7 @@
   "devDependencies": {
     "@semantic-release/commit-analyzer": "13.0.1",
     "@semantic-release/git": "11.0.1",
-    "@semantic-release/gitlab": "13.3.3",
+    "@semantic-release/github": "12.0.10",
     "@semantic-release/npm": "13.2.0",
     "@semantic-release/release-notes-generator": "14.1.1",
     "@tanstack/devtools-vite": "^0.8.5",

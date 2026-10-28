@@ -19,7 +19,7 @@ pnpm build
 
 ## Releases
 
-The default branch pipeline creates a release after formatting, linting, tests, and the production build pass. Releases use Conventional Commit messages and are recorded as `vX.Y.Z` Git tags with release notes in GitLab. semantic-release updates `package.json` and commits the version before tagging; this private app does not publish to npm.
+The `main` branch CI workflow creates a release after formatting, linting, tests, and the production build pass. Releases use Conventional Commit messages and are recorded as `vX.Y.Z` Git tags with release notes in GitHub Releases. semantic-release updates `package.json` and commits the version before tagging; this private app does not publish to npm.
 
 Use these commit prefixes to select the next SemVer level:
 
@@ -28,7 +28,7 @@ Use these commit prefixes to select the next SemVer level:
 - `feat!: change the course data format` creates a major release.
 - `chore: update dependencies` does not create a release.
 
-Add a masked, protected `GL_TOKEN` CI/CD variable using a project access token with the Maintainer role and `write_repository` permission so the release job can push version commits and tags. The default branch is protected and only Maintainers can push to it, so a token with the Developer role fails with a 403 error. If `v*` tags are protected, allow this token to create them. The release job uses GitLab's job token to create the GitLab Release.
+The release job uses the workflow `GITHUB_TOKEN` with `contents: write` to push the version commit and tag and to publish the GitHub Release. If a branch ruleset or tag ruleset blocks pushes to `main` or `v*` tags, add GitHub Actions to its bypass list.
 
 ## Styling
 

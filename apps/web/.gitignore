@@ -9,7 +9,6 @@ dist-ssr
 .wrangler
 .output
 .vinxi
-gitlab-oxlint-report.json
 .ci-reports
 __unconfig*
 todos.json

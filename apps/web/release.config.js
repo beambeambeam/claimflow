@@ -20,6 +20,6 @@ export default {
         message: "chore: release v${nextRelease.version} [skip ci]",
       },
     ],
-    ["@semantic-release/gitlab", { useJobToken: true }],
+    "@semantic-release/github",
   ],
 };

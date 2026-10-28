@@ -4,7 +4,7 @@
 
 ## Related issue
 
-<!-- Replace the placeholder with the issue IID. Use `/closes #123` when this MR should close the issue. -->
+<!-- Replace the placeholder with the issue number. Use `Closes #123` when this PR should close the issue. -->
 
 Related issue: #
 
@@ -13,7 +13,7 @@ Related issue: #
 - Branch: `<type>/<short-kebab-name>`
 - Final commit subject: `type: description`
 - Expected release impact: `none` / `patch` / `minor` / `major`
-- [ ] Naming and release impact follow [`CONTRIBUTING.md`](../../CONTRIBUTING.md).
+- [ ] Naming and release impact follow [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 - [ ] No ordinary manual `package.json` version or `vX.Y.Z` tag was added.
 - [ ] A breaking change uses `type!: description`.
 
