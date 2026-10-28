@@ -1,0 +1,59 @@
+{
+  "name": "web-template",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vp dev --port 3000",
+    "generate-routes": "tsr generate",
+    "build": "vp build",
+    "test": "vp test",
+    "test:coverage": "vp test run --coverage",
+    "lint": "vp lint",
+    "lint:fix": "vp lint --fix",
+    "lint:gitlab": "vp lint --deny-warnings --format=gitlab > gitlab-oxlint-report.json",
+    "format": "vp fmt",
+    "format:check": "vp fmt --check",
+    "preview": "vp preview",
+    "prepare": "vp config"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-devtools": "^0.10.13",
+    "@tanstack/react-router": "^1.170.45",
+    "@tanstack/react-router-devtools": "^1.167.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "13.0.1",
+    "@semantic-release/git": "11.0.1",
+    "@semantic-release/gitlab": "13.3.3",
+    "@semantic-release/npm": "13.2.0",
+    "@semantic-release/release-notes-generator": "14.1.1",
+    "@tanstack/devtools-vite": "^0.8.5",
+    "@tanstack/router-cli": "^1.167.45",
+    "@tanstack/router-plugin": "^1.168.47",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "@vitest/coverage-v8": "5.0.5",
+    "semantic-release": "25.0.9",
+    "typescript": "^7.0.2",
+    "ultracite": "^8.0.1",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.6.0",
+      "onFail": "download"
+    }
+  }
+}

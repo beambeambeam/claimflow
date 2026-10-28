@@ -1,0 +1,21 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+*.local
+.env
+.nitro
+.tanstack
+.wrangler
+.output
+.vinxi
+gitlab-oxlint-report.json
+.ci-reports
+__unconfig*
+todos.json
+
+# dotenv environment variable files
+.env.*
+!.env.example
+
+coverage
