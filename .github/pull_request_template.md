@@ -12,9 +12,9 @@ Related issue: #
 
 - Branch: `<type>/<short-kebab-name>`
 - Final commit subject: `type: description`
-- Expected release impact: `none` / `patch` / `minor` / `major`
+- Expected release impact: `none` / `patch` / `minor` / `major` (never `generation`)
 - [ ] Naming and release impact follow [`CONTRIBUTING.md`](../CONTRIBUTING.md).
-- [ ] No ordinary manual `package.json` version or `vX.Y.Z` tag was added.
+- [ ] No manual `vG.X.Y.Z` release tag was added.
 - [ ] A breaking change uses `type!: description`.
 
 ## Screenshots or recordings

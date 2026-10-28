@@ -116,8 +116,6 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
-    env:
-      VP_GIT_HOOKS: "0"
     steps:
       - uses: actions/checkout@v7
         with:

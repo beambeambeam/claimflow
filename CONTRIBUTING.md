@@ -63,22 +63,21 @@ semantic-release reads the final commit subjects on `main`:
 
 | Commit subject | Version impact |
 | --- | --- |
-| `feat: description` | Minor release (`X.Y.0`) |
-| `fix: description` or `perf: description` | Patch release (`X.Y.Z`) |
-| `feat!: description` or `fix!: description` | Major release (`X.0.0`) |
+| `feat: description` | Minor release (`vG.X.Y.0`) |
+| `fix: description` or `perf: description` | Patch release (`vG.X.Y.Z`) |
+| `feat!: description` or `fix!: description` | Major release (`vG.X.0.0`) |
 | `chore:`, `ci:`, `docs:`, `refactor:`, `test:`, `build:`, or `style:` | No release |
 
 Use `type!: description` for breaking changes. When squash-merging, set the pull request title to the final commit subject because it becomes the release signal.
 
 ### Version and tag ownership
 
-- The root `package.json` `version` is the repository release version.
-- Release tags use `vX.Y.Z`, for example `v2.1.4`.
-- semantic-release runs after the `main` workflow passes, updates `package.json`, creates the release commit, creates the tag, and publishes the GitHub Release.
-- This is a private application. The release flow does not publish to npm.
-- For one-time bootstrap or reconciliation, set `package.json` to the latest existing SemVer tag in a `chore:` change. After that, leave normal version updates to semantic-release.
+- Release tags use `vG.X.Y.Z`, for example `v1.2.0.1`. `G` is the generation; `X.Y.Z` is the SemVer version that semantic-release calculates.
+- The generation is fixed in `release.config.js`. Commits never change it. Change it by hand only when the project starts a new generation; the next release then continues the `X.Y.Z` count under the new generation.
+- Git tags are the only record of the version. `package.json` files have no `version`, and the release flow makes no release commit and does not publish to npm.
+- semantic-release runs after the `main` workflow passes, creates the tag, and publishes the GitHub Release.
 
-Expected result: the package version on the release commit equals the `vX.Y.Z` tag, and the release impact is clear from the commit subject before merge.
+Expected result: the release impact is clear from the commit subject before merge.
 
 ## Application boundaries
 
