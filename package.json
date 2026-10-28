@@ -24,7 +24,10 @@
     "lint:github": "vp lint --deny-warnings --format=github",
     "format": "vp fmt && bun run --cwd apps/api format",
     "format:check": "vp fmt --check && bun run --cwd apps/api format:check",
-    "prepare": "vp config"
+    "prepare": "vp config",
+    "skills:install": "skills experimental_install && bun run skills:link",
+    "skills:update": "skills update -p -y && bun run skills:link",
+    "skills:link": "rm -rf .claude/skills && mkdir -p .claude/skills && cd .claude/skills && ln -s ../../.agents/skills/* ."
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "13.0.1",
@@ -32,6 +35,7 @@
     "@semantic-release/release-notes-generator": "14.1.1",
     "@types/node": "catalog:",
     "semantic-release": "25.0.9",
+    "skills": "1.7.4",
     "typescript": "catalog:",
     "ultracite": "^8.0.1",
     "vite": "catalog:",
