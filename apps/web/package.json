@@ -1,6 +1,5 @@
 {
-  "name": "web-template",
-  "version": "0.0.1",
+  "name": "@karupan/web",
   "private": true,
   "type": "module",
   "imports": {
@@ -12,13 +11,7 @@
     "build": "vp build",
     "test": "vp test",
     "test:coverage": "vp test run --coverage",
-    "lint": "vp lint",
-    "lint:fix": "vp lint --fix",
-    "lint:github": "vp lint --deny-warnings --format=github",
-    "format": "vp fmt",
-    "format:check": "vp fmt --check",
-    "preview": "vp preview",
-    "prepare": "vp config"
+    "preview": "vp preview"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -30,30 +23,16 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
-    "@semantic-release/commit-analyzer": "13.0.1",
-    "@semantic-release/git": "11.0.1",
-    "@semantic-release/github": "12.0.10",
-    "@semantic-release/npm": "13.2.0",
-    "@semantic-release/release-notes-generator": "14.1.1",
     "@tanstack/devtools-vite": "^0.8.5",
     "@tanstack/router-cli": "^1.167.45",
     "@tanstack/router-plugin": "^1.168.47",
-    "@types/node": "^26.6.5",
+    "@types/node": "catalog:",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "@vitest/coverage-v8": "5.0.5",
-    "semantic-release": "25.0.9",
-    "typescript": "^7.0.2",
-    "ultracite": "^8.0.1",
+    "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:"
-  },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "12.6.0",
-      "onFail": "download"
-    }
   }
 }

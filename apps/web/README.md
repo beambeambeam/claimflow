@@ -2,33 +2,20 @@ Welcome to your new TanStack Start app!
 
 # Getting Started
 
-To run this application:
+To run this application from the repository root:
 
 ```bash
-pnpm install
-pnpm dev
+bun install
+bun run dev
 ```
 
 # Building For Production
 
-To build this application for production:
+To build this application for production from the repository root:
 
 ```bash
-pnpm build
+bun run build
 ```
-
-## Releases
-
-The `main` branch CI workflow creates a release after formatting, linting, tests, and the production build pass. Releases use Conventional Commit messages and are recorded as `vX.Y.Z` Git tags with release notes in GitHub Releases. semantic-release updates `package.json` and commits the version before tagging; this private app does not publish to npm.
-
-Use these commit prefixes to select the next SemVer level:
-
-- `fix: correct the sign-in redirect` creates a patch release.
-- `feat: add course search` creates a minor release.
-- `feat!: change the course data format` creates a major release.
-- `chore: update dependencies` does not create a release.
-
-The release job uses the workflow `GITHUB_TOKEN` with `contents: write` to push the version commit and tag and to publish the GitHub Release. If a branch ruleset or tag ruleset blocks pushes to `main` or `v*` tags, add GitHub Actions to its bypass list.
 
 ## Styling
 

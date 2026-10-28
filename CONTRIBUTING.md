@@ -72,7 +72,7 @@ Use `type!: description` for breaking changes. When squash-merging, set the pull
 
 ### Version and tag ownership
 
-- `apps/web/package.json` `version` is the application release version.
+- The root `package.json` `version` is the repository release version.
 - Release tags use `vX.Y.Z`, for example `v2.1.4`.
 - semantic-release runs after the `main` workflow passes, updates `package.json`, creates the release commit, creates the tag, and publishes the GitHub Release.
 - This is a private application. The release flow does not publish to npm.
@@ -104,14 +104,14 @@ Expected result: the package version on the release commit equals the `vX.Y.Z` t
 
 ## Local validation
 
-Run the checks that match the change from `apps/web`. For a full application change, use:
+Run the checks that match the change from the repository root. For a full change, use:
 
 ```sh
-pnpm lint:fix
-pnpm format
-pnpm lint --deny-warnings --format=agent
-pnpm test:coverage
-pnpm build
+bun run lint:fix
+bun run format
+bun run lint --deny-warnings --format=agent
+bun run test:coverage
+bun run build
 ```
 
 Do not commit secrets, production environment files, database dumps, or generated output that is ignored by the repository.
