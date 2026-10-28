@@ -1,6 +1,6 @@
-// Tags use `v<generation>.<major>.<minor>.<patch>`, for example `v1.2.0.1`.
+// Tags use `v<generation>.<major>.<minor>.<patch>`, for example `v0.2.0.1`.
 // semantic-release manages the last three numbers. The generation is fixed here; change it by hand.
-const generation = 1;
+const generation = 0;
 
 export default {
   branches: ["main"],

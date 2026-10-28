@@ -35,13 +35,13 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the workflow.
 
 ## Releases
 
-The `main` branch CI workflow creates a release after formatting, linting, tests, and the production build pass. semantic-release reads Conventional Commit messages, creates a `vG.X.Y.Z` Git tag, and publishes release notes in GitHub Releases. `G` is a fixed generation number set in `release.config.js`; commits only change `X.Y.Z`. There is no version commit, and nothing is published to npm.
+The `main` branch CI workflow creates a release after formatting, linting, tests, and the production build pass. semantic-release reads Conventional Commit messages, creates a `vG.X.Y.Z` Git tag, and publishes release notes in GitHub Releases. `G` is a fixed generation number set in `release.config.js`; commits only change `X.Y.Z`. There is no version commit, and nothing is published to npm. Versioning starts from the `v0.0.0.0` tag on the initial commit.
 
 Use these commit prefixes to select the next version:
 
-- `fix: correct the sign-in redirect` creates a patch release (`v1.1.0.0` → `v1.1.0.1`).
-- `feat: add course search` creates a minor release (`v1.1.0.1` → `v1.1.1.0`).
-- `feat!: change the course data format` creates a major release (`v1.1.1.0` → `v1.2.0.0`).
+- `fix: correct the sign-in redirect` creates a patch release (`v0.0.1.0` → `v0.0.1.1`).
+- `feat: add course search` creates a minor release (`v0.0.1.1` → `v0.0.2.0`).
+- `feat!: change the course data format` creates a major release (`v0.0.2.0` → `v0.1.0.0`).
 - `chore: update dependencies` does not create a release.
 
 The release job uses the workflow `GITHUB_TOKEN` with `contents: write` to push the tag and publish the GitHub Release. If a tag ruleset protects `v*` tags, add GitHub Actions to its bypass list.

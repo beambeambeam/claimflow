@@ -72,7 +72,7 @@ Use `type!: description` for breaking changes. When squash-merging, set the pull
 
 ### Version and tag ownership
 
-- Release tags use `vG.X.Y.Z`, for example `v1.2.0.1`. `G` is the generation; `X.Y.Z` is the SemVer version that semantic-release calculates.
+- Release tags use `vG.X.Y.Z`, for example `v0.2.0.1`. `G` is the generation; `X.Y.Z` is the SemVer version that semantic-release calculates.
 - The generation is fixed in `release.config.js`. Commits never change it. Change it by hand only when the project starts a new generation; the next release then continues the `X.Y.Z` count under the new generation.
 - Git tags are the only record of the version. `package.json` files have no `version`, and the release flow makes no release commit and does not publish to npm.
 - semantic-release runs after the `main` workflow passes, creates the tag, and publishes the GitHub Release.
