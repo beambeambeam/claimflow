@@ -22,3 +22,7 @@ coverage
 # Go (apps/api)
 apps/api/tmp
 apps/api/coverage.out
+
+# Agent skills (restore with `bun run skills:install`)
+.agents/skills
+.claude/skills
