@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/beambeambeam/karupan/apps/api/env"
 )
 
 const (
@@ -17,16 +19,11 @@ const (
 	shutdownTimeout   = 10 * time.Second
 )
 
-// run loads the config from environ and serves the API until ctx is canceled.
-func run(ctx context.Context, environ map[string]string, logger *slog.Logger) error {
-	cfg, err := loadConfig(environ)
-	if err != nil {
-		return err
-	}
-
+// run serves the API with cfg until ctx is canceled.
+func run(ctx context.Context, cfg env.Env, logger *slog.Logger) error {
 	gin.SetMode(cfg.GinMode)
 
-	addr := cfg.listenAddr()
+	addr := listenAddr(cfg)
 
 	listener, err := new(net.ListenConfig).Listen(ctx, "tcp", addr)
 	if err != nil {

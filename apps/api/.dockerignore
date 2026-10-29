@@ -2,4 +2,6 @@
 !go.mod
 !go.sum
 !*.go
+!env/*.go
+!.env.schema
 *_test.go

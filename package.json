@@ -8,6 +8,7 @@
     "catalog": {
       "@types/node": "^26.6.5",
       "typescript": "^7.0.2",
+      "varlock": "^1.24.0",
       "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
       "vite-plus": "1.4.0"
     }

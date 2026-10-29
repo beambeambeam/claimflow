@@ -5,26 +5,19 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/caarlos0/env/v11"
+	"github.com/beambeambeam/karupan/apps/api/env"
 )
 
-// config holds the settings read from environment variables.
-// Gin validates GIN_MODE itself when the package loads; this only changes its default to release.
-type config struct {
-	GinMode string `env:"GIN_MODE" envDefault:"release"`
-	Port    uint16 `env:"PORT"     envDefault:"8080"`
-}
-
-// loadConfig parses and validates environ, the process environment as a map.
-func loadConfig(environ map[string]string) (config, error) {
-	cfg, err := env.ParseAsWithOptions[config](env.Options{Environment: environ})
+// loadConfig reads the env that `varlock run` injects. Varlock validates it against .env.schema first.
+func loadConfig() (env.Env, error) {
+	cfg, err := env.Load()
 	if err != nil {
-		return config{}, fmt.Errorf("parse env: %w", err)
+		return env.Env{}, fmt.Errorf("load env: %w", err)
 	}
 
 	return cfg, nil
 }
 
-func (c config) listenAddr() string {
-	return net.JoinHostPort("", strconv.FormatUint(uint64(c.Port), 10))
+func listenAddr(cfg env.Env) string {
+	return net.JoinHostPort("", strconv.FormatInt(cfg.Port, 10))
 }

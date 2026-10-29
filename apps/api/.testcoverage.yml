@@ -5,3 +5,7 @@ threshold:
   file: 100
   package: 100
   total: 100
+exclude:
+  paths:
+    # Varlock generates this package from .env.schema.
+    - ^env/
