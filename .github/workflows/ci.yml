@@ -56,7 +56,9 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: apps/api/go.mod
-          cache-dependency-path: apps/api/*.sum
+          cache-dependency-path: |
+            apps/api/*.mod
+            apps/api/*.sum
       - name: Check modules are tidy
         run: |
           go mod tidy -diff
