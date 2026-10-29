@@ -81,8 +81,12 @@ jobs:
             apps/api/.ci-reports/
             apps/api/coverage.out
           retention-days: 7
-      - name: Build Docker image
-        run: docker build --tag karupan-api .
+
+  api_image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build --tag karupan-api apps/api
 
   build:
     runs-on: ubuntu-latest
@@ -95,7 +99,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: apps/api/go.mod
-          cache-dependency-path: apps/api/*.sum
+          cache-dependency-path: apps/api/go.sum
       - run: bun run build
       - uses: actions/upload-artifact@v7
         with:
@@ -107,7 +111,7 @@ jobs:
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [code_quality, test, api, build]
+    needs: [code_quality, test, api, api_image, build]
     runs-on: ubuntu-latest
     concurrency:
       group: release
