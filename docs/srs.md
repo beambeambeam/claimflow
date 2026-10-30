@@ -1,10 +1,10 @@
 # Software Requirements Specification (SRS)
 
-**Product:** ClaimFlow — Department Expense Reimbursement System
-**Course:** CPE 334 Group Project — Theme 5: Workflow and Approval System
-**Team:** 1005, 1045
-**Version:** 0.2 (draft for Deliverable 1)
-**Last updated:** 2026-10-31
+- **Product:** ClaimFlow — Department Expense Reimbursement System
+- **Course:** CPE 334 Group Project — Theme 5: Workflow and Approval System
+- **Team:** 1005, 1045
+- **Version:** 0.2 (draft for Deliverable 1)
+- **Last updated:** 2026-10-31
 
 Domain terms (Claim, Requester, Assigned Reviewer, Return, Withdraw, High-value Claim, …) are defined in `GLOSSARY.md`.
 
@@ -26,7 +26,7 @@ This document is the product baseline. Feature-level detail lives in each featur
 ## 2. Actors
 
 | ID | Actor | Responsibilities |
-|---|---|---|
+| --- | --- | --- |
 | A-01 | Requester | A staff member who submits claims for reimbursement and tracks their own claims. |
 | A-02 | Reviewer | A Section Head or the Department Head. Decides on claims from the people they are assigned to review. A Reviewer can also submit their own claims, which go to the next person in the reporting line. |
 | A-03 | Finance Officer | Acts as the Department Head's assigned reviewer (Sprint 1). Makes the final decision on high-value claims (Sprint 3). Sees department-wide summaries (Sprint 3). Cannot submit claims. |
@@ -55,7 +55,7 @@ Each arrow points to that person's assigned reviewer. Section Head and Departmen
 ### 3.2 Exclusions (out of scope)
 
 | ID | Excluded item | Reason |
-|---|---|---|
+| --- | --- | --- |
 | EX-01 | Pre-approval requests (e.g. asking permission before travelling) | Only reimbursement of expenses already paid is supported (D-01). |
 | EX-02 | Real payment, bank transfer, or payroll integration | Course rule: no real payment gateway. `Approved` is the end of the workflow. |
 | EX-03 | Email, SMS, or push notifications | No external messaging services. Status is visible in the app only. |
@@ -70,7 +70,7 @@ Each arrow points to that person's assigned reviewer. Section Head and Departmen
 ## 4. Assumptions
 
 | ID | Assumption |
-|---|---|
+| --- | --- |
 | AS-01 | Users access the system through a modern desktop browser. Mobile layout is best-effort. |
 | AS-02 | User accounts, roles, and the reporting line (each member's assigned reviewer) are provided as seed data. |
 | AS-03 | A member's assigned reviewer is never the member themselves. |
@@ -101,7 +101,7 @@ Each arrow points to that person's assigned reviewer. Section Head and Departmen
 ```
 
 | From | Action | To | Who | Sprint |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | (new) | submit | Submitted | Requester (owner) | 1 |
 | Submitted | approve | Approved | Assigned reviewer | 1 |
 | Submitted | reject | Rejected | Assigned reviewer | 1 |
@@ -125,7 +125,7 @@ Rules for the lifecycle:
 Priority: **M** = must, **S** = should.
 
 | ID | Requirement | Actor | Priority | Sprint |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | FR-01 | A user can log in with username and password and log out. The system can return the current user's identity and role. | All | M | 1 |
 | FR-02 | A requester can create and submit a claim containing a title, purpose, and one or more line items (category, description, expense date, amount, receipt reference). On submission the claim is assigned to the requester's assigned reviewer. | A-01, A-02 | M | 1 |
 | FR-03 | The system calculates a claim's total on the server from its line items. | System | M | 1 |
@@ -144,7 +144,7 @@ Priority: **M** = must, **S** = should.
 ## 7. Business rules
 
 | ID | Rule | Sprint |
-|---|---|---|
+| --- | --- | --- |
 | BR-01 | **No self-approval:** no user can approve, reject, return, or make a final decision on a claim they submitted. This is enforced on the server even if the assignment data is wrong. | 1 |
 | BR-02 | **Assigned reviewer only:** only a claim's assigned reviewer can approve, reject, or return it. Only a Finance Officer can make a final decision, and only on a `PendingFinance` claim. | 1 / 3 |
 | BR-03 | **Valid transitions only:** a status change is accepted only if Section 5 allows it from the claim's current status. If it is rejected, the claim and its history stay unchanged. | 1 |
@@ -166,7 +166,7 @@ Priority: **M** = must, **S** = should.
 ## 8. Non-functional requirements
 
 | ID | Category | Requirement | How it is verified | Verified in |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | NFR-01 | Security | Passwords are stored only as salted bcrypt (cost ≥ 10) or argon2 hashes. No plaintext password appears in the database, logs, or API responses. | DB inspection test, code review | Sprint 1 |
 | NFR-02 | Security | Every protected endpoint returns 401 to unauthenticated requests and 403 to the wrong role or to a user without ownership/assignment. This is enforced on the server for 100% of protected endpoints. | API integration tests | Sprint 1 (re-checked every sprint) |
 | NFR-03 | Security | A session expires after at most 8 hours, and logout invalidates it immediately. | Integration test | Sprint 1 |
@@ -183,7 +183,7 @@ Priority: **M** = must, **S** = should.
 The detailed matrix is in `docs/system-sds.md`.
 
 | Action | Requester | Reviewer | Finance Officer | Anonymous |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Log in / log out | ✓ | ✓ | ✓ | login only |
 | Create, submit, or view **own** claims | ✓ | ✓ | ✗ (BR-15) | ✗ |
 | Edit, withdraw, or delete own claim | allowed states | allowed states | ✗ | ✗ |
@@ -197,7 +197,7 @@ The detailed matrix is in `docs/system-sds.md`.
 All decisions below were made by the team on 2026-10-31.
 
 | ID | Question | Decision | Rationale |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | D-01 | What kind of request? | Reimbursement of expenses already paid only. | Clear, testable rules: amounts, dates, receipts. Pre-approval plus reimbursement would be too large. |
 | D-02 | Multiple roles per account? | No. Three roles: Requester, Reviewer, Finance Officer. Reviewers can also submit claims. | The spec does not require multiple roles. Reviewers submitting claims makes self-approval (BR-01) a real case to test. |
 | D-03 | How are reviewers assigned? | By reporting line: Staff → Section Head → Department Head → Finance Officer, stored as each member's assigned reviewer in seed data. | Matches the brief's "assigned reviewer" and makes "unrelated reviewer" access testable. |
@@ -218,12 +218,12 @@ All decisions below were made by the team on 2026-10-31.
 ## 11. Open questions (to confirm with instructor/TA)
 
 | ID | Question | Proposed answer |
-|---|---|---|
+| --- | --- | --- |
 | Q-01 | Is a seeded, fixed reporting line acceptable for "define reviewer assignment"? | Yes. The assignment rule is defined and enforced; only its administration UI is excluded (EX-08). |
 
 ## 12. Revision history
 
 | Version | Date | Change | Author |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 0.1 | 2026-10-31 | Initial baseline draft | 1005, 1045 |
 | 0.2 | 2026-10-31 | Requirements review session: reporting-line assignment, Finance Officer from Sprint 1, Withdraw replaces Cancel, return limit, BR-14 to BR-17, D-01 to D-16 | 1005, 1045 |
