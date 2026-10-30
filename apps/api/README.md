@@ -4,7 +4,9 @@ Go API built with [Gin](https://gin-gonic.com). It logs JSON with `slog` and shu
 
 ## Configuration
 
-`config.go` reads these variables with [`caarlos0/env`](https://github.com/caarlos0/env) and validates them at startup. An invalid value stops the server with an error.
+[Varlock](https://varlock.dev/integrations/go/) validates these variables against `.env.schema` and passes them to the API. Run the API with `varlock run` (`bun run dev` and the Docker image do this). An invalid value stops it before the server starts. `config.go` reads the result with the generated `env` package.
+
+After you change `.env.schema`, run `bun run codegen` to regenerate `env/env.go`.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -23,8 +25,9 @@ Run these in `apps/api`. Root scripts call them for you.
 
 | Script | Description |
 | --- | --- |
-| `bun run dev` | Live reload with [air](https://github.com/air-verse/air) |
+| `bun run dev` | Live reload with [air](https://github.com/air-verse/air), under `varlock run` |
 | `bun run build` | Build `dist/api` |
+| `bun run codegen` | Regenerate `env/env.go` from `.env.schema` |
 | `bun run test` | Run tests with the race detector |
 | `bun run test:coverage` | Run tests and require 100% coverage ([go-test-coverage](https://github.com/vladopajic/go-test-coverage)) |
 | `bun run lint` / `bun run lint:fix` | Lint with [golangci-lint](https://golangci-lint.run) |
@@ -48,3 +51,5 @@ Update a tool with `go get -tool -modfile=<file> <module>@<version>`.
 docker build --tag karupan-api .
 docker run --rm -p 8080:8080 karupan-api
 ```
+
+The image runs the API with `varlock run` on Alpine. The varlock binary needs `libstdc++`, so the image can't be distroless.
