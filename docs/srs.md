@@ -201,7 +201,7 @@ All decisions below were made by the team on 2026-10-31.
 | D-01 | What kind of request? | Reimbursement of expenses already paid only. | Clear, testable rules: amounts, dates, receipts. Pre-approval plus reimbursement would be too large. |
 | D-02 | Multiple roles per account? | No. Three roles: Requester, Reviewer, Finance Officer. Reviewers can also submit claims. | The spec does not require multiple roles. Reviewers submitting claims makes self-approval (BR-01) a real case to test. |
 | D-03 | How are reviewers assigned? | By reporting line: Staff → Section Head → Department Head → Finance Officer, stored as each member's assigned reviewer in seed data. | Matches the brief's "assigned reviewer" and makes "unrelated reviewer" access testable. |
-| D-04 | Who reviews the top of the reporting line? | The Finance Officer is the Department Head's assigned reviewer from Sprint 1. | Every claimant needs a reviewer (ADR-0001). |
+| D-04 | Who reviews the top of the reporting line? | The Finance Officer is the Department Head's assigned reviewer from Sprint 1. | Every requester needs a reviewer (ADR-0001). |
 | D-05 | Does a Finance Officer's first-stage approval need a second stage? | No. It is final. | Finance has already reviewed the claim (ADR-0001). |
 | D-06 | Can a Finance Officer submit claims? | No. They have no assigned reviewer. | Covered by BR-15 with no special case. |
 | D-07 | What happens to pending claims when the reporting line changes? | They keep the reviewer recorded at submission (BR-17). | Decisions and history stay consistent. |

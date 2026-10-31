@@ -6,7 +6,7 @@ A department reimburses its members for work expenses they have already paid. Me
 
 ### Claims
 
-**Claim**: A request to be paid back for expenses the claimant has already paid. It holds one or more line items.
+**Claim**: A request to be paid back for expenses the requester has already paid. It holds one or more line items.
 
 _Avoid_: Request, application, form
 
