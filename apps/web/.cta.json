@@ -1,5 +1,5 @@
 {
-  "projectName": "web-template",
+  "projectName": "claimflow",
   "mode": "file-router",
   "typescript": true,
   "packageManager": "bun",

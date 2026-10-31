@@ -48,8 +48,8 @@ Update a tool with `go get -tool -modfile=<file> <module>@<version>`.
 ## Docker
 
 ```sh
-docker build --tag karupan-api .
-docker run --rm -p 8080:8080 karupan-api
+docker build --tag claimflow-api .
+docker run --rm -p 8080:8080 claimflow-api
 ```
 
 The image runs the API with `varlock run` on Alpine. The varlock binary needs `libstdc++`, so the image can't be distroless.

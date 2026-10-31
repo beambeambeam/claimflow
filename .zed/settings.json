@@ -21,7 +21,7 @@
     "gopls": {
       "initialization_options": {
         "formatting.gofumpt": true,
-        "formatting.local": "github.com/beambeambeam/karupan"
+        "formatting.local": "github.com/beambeambeam/claimflow"
       }
     }
   },

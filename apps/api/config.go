@@ -5,7 +5,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/beambeambeam/karupan/apps/api/env"
+	"github.com/beambeambeam/claimflow/apps/api/env"
 )
 
 // loadConfig reads the env that `varlock run` injects. Varlock validates it against .env.schema first.

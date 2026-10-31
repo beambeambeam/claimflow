@@ -1,5 +1,5 @@
 {
-  "name": "@karupan/api",
+  "name": "@claimflow/api",
   "private": true,
   "scripts": {
     "dev": "GIN_MODE=debug varlock run -- go tool -modfile=tools.mod air",

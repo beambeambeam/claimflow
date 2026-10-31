@@ -1,4 +1,4 @@
-# karupan
+# ClaimFlow
 
 Bun workspace monorepo. Apps live in `apps/*`.
 

@@ -15,7 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/beambeambeam/karupan/apps/api/env"
+	"github.com/beambeambeam/claimflow/apps/api/env"
 )
 
 func TestMain(m *testing.M) {

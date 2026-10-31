@@ -1,4 +1,4 @@
-module github.com/beambeambeam/karupan/apps/api
+module github.com/beambeambeam/claimflow/apps/api
 
 go 1.27.3
 
