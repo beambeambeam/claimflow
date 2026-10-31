@@ -8,7 +8,7 @@ Only the latest release on `main` receives security fixes.
 
 Do not open a public issue for a vulnerability.
 
-Report it privately through [GitHub private vulnerability reporting](https://github.com/beambeambeam/karupan/security/advisories/new). Include:
+Report it privately through [GitHub private vulnerability reporting](https://github.com/beambeambeam/claimflow/security/advisories/new). Include:
 
 - The affected app (`apps/web` or `apps/api`) and version or commit.
 - Steps to reproduce, or a proof of concept.

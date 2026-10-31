@@ -1,5 +1,5 @@
 {
-  "name": "@karupan/web",
+  "name": "@claimflow/web",
   "private": true,
   "type": "module",
   "imports": {
