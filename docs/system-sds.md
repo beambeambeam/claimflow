@@ -2,8 +2,8 @@
 
 - **Product:** ClaimFlow — Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.4 (draft for Deliverable 1)
-- **Last updated:** 2026-11-02
+- **Version:** 0.5 (draft for Deliverable 1)
+- **Last updated:** 2026-11-04
 - **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
 This document defines the system-wide design: architecture, data model, UI/API conventions, roles and access, authentication, configuration, and deployment. Each feature contract in `docs/sprints/` refines it with exact endpoints, screens, and schema changes.
@@ -44,6 +44,7 @@ flowchart LR
 | Database | PostgreSQL 16 | to add | Relational constraints and transactions; Cloud SQL on GCP |
 | DB driver / queries | `pgx/v5` + `sqlc` (SQL → type-safe Go) | to add | Plain SQL with compile-time types, no ORM |
 | Migrations | `goose` (SQL files), pinned in `tools.mod` | to add | Versioned migrations, runnable as a `go tool` |
+| Auth schema | Better Auth core schema + admin and username plugin fields, implemented in Go (Section 2.2) | to add | A known, documented schema; can move to Better Auth later without reshaping data |
 | Password hashing | `golang.org/x/crypto/bcrypt`, cost 12 | to add | Meets NFR-01 |
 | Configuration | varlock (`.env.schema`, generated `env/env.go`) | in repo | Typed, validated environment with sensitive-value handling |
 | Tests | Go `testing` + `gotestsum`; `testcontainers-go` (PostgreSQL) for integration; Vitest via `vp test` (web); Playwright (E2E) | partly in repo | Covers all three test levels the course requires |
@@ -55,7 +56,7 @@ flowchart LR
 | --- | --- | --- |
 | React SPA (`apps/web`) | Screens, navigation, client-side form validation for quick feedback, showing server errors. | Decide permissions. Hidden buttons are only for UX. |
 | Gin handlers | Bind and validate requests, call the service, map results and errors to HTTP. | Contain business rules. |
-| Auth middleware | Resolve the session cookie to the current user (401 if none); role guards reject the wrong role (403). | Check ownership or assignment, which depend on data. |
+| Auth middleware | Resolve the session cookie to the current user (401 if none); permission checks reject a role without the needed permission (403, Section 5.1). | Check ownership or assignment, which depend on data. |
 | Claim service | **All business rules** (BR-01 to BR-17), ownership/assignment checks, the lifecycle, total calculation, transactions. | Know about HTTP or Gin. |
 | Store (sqlc) | Queries and transactions. | Make permission decisions. |
 | PostgreSQL | Durable storage. Constraints are the last line of defence: FKs, CHECKs, unique indexes. | — |
@@ -71,13 +72,13 @@ apps/api/
   main.go  server.go  config.go      # existing: startup, router, config
   env/                                # varlock-generated (excluded from coverage)
   internal/
-    auth/       # login/logout/me handlers, session store, middleware, role guards
+    auth/       # login/logout/me handlers, session store, middleware, access.go (statement, roles, RequirePermission)
     claim/      # Claim + LineItem types, rules.go (BR checks), lifecycle.go (transition table),
                 # service.go (use cases + transactions), handler.go (Gin routes)
     report/     # decision summaries (Sprint 3)
     store/      # sqlc-generated code + queries/*.sql
     httperr/    # one error type and the JSON error format (Section 4.2)
-  migrations/   # goose SQL migrations: 0001_users.sql, ...
+  migrations/   # goose SQL migrations: 0001_auth.sql (user, account, session), ...
   seed/         # seed data, run with `bun run seed`
 ```
 
@@ -88,6 +89,7 @@ apps/api/
 ```mermaid
 erDiagram
     USER ||--o{ SESSION : has
+    USER ||--|| ACCOUNT : "signs in with (credential)"
     USER ||--o{ CLAIM : submits
     USER ||--o{ CLAIM : "is assigned reviewer of"
     USER |o--o{ USER : "is assigned reviewer of (reporting line)"
@@ -98,29 +100,57 @@ erDiagram
 
 ### 2.2 Entities
 
-**`users`**
+The auth tables (`user`, `session`, `account`) follow the [Better Auth core schema](https://better-auth.com/docs/concepts/database#core-schema), with fields added by the [admin plugin](https://better-auth.com/docs/plugins/admin#schema) (`role`, `banned`, `banReason`, `banExpires`) and the [username plugin](https://better-auth.com/docs/plugins/username) (`username`, `displayUsername`). The Go API implements this schema itself; it does not run Better Auth. Column names are the Better Auth field names in snake_case (`emailVerified` → `email_verified`). `user` is a reserved word in PostgreSQL, so queries quote it as `"user"`.
 
-| Field | Type | Constraints |
-| --- | --- | --- |
-| id | UUID | PK |
-| username | VARCHAR(50) | UNIQUE, NOT NULL |
-| display_name | VARCHAR(100) | NOT NULL |
-| password_hash | VARCHAR(100) | NOT NULL (bcrypt) |
-| role | ENUM `REQUESTER`, `REVIEWER`, `FINANCE` | NOT NULL. All three exist from Sprint 1. |
-| position | VARCHAR(50) | Display label only, e.g. "Section Head A" |
-| reviewer_id | UUID | FK → users.id. The member's **assigned reviewer** (reporting line). NULL means the member cannot create claims (BR-15); in seed data only `FINANCE` users have NULL. CHECK `reviewer_id <> id` (AS-03). |
-| is_active | BOOLEAN | NOT NULL, default true |
-| created_at | TIMESTAMPTZ | NOT NULL |
+Not used:
 
-**`sessions`**
+- The `verification` table, because there is no email verification or password reset (EX-04).
+- The admin plugin's `session.impersonatedBy` field, because there is no account administration (EX-08).
 
-| Field | Type | Constraints |
-| --- | --- | --- |
-| id | UUID | PK |
-| user_id | UUID | FK → users.id, ON DELETE CASCADE |
-| token_hash | BYTEA | UNIQUE, NOT NULL. SHA-256 of the cookie token; the raw token is never stored. |
-| expires_at | TIMESTAMPTZ | NOT NULL, created_at + 8 h (NFR-03) |
-| created_at | TIMESTAMPTZ | NOT NULL |
+App-specific fields on `user` (`position`, `reviewer_id`) are Better Auth–style _additional fields_.
+
+**`user`**
+
+| Field | Type | Source | Constraints |
+| --- | --- | --- | --- |
+| id | UUID | core | PK |
+| name | VARCHAR(100) | core | NOT NULL. Display name, e.g. "Anan K." |
+| email | VARCHAR(255) | core | UNIQUE, NOT NULL. Seed users get `<username>@claimflow.test`; it is not used for login. |
+| email_verified | BOOLEAN | core | NOT NULL, default false. Always true in seed data; it is not checked (EX-04). |
+| image | TEXT | core | NULL. Not used in the UI yet. |
+| username | VARCHAR(50) | username plugin | UNIQUE, NOT NULL. Stored lowercase; the login identifier (FR-01). |
+| display_username | VARCHAR(50) | username plugin | NOT NULL. Username as the user typed it. |
+| role | VARCHAR(20) | admin plugin | NOT NULL, default `requester`. CHECK `role IN ('requester', 'reviewer', 'finance')`. Exactly one role per account (D-02), so the plugin's comma-separated multi-role form is not used. Its permissions are in Section 5.1. |
+| banned | BOOLEAN | admin plugin | NOT NULL, default false. A banned user cannot log in and has no valid sessions. This is how an account is deactivated. |
+| ban_reason | VARCHAR(200) | admin plugin | NULL |
+| ban_expires | TIMESTAMPTZ | admin plugin | NULL means the ban does not expire. When it is in the past, the user is treated as not banned. |
+| position | VARCHAR(50) | additional | Display label only, e.g. "Section Head A" |
+| reviewer_id | UUID | additional | FK → user.id. The member's **assigned reviewer** (reporting line). NULL means the member cannot create claims (BR-15); in seed data only `finance` users have NULL. CHECK `reviewer_id <> id` (AS-03). |
+| created_at, updated_at | TIMESTAMPTZ | core | NOT NULL |
+
+**`account`** – one row per sign-in method. Only the `credential` provider (username + password) is used.
+
+| Field | Type | Source | Constraints |
+| --- | --- | --- | --- |
+| id | UUID | core | PK |
+| user_id | UUID | core | FK → user.id, ON DELETE CASCADE, NOT NULL |
+| provider_id | VARCHAR(50) | core | NOT NULL. Always `credential`. |
+| account_id | VARCHAR(255) | core | NOT NULL. For `credential`, the user's `id` (Better Auth convention). UNIQUE `(provider_id, account_id)`. |
+| password | VARCHAR(100) | core | bcrypt hash, cost 12 (NFR-01). NOT NULL for `credential` rows (CHECK). |
+| access_token, refresh_token, id_token, access_token_expires_at, refresh_token_expires_at, scope | — | core | Left out. They exist only for OAuth providers, which are not in scope. |
+| created_at, updated_at | TIMESTAMPTZ | core | NOT NULL |
+
+**`session`**
+
+| Field | Type | Source | Constraints |
+| --- | --- | --- | --- |
+| id | UUID | core | PK |
+| user_id | UUID | core | FK → user.id, ON DELETE CASCADE, NOT NULL |
+| token | BYTEA | core | UNIQUE, NOT NULL. **SHA-256 of the cookie token**; the raw token is never stored. Better Auth stores the raw token, and this design differs on purpose so a database leak exposes no usable sessions. |
+| expires_at | TIMESTAMPTZ | core | NOT NULL, created_at + 8 h (NFR-03) |
+| ip_address | VARCHAR(45) | core | NULL. Client IP at login, for audit. |
+| user_agent | TEXT | core | NULL. Client user agent at login, for audit. |
+| created_at, updated_at | TIMESTAMPTZ | core | NOT NULL |
 
 **`claims`**
 
@@ -128,8 +158,8 @@ erDiagram
 | --- | --- | --- |
 | id | UUID | PK |
 | claim_no | VARCHAR(20) | UNIQUE, human-readable, e.g. `CLM-2026-000123` |
-| requester_id | UUID | FK → users.id, NOT NULL. The **owner**. |
-| assigned_reviewer_id | UUID | FK → users.id. NULL while `DRAFT`. Copied from `users.reviewer_id` at **first** submission and never changed afterwards (BR-17). CHECK `assigned_reviewer_id <> requester_id` (BR-01). CHECK `status = 'DRAFT' OR assigned_reviewer_id IS NOT NULL`. |
+| requester_id | UUID | FK → user.id, NOT NULL. The **owner**. |
+| assigned_reviewer_id | UUID | FK → user.id. NULL while `DRAFT`. Copied from `user.reviewer_id` at **first** submission and never changed afterwards (BR-17). CHECK `assigned_reviewer_id <> requester_id` (BR-01). CHECK `status = 'DRAFT' OR assigned_reviewer_id IS NOT NULL`. |
 | title | VARCHAR(120) | NOT NULL |
 | purpose | TEXT | NOT NULL, 1–1000 chars |
 | status | ENUM `DRAFT`, `SUBMITTED`, `RETURNED`, `PENDING_FINANCE`, `APPROVED`, `REJECTED`, `WITHDRAWN` | NOT NULL |
@@ -162,7 +192,7 @@ Indexes: `(requester_id, status)` and `(assigned_reviewer_id, status)`.
 | --- | --- | --- |
 | id | BIGSERIAL | PK |
 | claim_id | UUID | FK → claims.id, NOT NULL |
-| actor_id | UUID | FK → users.id, NOT NULL |
+| actor_id | UUID | FK → user.id, NOT NULL |
 | action | ENUM `SUBMIT`, `APPROVE`, `REJECT`, `RETURN`, `RESUBMIT`, `WITHDRAW`, `FINAL_APPROVE`, `FINAL_REJECT` | NOT NULL |
 | from_status | claim status ENUM | NULL for a claim submitted directly (no draft) |
 | to_status | claim status ENUM | NOT NULL |
@@ -189,17 +219,17 @@ Indexes: `(requester_id, status)` and `(assigned_reviewer_id, status)`.
 | `bun run seed` | Load the base demo dataset. Idempotent: upserts by username/claim_no. |
 | `bun run seed:load` | Add ~200 extra claims for NFR-07 (Sprint 3) |
 
-**Base seed accounts.** All share the password in `SEED_USER_PASSWORD` (sensitive, from the environment, never committed — NFR-04). They form the reporting line `Staff → Section Head → Department Head → Finance Officer`:
+**Base seed accounts.** Each seed user gets a `user` row and a `credential` `account` row. All share the password in `SEED_USER_PASSWORD` (sensitive, from the environment, never committed — NFR-04). They form the reporting line `Staff → Section Head → Department Head → Finance Officer`:
 
 | Username | Role | Position | Assigned reviewer | Used to test |
 | --- | --- | --- | --- | --- |
-| `req.anan` | REQUESTER | Staff, Section A | `rev.malee` | Normal journey |
-| `req.ploy` | REQUESTER | Staff, Section A | `rev.malee` | Cross-requester access (another user's claim) |
-| `req.niran` | REQUESTER | Staff, Section B | `rev.somchai` | Unrelated reviewer access |
-| `rev.malee` | REVIEWER | Section Head A | `rev.prasert` | Reviewing; her own claim goes up the line; self-approval attempt |
-| `rev.somchai` | REVIEWER | Section Head B | `rev.prasert` | Unrelated reviewer (Section A claims) |
-| `rev.prasert` | REVIEWER | Department Head | `fin.wanida` | Top of the reviewer line; his claims go to Finance (ADR-0001) |
-| `fin.wanida` | FINANCE | Finance Officer | — (NULL) | Reviews the Department Head's claims; cannot create claims (BR-15); final decisions in Sprint 3 |
+| `req.anan` | `requester` | Staff, Section A | `rev.malee` | Normal journey |
+| `req.ploy` | `requester` | Staff, Section A | `rev.malee` | Cross-requester access (another user's claim) |
+| `req.niran` | `requester` | Staff, Section B | `rev.somchai` | Unrelated reviewer access |
+| `rev.malee` | `reviewer` | Section Head A | `rev.prasert` | Reviewing; her own claim goes up the line; self-approval attempt |
+| `rev.somchai` | `reviewer` | Section Head B | `rev.prasert` | Unrelated reviewer (Section A claims) |
+| `rev.prasert` | `reviewer` | Department Head | `fin.wanida` | Top of the reviewer line; his claims go to Finance (ADR-0001) |
+| `fin.wanida` | `finance` | Finance Officer | — (NULL) | Reviews the Department Head's claims; cannot create claims (BR-15); final decisions in Sprint 3 |
 
 The seed also creates sample claims in every Sprint 1 status (`SUBMITTED`, `APPROVED`, `REJECTED`), each with history.
 
@@ -218,8 +248,8 @@ The transition table lives once in `internal/claim/lifecycle.go`. It is a pure f
 | SUBMITTED | RETURN | RETURNED, `return_count + 1` | Assigned reviewer, not the owner; `return_count < 3` (BR-14) | 2 |
 | RETURNED | RESUBMIT | SUBMITTED | Owner; same assigned reviewer (BR-17) | 2 |
 | SUBMITTED, RETURNED | WITHDRAW | WITHDRAWN | Owner (BR-16) | 2 |
-| SUBMITTED | APPROVE | PENDING_FINANCE | Assigned reviewer whose role is not `FINANCE`; total > 10,000 THB (BR-09) | 3 |
-| PENDING_FINANCE | FINAL_APPROVE / FINAL_REJECT | APPROVED / REJECTED | Any `FINANCE` user, not the owner | 3 |
+| SUBMITTED | APPROVE | PENDING_FINANCE | Assigned reviewer whose role is not `finance`; total > 10,000 THB (BR-09) | 3 |
+| PENDING_FINANCE | FINAL_APPROVE / FINAL_REJECT | APPROVED / REJECTED | Any `finance` user, not the owner | 3 |
 
 `APPROVE` picks its target: `PENDING_FINANCE` if the total is above `HIGH_VALUE_THRESHOLD_SATANG` and the approver is not a Finance Officer, otherwise `APPROVED`. Before Sprint 3 it always goes to `APPROVED`.
 
@@ -281,7 +311,7 @@ Exact request/response shapes are in the feature contracts.
 | --- | --- | --- | --- |
 | POST | `/auth/login` | Log in, set session cookie | 1 |
 | POST | `/auth/logout` | Delete session, clear cookie | 1 |
-| GET | `/auth/me` | Current user `{ id, username, displayName, role, canCreateClaims }` | 1 |
+| GET | `/auth/me` | Current user `{ id, username, name, role, permissions, canCreateClaims }`. `permissions` is the role's map from Section 5.1, so the SPA shows only allowed links. | 1 |
 | POST | `/claims` | Create and submit a claim (Sprint 2: `?draft=true` saves a draft) | 1 |
 | GET | `/claims/mine` | Own claims | 1 |
 | GET | `/claims/:id` | Claim detail + line items + history | 1 |
@@ -301,19 +331,46 @@ Exact request/response shapes are in the feature contracts.
 
 ## 5. Roles, ownership, and permissions
 
+### 5.1 Access control
+
+Roles follow the Better Auth admin plugin's [access control](https://better-auth.com/docs/plugins/admin#access-control) model, written in Go in `internal/auth/access.go`:
+
+- A **statement** lists every resource and the actions it allows.
+- Each **role** gets a subset of those actions.
+- Handlers call `auth.RequirePermission(resource, action)`, the Go equivalent of `userHasPermission`. If `user.role` does not grant the action, the request gets **403**. Handlers check permissions, never role names.
+
+```go
+var statement = Statement{
+    "claim":   {"create", "list", "update", "delete", "submit", "withdraw"}, // own claims
+    "review":  {"list", "approve", "reject", "return"},                     // assigned claims
+    "finance": {"list", "decide"},                                          // Sprint 3
+    "report":  {"read"},                                                    // Sprint 3
+}
+
+var roles = map[Role]Permissions{
+    RoleRequester: {"claim": statement["claim"]},
+    RoleReviewer:  {"claim": statement["claim"], "review": statement["review"], "report": {"read"}},
+    RoleFinance:   {"review": statement["review"], "finance": statement["finance"], "report": {"read"}},
+}
+```
+
+A permission is only checked against the role, not against any claim. Ownership and assignment depend on the claim's data, so the claim service checks them. Claim detail (`GET /claims/:id`) has no permission check: any logged-in user may call it, and the service allows only the owner, the assigned reviewer, or a `finance` user for a `PENDING_FINANCE` claim. The admin plugin's own `user` and `session` admin permissions are not used, because there is no admin UI (EX-08).
+
+### 5.2 Permission matrix
+
 "Own" means `claims.requester_id = currentUser.id`. "Assigned" means `claims.assigned_reviewer_id = currentUser.id`. Anonymous requests to any endpoint except `/auth/login` and `/health` get **401**.
 
-| Operation | REQUESTER | REVIEWER | FINANCE | Enforced by |
+| Operation | `requester` | `reviewer` | FINANCE | Enforced by |
 | --- | --- | --- | --- | --- |
-| Login / logout / me | ✓ | ✓ | ✓ | auth middleware |
-| Create claim / save draft | ✓ own | ✓ own | ✗ 403 (BR-15) | service: `reviewer_id IS NOT NULL` |
-| List own claims | ✓ | ✓ | ✗ 403 | role guard + query scoped to user |
+| Login / logout / me | ✓ | ✓ | ✓ | auth middleware (no permission needed) |
+| Create claim / save draft | ✓ own | ✓ own | ✗ 403 (BR-15) | permission check + service: `reviewer_id IS NOT NULL` |
+| List own claims | ✓ | ✓ | ✗ 403 | permission check + query scoped to user |
 | View claim detail | own only | own **or** assigned | assigned, PENDING_FINANCE (S3), any for reports (S3) | service ownership/assignment check |
-| Edit / resubmit / withdraw / delete draft | own, allowed status | own, allowed status | ✗ | service: owner + BR-10/BR-16 + BR-03 |
-| Review queue | ✗ 403 | assigned only | assigned only (Department Head's claims) | role guard + query scoped to user |
-| Approve / reject / return | ✗ 403 | assigned **and** not own | assigned **and** not own | role guard + service (BR-01, BR-02, BR-14) |
-| Final approve / reject (S3) | ✗ 403 | ✗ 403 | PENDING_FINANCE only, not own | role guard + service |
-| Decision summary (S3) | ✗ 403 | assigned claims | whole department | role guard + query scope |
+| Edit / resubmit / withdraw / delete draft | own, allowed status | own, allowed status | ✗ 403 | permission check + service: owner + BR-10/BR-16 + BR-03 |
+| Review queue | ✗ 403 | assigned only | assigned only (Department Head's claims) | permission check + query scoped to user |
+| Approve / reject / return | ✗ 403 | assigned **and** not own | assigned **and** not own | permission check + service (BR-01, BR-02, BR-14) |
+| Final approve / reject (S3) | ✗ 403 | ✗ 403 | PENDING_FINANCE only, not own | permission check + service |
+| Decision summary (S3) | ✗ 403 | assigned claims | whole department | permission check + query scope |
 
 **Required access tests (Sprint 1, API integration level):**
 
@@ -323,20 +380,22 @@ Exact request/response shapes are in the feature contracts.
 - `rev.somchai` approves `req.anan`'s claim, which is assigned to `rev.malee` → 403 (unrelated reviewer).
 - `rev.malee` approves her own claim, which is assigned to `rev.prasert` → 403. With the assignment data corrupted to point to herself, the response is still 403 (BR-01).
 - `fin.wanida` creates a claim → 403 (BR-15).
+- A banned user logs in → 401 with the generic message; a session created before the ban → 401.
 - `fin.wanida` approves `rev.prasert`'s claim → 200 (Finance acting as assigned reviewer).
 
 ## 6. Authentication and sessions
 
 | Aspect | Design |
 | --- | --- |
-| Credentials | Username + password, checked with `bcrypt.CompareHashAndPassword` (cost 12). |
-| Failed login | 401 with the generic message "Invalid username or password." Inactive users get the same response. To limit timing differences, an unknown username is still compared against a dummy hash. |
-| Session creation | 32 bytes from `crypto/rand`, base64url-encoded, becomes the cookie value. Its SHA-256 is stored in `sessions` with `expires_at = now + SESSION_TTL`. |
+| Credentials | Username + password. The username is lowercased, then the `user` row and its `credential` `account` row are loaded. The password is checked against `account.password` with `bcrypt.CompareHashAndPassword` (cost 12). |
+| Failed login | 401 with the generic message "Invalid username or password." A banned user (`banned = true` and `ban_expires` NULL or in the future) gets the same response, so the response does not show which accounts exist or are banned. To limit timing differences, an unknown username is still compared against a dummy hash. |
+| Session creation | 32 bytes from `crypto/rand`, base64url-encoded, becomes the cookie value. Its SHA-256 is stored in `session.token` with `expires_at = now + SESSION_TTL`, `ip_address`, and `user_agent`. |
 | Cookie | `sid=<token>`; `HttpOnly`; `SameSite=Lax`; `Secure` when `COOKIE_SECURE=true`; `Path=/`; `Max-Age=28800`. |
-| Request handling | Gin middleware hashes the cookie, loads an unexpired session and user, and stores `currentUser` in the Gin context. Missing, unknown, or expired → 401. |
+| Request handling | Gin middleware hashes the cookie, loads an unexpired session and its user, and stores `currentUser` (including `role`) in the Gin context. Missing, unknown, or expired session, or a banned user → 401. |
 | Current user | `GET /auth/me`. The SPA calls it in the root route loader to choose the navigation and to redirect anonymous users to `/login`. |
 | Logout | Delete the session row and clear the cookie. Reusing the old token afterwards → 401 (NFR-03). |
 | Expiry | Fixed lifetime, no sliding renewal. Expired rows are deleted at login. |
+| Ban | Setting `banned = true` (through seed data or a migration; there is no admin UI, EX-08) also deletes all of the user's `session` rows, as the admin plugin's `banUser` does. |
 | CSRF | `SameSite=Lax`, state changes only through POST/PUT/DELETE, and the API rejects state-changing requests that are not `application/json`. |
 | Why server-side sessions | Logout takes effect immediately, which a stateless JWT cannot do. |
 
@@ -451,9 +510,11 @@ The Go API requires **100% coverage** (`.testcoverage.yml`); only generated code
 | SD-04 | Copy the assigned reviewer onto the claim at first submission | Look it up live every time | Later reporting-line changes do not move claims already in review (BR-17). |
 | SD-05 | Optimistic locking with `version` | `SELECT … FOR UPDATE` | Simple, and gives a clear 409 for BR-13. |
 | SD-06 | Integer satang in DB/Go, decimal strings in JSON | NUMERIC + a decimal library; floats | No rounding errors and no extra dependency. |
-| SD-07 | Reporting line stored as `users.reviewer_id` | Org-unit/position tables | Covers the 4-level line with one column. |
+| SD-07 | Reporting line stored as `user.reviewer_id` | Org-unit/position tables | Covers the 4-level line with one column. |
 | SD-08 | Finance Officer reviews the Department Head; that approval is final | — | ADR-0001 |
 | SD-09 | `sqlc` + `pgx` instead of an ORM | GORM, ent | Explicit SQL for the conditional-update transitions; generated, type-safe code. |
+| SD-10 | Auth tables follow the Better Auth schema (core + admin and username plugins), implemented in Go | Run Better Auth as a separate Bun auth service; custom `users`/`sessions` tables | Gives a documented schema and role model without adding a second runtime. Deviations: the session token is hashed, and `verification`, OAuth columns, and impersonation are left out. |
+| SD-11 | Permissions per role (admin plugin access-control style) instead of checks on role names | Role-name guards in each handler | One map holds role permissions; handlers and the SPA read the same map. |
 
 ## 12. Revision history
 
@@ -463,3 +524,4 @@ The Go API requires **100% coverage** (`.testcoverage.yml`); only generated code
 | 0.2 | 2026-10-31 | Aligned with SRS v0.2: reporting-line seed data, FINANCE role from Sprint 1, WITHDRAWN, `return_count`, `first_submitted_at`, draft delete | 1005, 1045 |
 | 0.3 | 2026-10-31 | Adopted the repo stack: Go/Gin, React 19 + TanStack Router, Bun monorepo, varlock, existing CI; integer-satang money; sqlc/pgx/goose; 100% Go coverage | 1005, 1045 |
 | 0.4 | 2026-11-02 | Repo renamed to `claimflow` (#19); sprint staging branches `staging-1`–`staging-3` in the deployment flow | 1005, 1045 |
+| 0.5 | 2026-11-04 | Auth tables follow the Better Auth schema (`user`, `account`, `session`) with admin plugin roles/bans and username plugin fields; lowercase role values; permission-based access control (5.1); SD-10, SD-11 | 1005, 1045 |
