@@ -2,7 +2,7 @@
 
 - **Product:** ClaimFlow — Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.5 (draft for Deliverable 1)
+- **Version:** 0.6 (draft for Deliverable 1)
 - **Last updated:** 2026-11-04
 - **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
@@ -58,29 +58,93 @@ flowchart LR
 | Gin handlers | Bind and validate requests, call the service, map results and errors to HTTP. | Contain business rules. |
 | Auth middleware | Resolve the session cookie to the current user (401 if none); permission checks reject a role without the needed permission (403, Section 5.1). | Check ownership or assignment, which depend on data. |
 | Claim service | **All business rules** (BR-01 to BR-17), ownership/assignment checks, the lifecycle, total calculation, transactions. | Know about HTTP or Gin. |
-| Store (sqlc) | Queries and transactions. | Make permission decisions. |
+| Store (sqlc, one `<feature>db` package per feature) | Queries and transactions. | Make permission decisions. |
 | PostgreSQL | Durable storage. Constraints are the last line of defence: FKs, CHECKs, unique indexes. | — |
 
 **Where rules are enforced:** in the claim service, backed up by database constraints. Lifecycle and rule functions are pure Go, so unit tests can reach 100% coverage without a database.
 
-### 1.4 API package layout
+### 1.4 Code organization
 
-The current flat `main` package (`main.go`, `server.go`, `config.go`) stays as the entry point. Domain code goes under `internal/`:
+Both apps are organized **by feature**: code for one feature lives in one folder, and only a small, named set of shared packages sits outside the features. A sprint's feature contract then maps to one folder per app. Both apps follow the same three rules:
+
+1. **One direction.** Entry/routes → features → shared. Shared code never imports a feature.
+2. **No imports between features**, except the `auth` feature, which every feature may use for the current user and permission checks. When two features need the same code, it moves to shared. Features are combined only at the entry point (API) or in a route file (web).
+3. **Lint enforces the rules**, so a review does not have to find a broken boundary.
+
+The API and the web split features differently. The API splits by domain aggregate: everything that changes a claim's status goes through one lifecycle table (Section 3), so review and finance actions live in `claim`. The web splits by user journey, so each screen group (Section 7.1) gets a feature.
+
+#### 1.4.1 API (`apps/api`)
+
+This follows the Go guide [Organizing a Go module](https://go.dev/doc/modules/layout), section "Server project": server logic goes in `internal/`, grouped by responsibility. There is only one binary (`migrate` is a subcommand of it), so the existing root `main` package stays and no `cmd/` folder is added.
 
 ```
 apps/api/
-  main.go  server.go  config.go      # existing: startup, router, config
-  env/                                # varlock-generated (excluded from coverage)
+  main.go  server.go  config.go   # entry: startup, config, router; wires each feature's Register()
+  env/                             # varlock-generated (excluded from coverage)
+  sqlc.yaml                        # one `sql` entry per feature, all sharing migrations/ as the schema
   internal/
-    auth/       # login/logout/me handlers, session store, middleware, access.go (statement, roles, RequirePermission)
-    claim/      # Claim + LineItem types, rules.go (BR checks), lifecycle.go (transition table),
-                # service.go (use cases + transactions), handler.go (Gin routes)
-    report/     # decision summaries (Sprint 3)
-    store/      # sqlc-generated code + queries/*.sql
-    httperr/    # one error type and the JSON error format (Section 4.2)
-  migrations/   # goose SQL migrations: 0001_auth.sql (user, account, session), ...
-  seed/         # seed data, run with `bun run seed`
+    auth/                          # feature: login/logout/me, sessions, middleware
+      handler.go                   #   Register(r) + Gin handlers
+      service.go                   #   login, logout, session lookup, ban check
+      access.go                    #   statement, roles, RequirePermission (Section 5.1)
+      queries.sql                  #   sqlc input for this feature
+      authdb/                      #   sqlc output (generated, committed)
+      *_test.go
+    claim/                         # feature: claims, line items, lifecycle, review and finance actions
+      handler.go  service.go
+      model.go                     #   Claim, LineItem, Status, Action
+      rules.go                     #   BR checks (pure)
+      lifecycle.go                 #   transition table (pure)
+      queries.sql  claimdb/  *_test.go
+    report/                        # feature: decision summaries (Sprint 3)
+      handler.go  service.go  queries.sql  reportdb/  *_test.go
+    httperr/                       # shared: error type + JSON error format (Section 4.2)
+    money/                         # shared: satang <-> "1250.00" parsing and formatting (Section 2.3)
+    pgtest/                        # shared, tests only: testcontainers PostgreSQL + migrations + seed
+  migrations/                      # goose SQL migrations (one schema for all features)
+  seed/                            # seed data, run with `bun run seed`
 ```
+
+- **Inside a feature, files split by layer.** `handler.go` knows Gin. `service.go` holds use cases and transactions. `rules.go` and `lifecycle.go` are pure functions. The generated `<feature>db` package is the store. The responsibilities in Section 1.3 apply to each feature.
+- **Each feature owns its queries.** sqlc generates one package for each feature (`authdb`, `claimdb`, `reportdb`), so no shared `store/` package collects every query. A feature may read any table in its own queries. For example, `report` reads `claims` directly instead of importing `claim`.
+- **Names.** Packages are short singular nouns. Following [Package names](https://go.dev/blog/package-names), there are no `util`, `common`, or `models` packages, and type names do not repeat the package name (`claim.Service`, not `claim.ClaimService`).
+- **Enforcement.** `depguard` rules in `.golangci.yml`:
+  - `internal/report/**` must not import `internal/claim`, and the reverse.
+  - Shared packages (`httperr`, `money`, `pgtest`) must not import a feature.
+  - Only `_test.go` files may import `pgtest`.
+
+#### 1.4.2 Web (`apps/web`)
+
+This follows the `features/` model in [bulletproof-react](https://github.com/alan2207/bulletproof-react/blob/master/docs/project-structure.md). The difference: routes stay in `src/routes/`, where TanStack Router's file-based routing generates the route tree. Bulletproof uses `src/app/routes/` instead.
+
+```
+apps/web/src/
+  main.tsx  router.tsx  styles.css     # entry, router + QueryClient setup
+  routes/                              # thin route files (Section 7.1): path, loader, search params,
+                                       #   auth guard; render feature components and nothing else
+  features/
+    auth/                              # login form, useCurrentUser, can(resource, action)
+      api/                             #   query/mutation hooks for /auth/*
+      components/
+    claims/                            # my claims list, claim form + line-item rows, claim detail
+      api/  components/  hooks/  schemas.ts
+    reviews/                           # review queue, approve/reject/return dialogs
+      api/  components/
+    finance/                           # finance queue, final decisions (Sprint 3)
+    reports/                           # decision summary (Sprint 3)
+  components/ui/                       # shared: buttons, dialog, table, skeleton, toast
+  components/                          # shared, claim-aware but feature-free: StatusBadge, Money, DateText
+  lib/                                 # shared: API client + error type (Section 4.2), query client, formatters
+  testing/                             # shared, tests only: render helpers, MSW handlers
+```
+
+- **Folders inside a feature are optional.** Add `api/`, `components/`, `hooks/`, or `schemas.ts` only when the feature needs them.
+- **Route files combine features.** For example, `_auth/claims/$claimId.tsx` renders `ClaimDetail` from `claims` and, for the assigned reviewer, `DecisionPanel` from `reviews`. Neither feature imports the other.
+- **Imports.** Use the existing `#/` alias, for example `#/features/claims/components/claim-form`. The current `import/no-relative-parent-imports` rule already blocks `../`. Import files directly. There are no barrel `index.ts` files, because they slow down Vite and hide where code comes from.
+- **Tests sit next to the file they test** (`claim-form.test.tsx`). The scaffold's `src/__test__/` folder goes away.
+- **Enforcement.** `no-restricted-imports` overrides in `apps/web/check.config.ts`:
+  - Each `features/<name>/**` may import only `#/features/auth/**` and shared paths.
+  - `components/**` and `lib/**` must not import `#/features/**` or `#/routes/**`.
 
 ## 2. Data model
 
@@ -215,7 +279,7 @@ Indexes: `(requester_id, status)` and `(assigned_reviewer_id, status)`.
 | --- | --- |
 | `bun run db:up` | `docker compose up -d postgres` for local development |
 | `bun run migrate` | `goose up` with the committed migrations in `migrations/` |
-| `bun run sqlc` | Regenerate `internal/store` from `queries/*.sql`; generated code is committed |
+| `bun run sqlc` | Regenerate each `internal/<feature>/<feature>db` from that feature's `queries.sql`; generated code is committed |
 | `bun run seed` | Load the base demo dataset. Idempotent: upserts by username/claim_no. |
 | `bun run seed:load` | Add ~200 extra claims for NFR-07 (Sprint 3) |
 
@@ -498,7 +562,7 @@ flowchart LR
 | Unit/component (web) | Vitest via `vp test`, Testing Library | Form validation, money formatting, role-based navigation | Finance user sees no "New Claim" link |
 | E2E | Playwright against `docker compose` | Critical journeys | Requester submits → reviewer approves → requester sees Approved with history |
 
-The Go API requires **100% coverage** (`.testcoverage.yml`); only generated code (`env/`, `internal/store/`) is excluded. The mapping from AC to test IDs is in each feature's STS and in `docs/traceability.md`.
+The Go API requires **100% coverage** (`.testcoverage.yml`); only generated code (`env/`, `internal/*/*db/`) is excluded. The mapping from AC to test IDs is in each feature's STS and in `docs/traceability.md`.
 
 ## 11. Design decisions
 
@@ -515,6 +579,7 @@ The Go API requires **100% coverage** (`.testcoverage.yml`); only generated code
 | SD-09 | `sqlc` + `pgx` instead of an ORM | GORM, ent | Explicit SQL for the conditional-update transitions; generated, type-safe code. |
 | SD-10 | Auth tables follow the Better Auth schema (core + admin and username plugins), implemented in Go | Run Better Auth as a separate Bun auth service; custom `users`/`sessions` tables | Gives a documented schema and role model without adding a second runtime. Deviations: the session token is hashed, and `verification`, OAuth columns, and impersonation are left out. |
 | SD-11 | Permissions per role (admin plugin access-control style) instead of checks on role names | Role-name guards in each handler | One map holds role permissions; handlers and the SPA read the same map. |
+| SD-12 | Feature-based folders in both apps, with boundaries enforced by lint (Section 1.4) | Layer folders at the top level (`handlers/`, `services/`, `components/`, `hooks/`) | A sprint feature changes one folder per app, and the boundaries stay visible as the app grows. |
 
 ## 12. Revision history
 
@@ -525,3 +590,4 @@ The Go API requires **100% coverage** (`.testcoverage.yml`); only generated code
 | 0.3 | 2026-10-31 | Adopted the repo stack: Go/Gin, React 19 + TanStack Router, Bun monorepo, varlock, existing CI; integer-satang money; sqlc/pgx/goose; 100% Go coverage | 1005, 1045 |
 | 0.4 | 2026-11-02 | Repo renamed to `claimflow` (#19); sprint staging branches `staging-1`–`staging-3` in the deployment flow | 1005, 1045 |
 | 0.5 | 2026-11-04 | Auth tables follow the Better Auth schema (`user`, `account`, `session`) with admin plugin roles/bans and username plugin fields; lowercase role values; permission-based access control (5.1); SD-10, SD-11 | 1005, 1045 |
+| 0.6 | 2026-11-04 | Feature-based code organization for API and web (1.4); sqlc output per feature; SD-12 | 1005, 1045 |
