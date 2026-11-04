@@ -140,6 +140,8 @@ apps/web/src/
   features/
     auth/                              # login form, useCurrentUser, can(resource, action)
     claims/                            # claims list, claim form + line-item rows, claim detail
+      components/claim-form.tsx
+      __test__/claim-form.test.tsx     #   tests for this feature (Vitest runs only __test__ folders)
     reviews/                           # decision panel, approve/reject/return dialogs
     finance/                           # final decisions (Sprint 3)
     reports/                           # decision summary (Sprint 3)
@@ -149,13 +151,14 @@ apps/web/src/
     api/                               # shared: generated client, query options, Zod schemas (@hey-api/openapi-ts)
     problem.ts                         # shared: reads RFC 9457 errors into field messages
     format.ts                          # shared: money and date formatting (Asia/Bangkok)
-  testing/                             # shared, tests only: render helpers, MSW handlers, seed users
+  __test__/                            # app-level tests (router, routes) and shared test helpers:
+                                       #   render helpers, MSW handlers, seed users
 ```
 
 - **Folders inside a feature are optional.** Add `components/`, `hooks/`, or `api/` only when the feature needs them. Most data access uses the generated query options from `#/lib/api` directly, so a feature's `api/` folder holds only custom hooks.
 - **Route files combine features.** For example, `_auth/claims/$claimId.tsx` renders `ClaimDetail` from `claims` and, when `allowedActions` has a decision, `DecisionPanel` from `reviews`. Neither feature imports the other.
 - **Imports.** Use the existing `#/` alias, for example `#/features/claims/components/claim-form`. The current `import/no-relative-parent-imports` rule already blocks `../`. Import files directly. There are no barrel `index.ts` files, because they slow down Vite and hide where code comes from.
-- **Tests sit next to the file they test** (`claim-form.test.tsx`). The scaffold's `src/__test__/` folder goes away.
+- **Tests live in `__test__/` folders.** Each feature or shared folder that has tests gets its own `__test__/` folder, for example `features/claims/__test__/claim-form.test.tsx`. Tests for routes and the router, and the shared test helpers, go in `src/__test__/`. `apps/web/vite.config.ts` already sets this: Vitest runs only `src/**/__test__/**/*.test.{ts,tsx}`, and coverage (100% required) excludes `__test__` folders, so test helpers do not count as app code. The Go API keeps Go's own rule instead (Section 10).
 - **Enforcement.** `no-restricted-imports` overrides in `apps/web/check.config.ts`:
   - Each `features/<name>/**` may import only `#/features/auth/**` and shared paths.
   - `components/**` and `lib/**` must not import `#/features/**` or `#/routes/**`.
@@ -701,7 +704,12 @@ Tests go through each module's interface. They test behaviour, not internals, so
 | Unit/component (web) | Vitest via `vp test`, Testing Library, MSW handlers typed from the generated client | Forms, problem → field messages, `allowedActions` → buttons, navigation by permission | Finance user sees no "New Claim" link |
 | E2E | Playwright against `docker compose` | Critical journeys | Requester submits → reviewer approves → requester sees Approved with history |
 
-The Go API requires **100% coverage** (`.testcoverage.yml`). Only generated code (`env/`, `internal/api/`, `internal/db/`) is excluded. When sqlc and oapi-codegen are added, `.testcoverage.yml` gets those two paths, because today it excludes only `^env/`. The mapping from AC to test IDs is in each feature's STS and in `docs/traceability.md`.
+Test files follow each language's standard layout:
+
+- **Go:** `_test.go` files sit in the same folder as the code they test. The Go toolchain requires this: `go test` finds tests only in the package folder, and only a test file in that folder can test unexported code. Shared test helpers live in `internal/pgtest`.
+- **Web:** `*.test.ts(x)` files sit in a `__test__/` folder (Section 1.4.2).
+
+Both apps require **100% coverage**: the API through `.testcoverage.yml`, the web through `test.coverage.thresholds` in `apps/web/vite.config.ts`. Only generated code is excluded. For the API that is `env/`, `internal/api/`, and `internal/db/`. When sqlc and oapi-codegen are added, `.testcoverage.yml` gets the last two paths, because today it excludes only `^env/`. The mapping from AC to test IDs is in each feature's STS and in `docs/traceability.md`.
 
 ## 11. Design decisions
 
@@ -734,4 +742,4 @@ The Go API requires **100% coverage** (`.testcoverage.yml`). Only generated code
 | 0.4 | 2026-11-02 | Repo renamed to `claimflow` (#19); sprint staging branches `staging-1`–`staging-3` in the deployment flow | 1005, 1045 |
 | 0.5 | 2026-11-04 | Auth tables follow the Better Auth schema (`user`, `account`, `session`) with admin plugin roles/bans and username plugin fields; lowercase role values; permission-based access control (5.1); SD-10, SD-11 | 1005, 1045 |
 | 0.6 | 2026-11-04 | Feature-based code organization for API and web (1.4); sqlc output per feature; SD-12 | 1005, 1045 |
-| 0.7 | 2026-11-04 | Architecture review: claim module interface (3.1) and claim policy with `allowedActions` (5.2); list scopes (5.3); OpenAPI contract with generated server and client; RFC 9457 errors; `If-Match` versions; `money.Satang`; injected clock and Asia/Bangkok dates; one sqlc package; UUIDv7; `__Host-` cookie and `CrossOriginProtection`; `/ready`; web served by the API. Fixed SRS gaps: BR-12 Meals cap, BR-11 history trigger, fixed 8 h session and high-value threshold, claim number format, FR-13 filters, FR-14 summary shape, route-inventory and login tests, 5xx UI state. SD-13 to SD-16. Documented the existing branch rulesets (9.1). | 1005, 1045 |
+| 0.7 | 2026-11-04 | Architecture review: claim module interface (3.1) and claim policy with `allowedActions` (5.2); list scopes (5.3); OpenAPI contract with generated server and client; RFC 9457 errors; `If-Match` versions; `money.Satang`; injected clock and Asia/Bangkok dates; one sqlc package; UUIDv7; `__Host-` cookie and `CrossOriginProtection`; `/ready`; web served by the API. Fixed SRS gaps: BR-12 Meals cap, BR-11 history trigger, fixed 8 h session and high-value threshold, claim number format, FR-13 filters, FR-14 summary shape, route-inventory and login tests, 5xx UI state. SD-13 to SD-16. Documented the existing branch rulesets (9.1). Web tests live in `__test__` folders, matching `apps/web/vite.config.ts`. | 1005, 1045 |
