@@ -2,7 +2,7 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.7 (draft for Deliverable 1)
+- **Version:** 0.8 (draft for Deliverable 1)
 - **Last updated:** 2026-11-04
 - **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
@@ -53,7 +53,7 @@ flowchart LR
 | DB driver / queries | `pgx/v5` + `sqlc` (SQL → type-safe Go) | to add | Plain SQL with compile-time types, no ORM |
 | Migrations | `goose` (SQL files), pinned in `tools.mod` | to add | Versioned migrations, runnable as a `go tool` |
 | IDs | UUIDv7, generated in Go (`google/uuid` `NewV7`) | to add | Time-ordered keys keep index inserts local; works on any PostgreSQL version |
-| Auth schema | Better Auth core schema + admin and username plugin fields, implemented in Go (Section 2.2) | to add | A known, documented schema; can move to Better Auth later without reshaping data |
+| Auth schema | `user`, `account`, and `session` tables, implemented in Go (Section 2.2) | to add | Keeps identity, credentials, and sessions apart, so a new sign-in method adds rows, not columns |
 | Password hashing | `golang.org/x/crypto/bcrypt`, cost 12 | to add | Meets NFR-01 |
 | CSRF | `net/http.CrossOriginProtection` (Go 1.25+) | to add | Standard library check that uses the browser's Fetch metadata; no tokens |
 | Logging | `log/slog` JSON with request ID | to add | One log line per request that can be found from an error response |
@@ -183,57 +183,55 @@ erDiagram
 
 All `UUID` primary keys are **UUIDv7**, generated in Go with `uuid.NewV7()`.
 
-The auth tables (`user`, `session`, `account`) follow the [Better Auth core schema](https://better-auth.com/docs/concepts/database#core-schema), with fields added by the [admin plugin](https://better-auth.com/docs/plugins/admin#schema) (`role`, `banned`, `banReason`, `banExpires`) and the [username plugin](https://better-auth.com/docs/plugins/username) (`username`, `displayUsername`). The Go API implements this schema itself; it does not run Better Auth. Column names are the Better Auth field names in snake_case (`emailVerified` → `email_verified`). `user` is a reserved word in PostgreSQL, so queries quote it as `"user"`.
+The auth tables keep three concerns apart:
 
-Not used:
+- `user` holds the member's identity, role, and reporting line.
+- `account` holds how the member signs in. Only username + password is used.
+- `session` holds the sessions the member is logged in with.
 
-- The `verification` table, because there is no email verification or password reset (EX-04).
-- The admin plugin's `session.impersonatedBy` field, because there is no account administration (EX-08).
-
-App-specific fields on `user` (`position`, `reviewer_id`) are Better Auth–style _additional fields_.
+`user` is a reserved word in PostgreSQL, so queries quote it as `"user"`. There is no email verification or password reset (EX-04), and no account administration (EX-08), so the schema has no tables or fields for them.
 
 **`user`**
 
-| Field | Type | Source | Constraints |
-| --- | --- | --- | --- |
-| id | UUID | core | PK |
-| name | VARCHAR(100) | core | NOT NULL. Display name, e.g. "Anan K." |
-| email | VARCHAR(255) | core | UNIQUE, NOT NULL. Seed users get `<username>@claimflow.test`; it is not used for login. |
-| email_verified | BOOLEAN | core | NOT NULL, default false. Always true in seed data; it is not checked (EX-04). |
-| image | TEXT | core | NULL. Not used in the UI yet. |
-| username | VARCHAR(50) | username plugin | UNIQUE, NOT NULL. Stored lowercase; the login identifier (FR-01). |
-| display_username | VARCHAR(50) | username plugin | NOT NULL. Username as the user typed it. |
-| role | VARCHAR(20) | admin plugin | NOT NULL, default `requester`. CHECK `role IN ('requester', 'reviewer', 'finance')`. Exactly one role per account (D-02), so the plugin's comma-separated multi-role form is not used. Its permissions are in Section 5.1. |
-| banned | BOOLEAN | admin plugin | NOT NULL, default false. A banned user cannot log in and has no valid sessions. This is how an account is deactivated. |
-| ban_reason | VARCHAR(200) | admin plugin | NULL |
-| ban_expires | TIMESTAMPTZ | admin plugin | NULL means the ban does not expire. When it is in the past, the user is treated as not banned. |
-| position | VARCHAR(50) | additional | Display label only, e.g. "Section Head A" |
-| reviewer_id | UUID | additional | FK → user.id. The member's **assigned reviewer** (reporting line). NULL means the member cannot create claims (BR-15); in seed data only `finance` users have NULL. CHECK `reviewer_id <> id` (AS-03). |
-| created_at, updated_at | TIMESTAMPTZ | core | NOT NULL |
+| Field | Type | Constraints |
+| --- | --- | --- |
+| id | UUID | PK |
+| name | VARCHAR(100) | NOT NULL. Display name, e.g. "Anan K." |
+| email | VARCHAR(255) | UNIQUE, NOT NULL. Seed users get `<username>@claimflow.test`; it is not used for login. |
+| email_verified | BOOLEAN | NOT NULL, default false. Always true in seed data; it is not checked (EX-04). |
+| image | TEXT | NULL. Not used in the UI yet. |
+| username | VARCHAR(50) | UNIQUE, NOT NULL. Stored lowercase; the login identifier (FR-01). |
+| display_username | VARCHAR(50) | NOT NULL. Username as the user typed it. |
+| role | VARCHAR(20) | NOT NULL, default `requester`. CHECK `role IN ('requester', 'reviewer', 'finance')`. Exactly one role per account (D-02). Its permissions are in Section 5.1. |
+| banned | BOOLEAN | NOT NULL, default false. A banned user cannot log in and has no valid sessions. This is how an account is deactivated. |
+| ban_reason | VARCHAR(200) | NULL |
+| ban_expires | TIMESTAMPTZ | NULL means the ban does not expire. When it is in the past, the user is treated as not banned. |
+| position | VARCHAR(50) | Display label only, e.g. "Section Head A" |
+| reviewer_id | UUID | FK → user.id. The member's **assigned reviewer** (reporting line). NULL means the member cannot create claims (BR-15); in seed data only `finance` users have NULL. CHECK `reviewer_id <> id` (AS-03). |
+| created_at, updated_at | TIMESTAMPTZ | NOT NULL |
 
 **`account`** – one row per sign-in method. Only the `credential` provider (username + password) is used.
 
-| Field | Type | Source | Constraints |
-| --- | --- | --- | --- |
-| id | UUID | core | PK |
-| user_id | UUID | core | FK → user.id, ON DELETE CASCADE, NOT NULL |
-| provider_id | VARCHAR(50) | core | NOT NULL. Always `credential`. |
-| account_id | VARCHAR(255) | core | NOT NULL. For `credential`, the user's `id` (Better Auth convention). UNIQUE `(provider_id, account_id)`. |
-| password | VARCHAR(100) | core | bcrypt hash, cost 12 (NFR-01). NOT NULL for `credential` rows (CHECK). |
-| access_token, refresh_token, id_token, access_token_expires_at, refresh_token_expires_at, scope | – | core | Left out. They exist only for OAuth providers, which are not in scope. |
-| created_at, updated_at | TIMESTAMPTZ | core | NOT NULL |
+| Field | Type | Constraints |
+| --- | --- | --- |
+| id | UUID | PK |
+| user_id | UUID | FK → user.id, ON DELETE CASCADE, NOT NULL |
+| provider_id | VARCHAR(50) | NOT NULL. Always `credential`. |
+| account_id | VARCHAR(255) | NOT NULL. For `credential`, the user's `id`. UNIQUE `(provider_id, account_id)`. |
+| password | VARCHAR(100) | bcrypt hash, cost 12 (NFR-01). NOT NULL for `credential` rows (CHECK). |
+| created_at, updated_at | TIMESTAMPTZ | NOT NULL |
 
 **`session`**
 
-| Field | Type | Source | Constraints |
-| --- | --- | --- | --- |
-| id | UUID | core | PK |
-| user_id | UUID | core | FK → user.id, ON DELETE CASCADE, NOT NULL |
-| token | BYTEA | core | UNIQUE, NOT NULL. **SHA-256 of the cookie token**; the raw token is never stored. Better Auth stores the raw token, and this design differs on purpose so a database leak exposes no usable sessions. |
-| expires_at | TIMESTAMPTZ | core | NOT NULL, created_at + 8 h (NFR-03) |
-| ip_address | VARCHAR(45) | core | NULL. Client IP at login, for audit. |
-| user_agent | TEXT | core | NULL. Client user agent at login, for audit. |
-| created_at, updated_at | TIMESTAMPTZ | core | NOT NULL |
+| Field | Type | Constraints |
+| --- | --- | --- |
+| id | UUID | PK |
+| user_id | UUID | FK → user.id, ON DELETE CASCADE, NOT NULL |
+| token | BYTEA | UNIQUE, NOT NULL. **SHA-256 of the cookie token**; the raw token is never stored, so a database leak exposes no usable sessions. |
+| expires_at | TIMESTAMPTZ | NOT NULL, created_at + 8 h (NFR-03) |
+| ip_address | VARCHAR(45) | NULL. Client IP at login, for audit. |
+| user_agent | TEXT | NULL. Client user agent at login, for audit. |
+| created_at, updated_at | TIMESTAMPTZ | NOT NULL |
 
 **`claims`**
 
@@ -486,7 +484,7 @@ Access is checked at two levels:
 
 ### 5.1 Route permissions
 
-Route permissions follow the Better Auth admin plugin's [access control](https://better-auth.com/docs/plugins/admin#access-control) model, written in Go in `internal/auth/access.go`. A **statement** lists the resources and actions, and each **role** gets a subset. Middleware `auth.RequirePermission(resource, action)` returns **403** when `user.role` does not grant the action. Code checks permissions, never role names.
+Route permissions are defined in `internal/auth/access.go`. A **statement** lists the resources and actions, and each **role** gets a subset. Middleware `auth.RequirePermission(resource, action)` returns **403** when `user.role` does not grant the action. Code checks permissions, never role names.
 
 ```go
 var statement = Statement{
@@ -503,7 +501,7 @@ var roles = map[Role]Permissions{
 }
 ```
 
-`/auth/me` returns the actor's permissions, so the web shows only allowed navigation. The admin plugin's own `user` and `session` admin permissions are not used, because there is no admin UI (EX-08).
+`/auth/me` returns the actor's permissions, so the web shows only allowed navigation. There is no admin UI, so there are no permissions to manage users or sessions (EX-08).
 
 ### 5.2 Claim policy
 
@@ -577,7 +575,7 @@ The "not own" check uses `requester_id` directly, so self-approval is blocked ev
 | Current user | `GET /auth/me`. The `_auth` route's `beforeLoad` calls `queryClient.ensureQueryData` for it, puts the user in router context, and redirects anonymous users to `/login?redirect=<path>` before any protected screen renders. |
 | Logout | Delete the session row and clear the cookie. Reusing the old token afterwards → 401 (NFR-03). |
 | Expiry | Fixed lifetime, no sliding renewal. Expired rows are deleted at login. |
-| Ban | Setting `banned = true` (through seed data or a migration; there is no admin UI, EX-08) also deletes all of the user's `session` rows, as the admin plugin's `banUser` does. |
+| Ban | Setting `banned = true` (through seed data or a migration; there is no admin UI, EX-08) also deletes all of the user's `session` rows. |
 | CSRF | `http.CrossOriginProtection` wraps the router. It rejects non-safe cross-origin browser requests using `Sec-Fetch-Site`, falling back to `Origin`. `SameSite=Lax` is a second layer. |
 | Why server-side sessions | Logout takes effect immediately, which a stateless JWT cannot do. |
 
@@ -724,7 +722,7 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | SD-07 | Reporting line stored as `user.reviewer_id` | Org-unit/position tables | Covers the 4-level line with one column. |
 | SD-08 | Finance Officer reviews the Department Head; that approval is final | – | ADR-0001 |
 | SD-09 | `sqlc` + `pgx` instead of an ORM, one generated `internal/db` package | GORM, ent; one sqlc package per feature | Explicit SQL for the conditional update; enum types generated once. |
-| SD-10 | Auth tables follow the Better Auth schema (core + admin and username plugins), implemented in Go | Run Better Auth as a separate Bun auth service; custom `users`/`sessions` tables | Gives a documented schema and role model without adding a second runtime. Deviations: the session token is hashed, and `verification`, OAuth columns, and impersonation are left out. |
+| SD-10 | Separate `user`, `account`, and `session` tables; one role column on `user` | One `users` table with the password hash; a separate auth service | Credentials and sessions stay apart from identity, so a new sign-in method or a password change does not touch `user`. One role per account matches D-02. |
 | SD-11 | Two access levels: role permissions for routes, a claim policy for each claim | Role permissions for every action; checks spread over handlers | Assignment and ownership already decide claim actions. One policy answers both "may I?" and "which buttons?". |
 | SD-12 | Feature-based folders in both apps, with boundaries enforced by lint (Section 1.4) | Layer folders at the top level (`handlers/`, `services/`, `components/`, `hooks/`) | A sprint feature changes one folder per app, and the boundaries stay visible as the app grows. |
 | SD-13 | Contract first: a hand-written OpenAPI file, with code generated for both apps | Code-first (Huma, swag); hand-written types in both apps | The spec is the feature contract the course asks for, and drift becomes a compile or CI error. |
@@ -740,6 +738,7 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.2 | 2026-10-31 | Aligned with SRS v0.2: reporting-line seed data, FINANCE role from Sprint 1, WITHDRAWN, `return_count`, `first_submitted_at`, draft delete | 1005, 1045 |
 | 0.3 | 2026-10-31 | Adopted the repo stack: Go/Gin, React 19 + TanStack Router, Bun monorepo, varlock, existing CI; integer-satang money; sqlc/pgx/goose; 100% Go coverage | 1005, 1045 |
 | 0.4 | 2026-11-02 | Repo renamed to `claimflow` (#19); sprint staging branches `staging-1`–`staging-3` in the deployment flow | 1005, 1045 |
-| 0.5 | 2026-11-04 | Auth tables follow the Better Auth schema (`user`, `account`, `session`) with admin plugin roles/bans and username plugin fields; lowercase role values; permission-based access control (5.1); SD-10, SD-11 | 1005, 1045 |
+| 0.5 | 2026-11-04 | Auth tables `user`, `account`, `session` with roles, bans, and username fields; lowercase role values; permission-based access control (5.1); SD-10, SD-11 | 1005, 1045 |
 | 0.6 | 2026-11-04 | Feature-based code organization for API and web (1.4); sqlc output per feature; SD-12 | 1005, 1045 |
 | 0.7 | 2026-11-04 | Architecture review: claim module interface (3.1) and claim policy with `allowedActions` (5.2); list scopes (5.3); OpenAPI contract with generated server and client; RFC 9457 errors; `If-Match` versions; `money.Satang`; injected clock and Asia/Bangkok dates; one sqlc package; UUIDv7; `__Host-` cookie and `CrossOriginProtection`; `/ready`; web served by the API. Fixed SRS gaps: BR-12 Meals cap, BR-11 history trigger, fixed 8 h session and high-value threshold, claim number format, FR-13 filters, FR-14 summary shape, route-inventory and login tests, 5xx UI state. SD-13 to SD-16. Documented the existing branch rulesets (9.1). Web tests live in `__test__` folders, matching `apps/web/vite.config.ts`. | 1005, 1045 |
+| 0.8 | 2026-11-04 | Auth design (2.2, 5.1, 6, SD-10) written as this system's own design, with no references to outside frameworks | 1005, 1045 |
