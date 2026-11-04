@@ -3,9 +3,9 @@
 - **Product:** ClaimFlow — Department Expense Reimbursement System
 - **Baseline:** `docs/srs.md` v0.2
 - **Version:** 1.0 (IDs frozen on merge; later changes go in the change log in `docs/traceability.md`)
-- **Last updated:** 2026-11-01
+- **Last updated:** 2026-11-04
 
-This document splits the SRS into **features**, which are user-visible slices delivered in one sprint, and **system responsibilities**, which are cross-cutting qualities that no single feature owns. Requirement IDs are the SRS IDs, unchanged. The requirement-by-requirement view is in `docs/traceability.md`.
+This document splits the SRS into **features**, which are user-visible slices delivered in one sprint, and **system responsibilities**, which are cross-cutting qualities that no single feature owns. Requirement IDs are the SRS IDs, unchanged. The requirement-by-requirement view is in `docs/traceability.md`. Section 4 links each feature and responsibility to its design in `docs/system-sds.md`.
 
 ---
 
@@ -78,3 +78,27 @@ These are cross-cutting requirements. Each lists the sprint that **establishes**
 | 3 (due 13 Dec) | F-08, F-09, F-10 | SR-05 (SR-01, SR-04, SR-06 re-verified) |
 
 Sprint goals and sequencing are detailed in the three-sprint plan (#5).
+
+## 4. Design references
+
+Each feature and responsibility is designed in the system SDS (`docs/system-sds.md` v0.7). Each feature contract in `docs/sprints/` refines these sections. Section numbers below are SDS sections.
+
+| ID | SDS sections |
+| --- | --- |
+| F-01 | 2.2 `user`, `account`, `session`; 5.1 route permissions; 6 authentication and sessions; 7.1 Login |
+| F-02 | 2.2 `claims`, `line_items`; 2.3 money; 2.4 time; 3 claim module; 4.3 `POST /claims`; 5.2 claim policy; 7.1 New Claim |
+| F-03 | 4.3 `GET /claims?scope=mine`, `GET /claims/{id}`; 5.2 visibility; 5.3 list scopes; 7.1 My Claims, Claim Detail |
+| F-04 | 3.2 lifecycle (`APPROVE`, `REJECT`); 3.3 conditional update; 4.3 `approve`, `reject`; 5.2 allowed actions; 5.3 `scope=review`; 7.2 decisions |
+| F-05 | 3.2 `SAVE_DRAFT`, `SUBMIT`, `DELETE`; 4.3 `PUT`, `DELETE`, `submit`; 5.2; 7.1 Edit Claim |
+| F-06 | 3.2 `RETURN`, `RESUBMIT`; 4.3 `return`, `submit`; 5.2; 7.2 return count |
+| F-07 | 3.2 `WITHDRAW`; 4.3 `withdraw`; 5.2 |
+| F-08 | 3.2 `APPROVE` → `PENDING_FINANCE`, `FINAL_APPROVE`, `FINAL_REJECT`; 4.3 `final-approve`, `final-reject`; 5.2; 5.3 `scope=finance`; 7.1 Finance Queue |
+| F-09 | 4.3 filters; 5.2 visibility; 5.3 `scope=all` |
+| F-10 | 4.4 decision summary; 5.3 matrix; 7.1 Summary |
+| SR-01 | 4.2 error format; 5 roles, ownership, and permissions (route inventory test in 5.3); 6 cross-origin protection |
+| SR-02 | 8 configuration and secrets |
+| SR-03 | 2.5 migrations; 9 deployment |
+| SR-04 | 2.2 `claim_history` trigger; 3 claim module and lifecycle; 4.1 `If-Match` versions |
+| SR-05 | 2.2 indexes; 2.5 `seed:load` |
+| SR-06 | 9 CI gate; 9.1 branch rulesets; 10 test strategy |
+| SR-07 | 9 image and local run |
