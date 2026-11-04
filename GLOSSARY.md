@@ -65,3 +65,13 @@ _Avoid_: Accountant, finance approver
 **Final Decision**: A Finance Officer's approve or reject on a high-value claim that the assigned reviewer has already approved.
 
 _Avoid_: Second approval, finance approval
+
+### Access
+
+**Visible Claim**: A claim a member may see. A claim is visible to its requester, to its assigned reviewer (even after the claim ends), and, except for Drafts, to every Finance Officer. Other reviewers in the reporting line cannot see it.
+
+_Avoid_: Accessible claim, authorized claim
+
+**Allowed Action**: A step a member may take on a visible claim right now, given who they are and the claim's current state: edit, delete, submit, withdraw, or a decision or final decision.
+
+_Avoid_: Permission, capability

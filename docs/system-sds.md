@@ -668,8 +668,24 @@ flowchart LR
 | Migrations | `goose up` runs as a Cloud Run job before the new revision gets traffic. The app never changes the schema on startup. |
 | Logs | `slog` JSON on stdout with Cloud Logging field names (`severity`, `message`), one line per request with `requestId`, method, route, status, and latency. Sensitive values are never logged. |
 | Release identity | Images are tagged with the semantic-release tag `vG.X.Y.Z` (G = generation, from `release.config.js`) and the git SHA. `/health` returns `version`. |
-| CI gate | The existing `CI` workflow runs format, lint, web tests, Go tests with **100% coverage**, govulncheck, and the image build on every PR. It also checks that the generated code is up to date: it runs `generate` and fails on any diff. Branch protection on `main` and `staging-*` must make these required checks. As of 2026-11-04, it is **not yet enabled**. Before Lab 5, test results are recorded against the submitted commit. |
-| Branches | Repo convention: `<type>/<short-kebab-name>` (e.g. `feat/claim-submission`). Each sprint has a **staging branch** (`staging-1`, `staging-2`, `staging-3`). Feature PRs target the current sprint's staging branch; at the end of the sprint one release PR merges it into `main`, which triggers semantic-release. This still needs to be added to `CONTRIBUTING.md`. |
+| CI gate | The existing `CI` workflow runs format, lint, web tests, Go tests with **100% coverage**, govulncheck, and the image build on every PR. It also checks that the generated code is up to date: it runs `generate` and fails on any diff. GitHub rulesets `main` and `staging` (Section 9.1) make the `code_quality`, `test`, `api`, and `build` jobs required checks. The `api_image` job is not required yet; add it to both rulesets before Lab 5. |
+| Branches | Repo convention: `<type>/<short-kebab-name>` (e.g. `feat/claim-submission`). Each sprint has a **staging branch** (`staging-1`, `staging-2`, `staging-3`). Feature PRs target the current sprint's staging branch and are squash-merged; at the end of the sprint one release PR merges it into `main` with a merge commit, which triggers semantic-release. `CONTRIBUTING.md` documents the flow. |
+
+### 9.1 Branch rulesets
+
+Both rulesets are active on GitHub and have no bypass actors.
+
+| Rule | `main` ruleset (`main`) | `staging` ruleset (`staging-*`) |
+| --- | --- | --- |
+| Branch deletion | Blocked | Blocked |
+| Force push | Blocked | Blocked |
+| Pull request | Required, 0 approvals | Required, 0 approvals |
+| Merge method | Merge commit only | Squash only |
+| Linear history | – | Required |
+| Required checks | `code_quality`, `test`, `api`, `build` | `code_quality`, `test`, `api`, `build` |
+
+- Squash merges into staging make each PR title one commit subject. The merge commit into `main` keeps those subjects, so semantic-release reads one release signal per feature.
+- A PR needs 0 approvals, so the team can merge alone. The required checks are the gate.
 
 ## 10. Test strategy (system level)
 
@@ -718,4 +734,4 @@ The Go API requires **100% coverage** (`.testcoverage.yml`). Only generated code
 | 0.4 | 2026-11-02 | Repo renamed to `claimflow` (#19); sprint staging branches `staging-1`–`staging-3` in the deployment flow | 1005, 1045 |
 | 0.5 | 2026-11-04 | Auth tables follow the Better Auth schema (`user`, `account`, `session`) with admin plugin roles/bans and username plugin fields; lowercase role values; permission-based access control (5.1); SD-10, SD-11 | 1005, 1045 |
 | 0.6 | 2026-11-04 | Feature-based code organization for API and web (1.4); sqlc output per feature; SD-12 | 1005, 1045 |
-| 0.7 | 2026-11-04 | Architecture review: claim module interface (3.1) and claim policy with `allowedActions` (5.2); list scopes (5.3); OpenAPI contract with generated server and client; RFC 9457 errors; `If-Match` versions; `money.Satang`; injected clock and Asia/Bangkok dates; one sqlc package; UUIDv7; `__Host-` cookie and `CrossOriginProtection`; `/ready`; web served by the API. Fixed SRS gaps: BR-12 Meals cap, BR-11 history trigger, fixed 8 h session and high-value threshold, claim number format, FR-13 filters, FR-14 summary shape, route-inventory and login tests, 5xx UI state. SD-13 to SD-16. | 1005, 1045 |
+| 0.7 | 2026-11-04 | Architecture review: claim module interface (3.1) and claim policy with `allowedActions` (5.2); list scopes (5.3); OpenAPI contract with generated server and client; RFC 9457 errors; `If-Match` versions; `money.Satang`; injected clock and Asia/Bangkok dates; one sqlc package; UUIDv7; `__Host-` cookie and `CrossOriginProtection`; `/ready`; web served by the API. Fixed SRS gaps: BR-12 Meals cap, BR-11 history trigger, fixed 8 h session and high-value threshold, claim number format, FR-13 filters, FR-14 summary shape, route-inventory and login tests, 5xx UI state. SD-13 to SD-16. Documented the existing branch rulesets (9.1). | 1005, 1045 |
