@@ -4,14 +4,33 @@ This project uses GitHub issues and pull requests to plan, review, and ship chan
 
 ## Workflow
 
-1. Start from the latest `main` branch.
+1. Start from the latest current sprint staging branch (`staging-N`).
 2. Choose or create a focused issue before making a change.
 3. Create a short-lived branch using the pattern `<type>/<short-kebab-name>`.
 4. Keep the change focused and link the issue from the pull request.
 5. Run the relevant validation commands locally.
-6. Open a pull request and complete its description before requesting review.
+6. Open a pull request into `staging-N` and complete its description before requesting review.
 
-See [Branch, commit, and release naming](#branch-commit-and-release-naming) for the allowed branch types and release impact.
+See [Branch, commit, and release naming](#branch-commit-and-release-naming) for the allowed branch types and release impact, and [Sprint branches](#sprint-branches) for how work reaches `main`.
+
+## Sprint branches
+
+Each sprint has one staging branch: `staging-1`, `staging-2`, `staging-3`.
+
+```text
+feat/claim-submission ──squash──▶ staging-1 ──merge commit──▶ main ──▶ semantic-release
+```
+
+1. Feature pull requests target the current sprint's staging branch. They are squash-merged, so the pull request title becomes the commit subject. Set the title to the final `type: description` subject before merging.
+2. At the end of the sprint, open one release pull request from `staging-N` into `main`. Merge it with a merge commit, so `main` keeps each feature's commit subject as a release signal.
+3. Create `staging-N+1` from `main` after the release.
+
+GitHub rulesets enforce this. On `main` and every `staging-*` branch:
+
+- Changes need a pull request. Direct pushes, force pushes, and branch deletion are blocked, and nobody can bypass the rules.
+- The `code_quality`, `test`, `api`, and `build` CI jobs must pass.
+- `staging-*` allows squash merges only and requires linear history. `main` allows merge commits only.
+- No approving review is required, but request one for risky changes.
 
 ## Commit messages
 
@@ -80,6 +99,8 @@ Use `type!: description` for breaking changes. When squash-merging, set the pull
 Expected result: the release impact is clear from the commit subject before merge.
 
 ## Application boundaries
+
+Both apps use feature folders with lint-enforced boundaries. See section 1.4 of [`docs/system-sds.md`](docs/system-sds.md).
 
 - Add file-based routes in `apps/web/src/routes/` and reusable UI in `apps/web/src/components/`.
 - Keep router setup in `apps/web/src/router.tsx` and app startup in `apps/web/src/main.tsx`.
