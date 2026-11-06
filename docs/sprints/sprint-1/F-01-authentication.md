@@ -5,7 +5,7 @@
 - **Requirements:** FR-01, NFR-01, NFR-03
 - **Responsibilities established here:** SR-01 (NFR-02), SR-02 (NFR-04, local), SR-06 (NFR-09)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `user`, `account`, `session`; §4.1–4.2; §5.1; §6; §7.1 Login; §8
-- **Version:** 0.1 (draft) · **Last updated:** 2026-11-05
+- **Version:** 0.2 (draft) · **Last updated:** 2026-11-06
 
 This feature also lays the foundation that every other feature uses: the OpenAPI contract file, the problem error format, the database and migrations, code generation, and the health checks. Those parts have their own acceptance criteria below because later features depend on them.
 
@@ -197,8 +197,8 @@ All paths are under `/api/v1`. Shapes are defined in `apps/api/openapi.yaml`.
 
 1. Request ID and `slog` request log.
 2. `http.CrossOriginProtection` → 403.
-3. OpenAPI request validation → 400.
-4. Session → actor, or 401 for protected operations.
+3. Session → actor, or 401 for protected operations.
+4. OpenAPI request validation → 400.
 5. `RequirePermission` → 403 where the operation needs one.
 
 ## 4. Data spec
@@ -294,6 +294,7 @@ The Product DoD (`definition-of-done.md`) applies. For F-01 the evidence is:
 
 ## 8. Revision history
 
-| Version | Date       | Change           | Author     |
-| ------- | ---------- | ---------------- | ---------- |
-| 0.1     | 2026-11-05 | Initial contract | 1005, 1045 |
+| Version | Date | Change | Author |
+| --- | --- | --- | --- |
+| 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
+| 0.2 | 2026-11-06 | Review fix (PR #23): session check runs before OpenAPI validation, so an anonymous request gets 401, not 400 (SDS §1.3) | 1005, 1045 |

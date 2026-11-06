@@ -5,7 +5,7 @@
 - **Requirements:** FR-02, FR-03, FR-07, BR-05, BR-06, BR-07, BR-08, BR-12, BR-15, BR-17, NFR-06, NFR-08
 - **Depends on:** F-01
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claims`, `line_items`, `claim_history`; §2.3 money; §2.4 time; §3; §4.3 `POST /claims`; §5.2; §7.1 New Claim
-- **Version:** 0.1 (draft) · **Last updated:** 2026-11-05
+- **Version:** 0.2 (draft) · **Last updated:** 2026-11-06
 
 ---
 
@@ -30,7 +30,7 @@ sequenceDiagram
     R->>W: fill form, Submit
     W->>W: shape checks (generated Zod)
     W->>H: POST /claims
-    H->>H: route permission claim:create, contract validation
+    H->>H: session, contract validation, route permission claim:create
     H->>C: Create(actor, input, submit = true)
     C->>C: BR-15, then BR-05, BR-06, BR-07, BR-12; total = Σ items
     C->>D: BEGIN; insert claim (SUBMITTED), line items, SUBMIT history; COMMIT
@@ -299,6 +299,7 @@ The Product DoD applies. For F-02 the evidence is:
 
 ## 8. Revision history
 
-| Version | Date       | Change           | Author     |
-| ------- | ---------- | ---------------- | ---------- |
-| 0.1     | 2026-11-05 | Initial contract | 1005, 1045 |
+| Version | Date | Change | Author |
+| --- | --- | --- | --- |
+| 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
+| 0.2 | 2026-11-06 | Review fix (PR #23): workflow shows session, then contract validation, then route permission (SDS §1.3) | 1005, 1045 |
