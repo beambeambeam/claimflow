@@ -93,7 +93,7 @@ Steps 4 and 5 both come from the policy: when the actor's relation is wrong, the
 | `req.anan` approves his own claim | 403 |
 | Approve an `APPROVED` or `REJECTED` claim | 409 `INVALID_TRANSITION` BR-03; history unchanged |
 | Two decisions at once with the same version | One 200, one 409 `CONFLICT`; one history row |
-| `If-Match` with an old version | 409 `CONFLICT` |
+| `If-Match` with a well-formed version that is not the current one | 409 `CONFLICT` |
 | No `If-Match` | 428 |
 | History insert fails | 500; status, version, `decided_at` unchanged |
 | `UPDATE` or `DELETE` on `claim_history` | Database error (trigger) |
@@ -205,7 +205,7 @@ Example 409 for an invalid transition:
 | F04-AC-10 | FR-06, BR-02 | `fin.wanida` approves `rev.prasert`'s 40,000.00 claim → 200 with status `APPROVED` (ADR-0001; single stage in Sprint 1). |
 | F04-AC-11 | BR-03 | The assigned reviewer approves or rejects an `APPROVED` or `REJECTED` claim → 409 `INVALID_TRANSITION` with `errors[0].rule = "BR-03"`. Status, `version`, and history are unchanged. |
 | F04-AC-12 | BR-13 | Two decisions on the same claim at the same time with the same version → exactly one 200 and one 409 `CONFLICT`, and exactly one decision history row. |
-| F04-AC-13 | BR-13 | A decision with an out-of-date `If-Match` → 409 `CONFLICT`. Without `If-Match` → 428. With a malformed `If-Match` → 400. |
+| F04-AC-13 | BR-13 | A decision with a well-formed `If-Match` that is not the current version → 409 `CONFLICT`. Without `If-Match` → 428. With a malformed `If-Match` → 400. |
 | F04-AC-14 | NFR-06 | If the history insert fails, the decision returns 500 and the claim's status, `version`, and `decidedAt` are unchanged. |
 | F04-AC-15 | BR-11 | `UPDATE` and `DELETE` on any `claim_history` row fail with a database error. Deleting a claim that has history fails. |
 | F04-AC-16 | NFR-05 | After the API process and the PostgreSQL container restart (volume kept), every claim, line item, and history entry created before the restart is returned unchanged. |
@@ -235,7 +235,7 @@ Levels as in F-01 §6. Module tests call `claim.Service.Act` against `pgtest` Po
 | F04-TEST-13 | F04-AC-10 | Integration | `rev.prasert`'s 40,000.00 `SUBMITTED` claim | `POST …/approve` as `fin.wanida` | 200; status `APPROVED` |
 | F04-TEST-14 | F04-AC-11 | Integration | One `APPROVED` and one `REJECTED` claim assigned to `rev.malee` | `POST …/approve` and `…/reject` on each with the current version | 409 `INVALID_TRANSITION`, `errors[0].rule = "BR-03"`; `version` and history count unchanged |
 | F04-TEST-15 | F04-AC-12 | Integration (module) | `SUBMITTED` claim, version `v` | Two goroutines start together: `Act(APPROVE, v)` and `Act(REJECT, v, valid reason)` | Exactly one success and one `ErrConflict`; one decision history row; final status matches the winner |
-| F04-TEST-16 | F04-AC-13 | Integration | `SUBMITTED` claim at version `v` | `approve` with `If-Match: "v-1"`; with no header; with `If-Match: abc` | 409 `CONFLICT`; 428 `PRECONDITION_REQUIRED`; 400 |
+| F04-TEST-16 | F04-AC-13 | Integration | `SUBMITTED` claim at version `v` | `approve` with `If-Match: "v+1"` (`"1"` for a new claim); with no header; with `If-Match: abc` | 409 `CONFLICT`; 428 `PRECONDITION_REQUIRED`; 400 |
 | F04-TEST-17 | F04-AC-14 | Integration (module) | Test-only trigger that raises on `INSERT` into `claim_history` | `Act(APPROVE)` | Error; claim status `SUBMITTED`, `version` and `decided_at` unchanged |
 | F04-TEST-18 | F04-AC-15 | Integration | Claim with 2 history rows | `UPDATE claim_history SET comment = 'x'`; `DELETE FROM claim_history`; `DELETE FROM claims WHERE id = …` | Each statement fails; rows unchanged |
 | F04-TEST-19 | F04-AC-16 | Manual | `docker compose` database with a named volume; seed plus one claim created and approved through the UI | Stop the API and the database container; start both; open My Claims and the claim as `req.anan` | Same claims, items, totals, and history as before the restart; result recorded with the commit |
@@ -259,4 +259,4 @@ The Product DoD applies. For F-04 the evidence is:
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
-| 0.2 | 2026-11-06 | Review fix (PR #23): reject `comment` is optional in the contract so BR-04 returns 422; F04-TEST-07 sends missing and blank reasons; `If-Match` is optional in `openapi.yaml`; the handler returns 428 when it is missing and 400 when it is malformed | 1005, 1045 |
+| 0.2 | 2026-11-06 | Review fix (PR #23): reject `comment` is optional in the contract so BR-04 returns 422; F04-TEST-07 sends missing and blank reasons; `If-Match` is optional in `openapi.yaml`; the handler returns 428 when it is missing and 400 when it is malformed; F04-TEST-16 uses `If-Match: "v+1"`, because `"v-1"` is `"-1"` for a new claim | 1005, 1045 |
