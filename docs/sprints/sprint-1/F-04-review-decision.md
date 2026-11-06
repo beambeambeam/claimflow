@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-03 (NFR-05, local restart), SR-04 (BR-03, BR-11, BR-13, NFR-06)
 - **Depends on:** F-01, F-02, F-03 (claim policy and Claim Detail)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claim_history`; §3.2 `APPROVE`, `REJECT`; §3.3; §4.1 versions; §4.3 `approve`, `reject`; §5.2; §5.3 `scope=review` and access tests; §7.2 decisions; ADR-0001
-- **Version:** 0.1 (draft) · **Last updated:** 2026-11-05
+- **Version:** 0.2 (draft) · **Last updated:** 2026-11-06
 
 ---
 
@@ -147,7 +147,9 @@ The requester sees a reject reason in the history timeline on Claim Detail (F-03
 | --- | --- | --- | --- | --- | --- |
 | GET | `/claims` | `scope=review`, `page`, `pageSize` | 200 `ClaimPage`; status `SUBMITTED`, `assigned_reviewer_id = actor`, `submittedAt` ascending | 400, 401, 403 | `review:list` |
 | POST | `/claims/{id}/approve` | Header `If-Match: "<version>"`; body `{ "comment"?: string }` | 200 `{ "data": Claim }`, new `ETag` | 400, 401, 403, 404, 409 `INVALID_TRANSITION` / `CONFLICT`, 422, 428 | session; policy |
-| POST | `/claims/{id}/reject` | Header `If-Match: "<version>"`; body `{ "comment": string }` | 200 `{ "data": Claim }`, new `ETag` | same | session; policy |
+| POST | `/claims/{id}/reject` | Header `If-Match: "<version>"`; body `{ "comment"?: string }` | 200 `{ "data": Claim }`, new `ETag` | same | session; policy |
+
+`comment` is optional on both operations and has no `minLength` or `maxLength` in `openapi.yaml`. The BR-04 check (§1.5) decides the response, so a missing, blank, too short, or too long reason gets 422 with `field = "comment"`, never a 400 from the validator.
 
 `Claim` and `ClaimPage` are defined in F-02 §3.1 and F-03 §3.1. After a decision, `allowedActions` for the reviewer is `[]`.
 
@@ -222,7 +224,7 @@ Levels as in F-01 §6. Module tests call `claim.Service.Act` against `pgtest` Po
 | F04-TEST-04 | F04-AC-04 | Integration | Same claim, version `v` | `POST …/approve` with `If-Match: "v"` and comment "OK" | 200; status `APPROVED`; `decidedAt` = clock; `version = v + 1`; `ETag: "v+1"`; 2 history rows, last is `APPROVE` with comment "OK"; claim not in `scope=review` |
 | F04-TEST-05 | F04-AC-05 | Integration | Same claim | `POST …/reject` with reason "Missing receipt" | 200; `REJECTED`; last history `REJECT` with the reason; `GET` as `req.anan` shows it |
 | F04-TEST-06 | F04-AC-06 | Integration (module) | `SUBMITTED` claim | `Act(REJECT)` with no comment, `"   "`, 4 chars, 5 chars, 500 chars, 501 chars; `Act(APPROVE)` with 501 chars | `ValidationError{comment, BR-04}` ×3, ok, ok, BR-04 error; BR-04 error |
-| F04-TEST-07 | F04-AC-06 | Integration | `SUBMITTED` claim | `POST …/reject` with a 4-character reason | 422; `errors[0]` = `comment`, BR-04, "Reason must be at least 5 characters." |
+| F04-TEST-07 | F04-AC-06 | Integration | `SUBMITTED` claim | `POST …/reject` with no `comment`; with `"   "`; with a 4-character reason | 422 each; `errors[0]` = `comment`, BR-04, with "Enter a reason (5 to 500 characters).", "Enter a reason (5 to 500 characters).", and "Reason must be at least 5 characters." |
 | F04-TEST-08 | F04-AC-07 | Integration | `rev.malee`'s own `SUBMITTED` claim (assigned to `rev.prasert`) | `POST …/approve` and `…/reject` as `rev.malee` | 403 for both; status `SUBMITTED`; history length unchanged |
 | F04-TEST-09 | F04-AC-07 | Unit | In-memory claim with `requester_id = assigned_reviewer_id = rev.malee`, `SUBMITTED` | `Allowed(rev.malee, claim)` | `approve` and `reject` not in actions |
 | F04-TEST-10 | F04-AC-07 | Integration | – | `INSERT` a claim with `assigned_reviewer_id = requester_id` | CHECK constraint error |
@@ -252,6 +254,7 @@ The Product DoD applies. For F-04 the evidence is:
 
 ## 8. Revision history
 
-| Version | Date       | Change           | Author     |
-| ------- | ---------- | ---------------- | ---------- |
-| 0.1     | 2026-11-05 | Initial contract | 1005, 1045 |
+| Version | Date | Change | Author |
+| --- | --- | --- | --- |
+| 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
+| 0.2 | 2026-11-06 | Review fix (PR #23): reject `comment` is optional in the contract so BR-04 returns 422; F04-TEST-07 sends missing and blank reasons | 1005, 1045 |
