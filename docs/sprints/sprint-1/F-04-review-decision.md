@@ -149,6 +149,8 @@ The requester sees a reject reason in the history timeline on Claim Detail (F-03
 | POST | `/claims/{id}/approve` | Header `If-Match: "<version>"`; body `{ "comment"?: string }` | 200 `{ "data": Claim }`, new `ETag` | 400, 401, 403, 404, 409 `INVALID_TRANSITION` / `CONFLICT`, 422, 428 | session; policy |
 | POST | `/claims/{id}/reject` | Header `If-Match: "<version>"`; body `{ "comment"?: string }` | 200 `{ "data": Claim }`, new `ETag` | same | session; policy |
 
+`If-Match` is an optional header in `openapi.yaml` (`required: false`), so the validator never rejects a request without it. The handler returns 428 `PRECONDITION_REQUIRED` when it is missing and 400 when it is not a quoted version number (§1.4 step 1). This applies to `approve` and `reject`, and to every later operation that changes a claim.
+
 `comment` is optional on both operations and has no `minLength` or `maxLength` in `openapi.yaml`. The BR-04 check (§1.5) decides the response, so a missing, blank, too short, or too long reason gets 422 with `field = "comment"`, never a 400 from the validator.
 
 `Claim` and `ClaimPage` are defined in F-02 §3.1 and F-03 §3.1. After a decision, `allowedActions` for the reviewer is `[]`.
@@ -257,4 +259,4 @@ The Product DoD applies. For F-04 the evidence is:
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
-| 0.2 | 2026-11-06 | Review fix (PR #23): reject `comment` is optional in the contract so BR-04 returns 422; F04-TEST-07 sends missing and blank reasons | 1005, 1045 |
+| 0.2 | 2026-11-06 | Review fix (PR #23): reject `comment` is optional in the contract so BR-04 returns 422; F04-TEST-07 sends missing and blank reasons; `If-Match` is optional in `openapi.yaml`; the handler returns 428 when it is missing and 400 when it is malformed | 1005, 1045 |
