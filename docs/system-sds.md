@@ -42,6 +42,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | Monorepo/tooling | Bun workspaces, Vite+ (`vp`) for lint/format/test, semantic-release | in repo | Existing team setup |
 | UI | React 19 + TypeScript, TanStack Router (file routes), Tailwind CSS 4 | in repo | Existing team setup; typed routes |
+| UI components | HeroUI v3 (React Aria based, Tailwind CSS 4) | to add | Accessible ready-made components that use the existing Tailwind 4 setup |
 | UI server state | TanStack Query | to add | Caching, plus built-in loading/error states for every API call |
 | UI forms | TanStack Form with the Zod schemas generated from the contract | to add | Client checks use the same limits as the server |
 | API contract | OpenAPI 3.0.3, written by hand in `apps/api/openapi.yaml` | to add | One source for both apps; it is the feature contract for each sprint |
@@ -112,9 +113,10 @@ apps/api/
       model.go  queries.sql  *_test.go
     report/                        # feature: decision summaries (Sprint 3)
       handler.go  service.go  queries.sql  *_test.go
-    httperr/                       # shared: RFC 9457 problem responses (Section 4.2)
+    httperr/                       # shared: RFC 9457 problem responses and request IDs (Section 4.2)
+    system/                        # shared: /health and /ready (Section 4.3)
     money/                         # shared: the money.Satang type (Section 2.3)
-    pgtest/                        # shared, tests only: testcontainers PostgreSQL + migrations + seed
+    pgtest/                        # shared, tests only: one PostgreSQL container per package, a fresh database per test
   migrations/                      # goose SQL migrations (one schema for all features)
   seed/                            # seed data, run with `bun run seed`
 ```
@@ -302,13 +304,14 @@ Indexes: `(requester_id, status)` and `(assigned_reviewer_id, status)`.
 
 | Command (in `apps/api`) | Purpose |
 | --- | --- |
-| `bun run db:up` | `docker compose up -d postgres` for local development |
-| `bun run migrate` | `goose up` with the committed migrations in `migrations/` |
-| `bun run generate` | Regenerate `internal/db` (sqlc) and `internal/api` (oapi-codegen); generated code is committed, and CI fails if regenerating changes it |
+| `bun run db:up` (repo root) | `docker compose up -d --wait db`: PostgreSQL 17 with a named volume, for local development |
+| `bun run migrate up\|down\|status` | Runs `api migrate`, a subcommand of the API binary. goose applies the SQL files in `migrations/`, which are embedded in the binary, under a PostgreSQL advisory lock. The API never migrates at startup. |
+| `bun run migrate:new <name> sql` | Adds a goose SQL migration file |
+| `bun run generate` | Regenerate `env/env.go` (varlock), `internal/api` (oapi-codegen), and `internal/db` (sqlc); generated code is committed, and CI fails if regenerating changes it |
 | `bun run seed` | Load the base demo dataset. Idempotent: upserts by username/claim_no. |
 | `bun run seed:load` | Add ~200 extra claims for NFR-07 (Sprint 3) |
 
-In `apps/web`, `bun run generate` regenerates `src/lib/api` from `../api/openapi.yaml`, with the same CI check.
+In `apps/web`, `bun run generate` regenerates `src/lib/api` from `../api/openapi.yaml`, with the same CI check. The root `bun run generate` runs both.
 
 **Base seed accounts.** Each seed user gets a `user` row and a `credential` `account` row. All share the password in `SEED_USER_PASSWORD` (sensitive, from the environment, never committed – NFR-04). They form the reporting line `Staff → Section Head → Department Head → Finance Officer`:
 
@@ -388,16 +391,16 @@ Each call runs in one transaction (`pgx.BeginFunc`, NFR-06):
 
 ### 4.2 Error format
 
-Errors use **RFC 9457 Problem Details** (`Content-Type: application/problem+json`), produced only by `internal/httperr` and defined once in the contract as the `Problem` schema. Responses never include stack traces, SQL, or Go error strings. Two extension members are added: `code` (stable, for the client) and `errors` (one entry per field).
+Errors use **RFC 9457 Problem Details** (`Content-Type: application/problem+json`), produced only by `internal/httperr` and defined once in the contract as the `Problem` schema. Responses never include stack traces, SQL, or Go error strings. Two extension members are added: `code` (stable, for the client) and `errors` (one entry per field). `type` is always `about:blank`, so `title` is the HTTP meaning and `code` is what the client checks. `requestId` is a UUIDv7 that the server makes for every request. It is also sent in the `X-Request-Id` header of every response, and an incoming `X-Request-Id` is ignored.
 
 ```json
 {
-  "type": "https://claimflow.dev/problems/validation-failed",
+  "type": "about:blank",
   "title": "Some fields are invalid.",
   "status": 422,
   "code": "VALIDATION_FAILED",
   "instance": "/api/v1/claims",
-  "requestId": "01JC3Z8Q2W5Y7X9V4T6R8P0N2M",
+  "requestId": "019a5e2c-7b3d-7c41-9f2e-4b8d1a6c3e70",
   "errors": [
     {
       "field": "items[1].expenseDate",
@@ -705,10 +708,10 @@ Tests go through each module's interface. They test behaviour, not internals, so
 
 Test files follow each language's standard layout:
 
-- **Go:** `_test.go` files sit in the same folder as the code they test. The Go toolchain requires this: `go test` finds tests only in the package folder, and only a test file in that folder can test unexported code. Shared test helpers live in `internal/pgtest`.
+- **Go:** `_test.go` files sit in the same folder as the code they test. The Go toolchain requires this: `go test` finds tests only in the package folder, and only a test file in that folder can test unexported code. Shared test helpers live in `internal/pgtest`. It starts one PostgreSQL container per test package, migrates a template database once, and gives each test a fresh database copied from the template (`CREATE DATABASE ... TEMPLATE`), so tests stay independent without migrating again.
 - **Web:** `*.test.ts(x)` files sit in a `__test__/` folder (Section 1.4.2).
 
-Both apps require **100% coverage**: the API through `.testcoverage.yml`, the web through `test.coverage.thresholds` in `apps/web/vite.config.ts`. Only generated code is excluded. For the API that is `env/`, `internal/api/`, and `internal/db/`. When sqlc and oapi-codegen are added, `.testcoverage.yml` gets the last two paths, because today it excludes only `^env/`. The mapping from AC to test IDs is in each feature's STS and in `docs/traceability.md`.
+Both apps require **100% coverage**: the API through `.testcoverage.yml`, the web through `test.coverage.thresholds` in `apps/web/vite.config.ts`. Only generated code is excluded. For the API that is `env/`, `internal/api/`, and `internal/db/`; for the web it is `src/lib/api/` and `src/routeTree.gen.ts`. The mapping from AC to test IDs is in each feature's STS and in `docs/traceability.md`.
 
 ## 11. Design decisions
 
@@ -744,3 +747,4 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.7 | 2026-11-04 | Architecture review: claim module interface (3.1) and claim policy with `allowedActions` (5.2); list scopes (5.3); OpenAPI contract with generated server and client; RFC 9457 errors; `If-Match` versions; `money.Satang`; injected clock and Asia/Bangkok dates; one sqlc package; UUIDv7; `__Host-` cookie and `CrossOriginProtection`; `/ready`; web served by the API. Fixed SRS gaps: BR-12 Meals cap, BR-11 history trigger, fixed 8 h session and high-value threshold, claim number format, FR-13 filters, FR-14 summary shape, route-inventory and login tests, 5xx UI state. SD-13 to SD-16. Documented the existing branch rulesets (9.1). Web tests live in `__test__` folders, matching `apps/web/vite.config.ts`. | 1005, 1045 |
 | 0.8 | 2026-11-04 | Auth design (2.2, 5.1, 6, SD-10) written as this system's own design, with no references to outside frameworks | 1005, 1045 |
 | 0.9 | 2026-11-07 | Sprint branches renamed to `sprint-1`–`sprint-3` and the ruleset to `sprint` (#7); both rulesets require 1 approval, dismiss stale approvals, and block last-pusher approval (9.1) | 1005, 1045 |
+| 0.10 | 2026-11-07 | F-01/01 (#24) decisions: HeroUI v3 (1.2); `system` package and per-test template databases in `pgtest` (1.4, 10); `db:up` at the root, `migrate up\|down\|status` subcommand with embedded migrations and an advisory lock (2.5); problem `type` is `about:blank`, and `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (4.2) | 1005, 1045 |

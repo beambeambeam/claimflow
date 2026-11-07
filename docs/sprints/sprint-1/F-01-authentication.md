@@ -144,12 +144,12 @@ All paths are under `/api/v1`. Shapes are defined in `apps/api/openapi.yaml`.
 
 ```json
 {
-  "type": "https://claimflow.dev/problems/unauthenticated",
+  "type": "about:blank",
   "title": "Invalid username or password.",
   "status": 401,
   "code": "UNAUTHENTICATED",
   "instance": "/api/v1/auth/login",
-  "requestId": "01JC3Z8Q2W5Y7X9V4T6R8P0N2M",
+  "requestId": "019a5e2c-7b3d-7c41-9f2e-4b8d1a6c3e70",
   "errors": [
     {
       "field": "username",
@@ -298,3 +298,4 @@ The Product DoD (`definition-of-done.md`) applies. For F-01 the evidence is:
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
 | 0.2 | 2026-11-06 | Review fix (PR #23): session check runs before OpenAPI validation, so an anonymous request gets 401, not 400 (SDS §1.3) | 1005, 1045 |
+| 0.3 | 2026-11-07 | Ticket 01 (#24): problem `type` is `about:blank`, `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (SDS §4.2); migration `00001_auth.sql` (4.1) ships in ticket 01, because goose needs at least one migration; UI components are HeroUI v3 (SDS §1.2); PRs target `sprint-1` | 1005, 1045 |
