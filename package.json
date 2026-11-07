@@ -16,6 +16,9 @@
   "type": "module",
   "scripts": {
     "dev": "vp run -r --parallel dev",
+    "db:up": "docker compose up -d --wait db",
+    "db:down": "docker compose down",
+    "generate": "vp run -r generate",
     "build": "vp run -r build",
     "test": "vp run -r test",
     "test:coverage": "vp run -r test:coverage",

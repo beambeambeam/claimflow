@@ -159,12 +159,12 @@ Example 409 for an invalid transition:
 
 ```json
 {
-  "type": "https://claimflow.dev/problems/invalid-transition",
+  "type": "about:blank",
   "title": "This action is not allowed in the claim's current status.",
   "status": 409,
   "code": "INVALID_TRANSITION",
   "instance": "/api/v1/claims/0192f1c4-.../approve",
-  "requestId": "01JC3Z8Q2W5Y7X9V4T6R8P0N2M",
+  "requestId": "019a5e2c-7b3d-7c41-9f2e-4b8d1a6c3e70",
   "errors": [
     {
       "field": "status",
@@ -260,3 +260,4 @@ The Product DoD applies. For F-04 the evidence is:
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
 | 0.2 | 2026-11-06 | Review fix (PR #23): reject `comment` is optional in the contract so BR-04 returns 422; F04-TEST-07 sends missing and blank reasons; `If-Match` is optional in `openapi.yaml`; the handler returns 428 when it is missing and 400 when it is malformed; F04-TEST-16 uses `If-Match: "v+1"`, because `"v-1"` is `"-1"` for a new claim | 1005, 1045 |
+| 0.3 | 2026-11-07 | Problem example uses `type: about:blank` and a UUIDv7 `requestId`, matching SDS §4.2 v0.10 | 1005, 1045 |

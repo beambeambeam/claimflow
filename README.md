@@ -9,10 +9,13 @@ Bun workspace monorepo. Apps live in `apps/*`.
 
 ## Getting started
 
-Requires [Bun](https://bun.sh), Node.js (version in `.node-version`), and Go (version in `apps/api/go.mod`).
+Requires [Bun](https://bun.sh), Node.js (version in `.node-version`), Go (version in `apps/api/go.mod`), and Docker.
 
 ```sh
 bun install
+cp apps/api/.env.example apps/api/.env
+bun run db:up
+bun run --cwd apps/api migrate up
 bun run dev
 ```
 
@@ -22,14 +25,16 @@ The web app runs on http://localhost:3000 and the API on http://localhost:8080. 
 
 Run these at the repository root:
 
-| Script                                    | Description                  |
-| ----------------------------------------- | ---------------------------- |
-| `bun run dev`                             | Start every app dev server   |
-| `bun run build`                           | Build every app              |
-| `bun run test` / `bun run test:coverage`  | Test every app               |
-| `bun run lint` / `bun run lint:fix`       | Lint the whole repository    |
-| `bun run format` / `bun run format:check` | Format the whole repository  |
-| `bun run check`                           | Format, lint, and type-check |
+| Script | Description |
+| --- | --- |
+| `bun run dev` | Start every app dev server |
+| `bun run db:up` / `bun run db:down` | Start or stop local PostgreSQL |
+| `bun run generate` | Regenerate env, API server, queries, and web client |
+| `bun run build` | Build every app |
+| `bun run test` / `bun run test:coverage` | Test every app |
+| `bun run lint` / `bun run lint:fix` | Lint the whole repository |
+| `bun run format` / `bun run format:check` | Format the whole repository |
+| `bun run check` | Format, lint, and type-check |
 
 Repository-wide lint, format, and pre-commit rules live in the root `vite.config.ts`; app-specific rules live in each app (for example `apps/web/check.config.ts`). Share dependency versions through `workspaces.catalog` in the root `package.json` and reference them with `"catalog:"`.
 
