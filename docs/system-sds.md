@@ -2,8 +2,8 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.8 (draft for Deliverable 1)
-- **Last updated:** 2026-11-04
+- **Version:** 0.9 (draft for Deliverable 1)
+- **Last updated:** 2026-11-07
 - **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
 This document defines the system-wide design: architecture, data model, the API contract and its conventions, roles and access, authentication, configuration, and deployment. Each feature contract in `docs/sprints/` refines it with exact operations in `apps/api/openapi.yaml`, screens, and schema changes.
@@ -649,7 +649,7 @@ flowchart LR
     Dev[Developer] -->|PR| GH[GitHub]
     GH -->|CI: format, lint, generate check,<br/>tests, coverage, vuln, image build| CI{Checks pass?}
     CI -- no --> Block[Merge blocked]
-    CI -- yes --> Stg[staging-N<br/>sprint branch]
+    CI -- yes --> Stg[sprint-N<br/>sprint branch]
     Stg -->|release PR| Main[main]
     Main --> Rel[semantic-release<br/>tag vG.X.Y.Z]
     Rel --> Build[Build image<br/>API + web]
@@ -669,24 +669,25 @@ flowchart LR
 | Migrations | `goose up` runs as a Cloud Run job before the new revision gets traffic. The app never changes the schema on startup. |
 | Logs | `slog` JSON on stdout with Cloud Logging field names (`severity`, `message`), one line per request with `requestId`, method, route, status, and latency. Sensitive values are never logged. |
 | Release identity | Images are tagged with the semantic-release tag `vG.X.Y.Z` (G = generation, from `release.config.js`) and the git SHA. `/health` returns `version`. |
-| CI gate | The existing `CI` workflow runs format, lint, web tests, Go tests with **100% coverage**, govulncheck, and the image build on every PR. It also checks that the generated code is up to date: it runs `generate` and fails on any diff. GitHub rulesets `main` and `staging` (Section 9.1) make the `code_quality`, `test`, `api`, and `build` jobs required checks. The `api_image` job is not required yet; add it to both rulesets before Lab 5. |
-| Branches | Repo convention: `<type>/<short-kebab-name>` (e.g. `feat/claim-submission`). Each sprint has a **staging branch** (`staging-1`, `staging-2`, `staging-3`). Feature PRs target the current sprint's staging branch and are squash-merged; at the end of the sprint one release PR merges it into `main` with a merge commit, which triggers semantic-release. `CONTRIBUTING.md` documents the flow. |
+| CI gate | The existing `CI` workflow runs format, lint, web tests, Go tests with **100% coverage**, govulncheck, and the image build on every PR. It also checks that the generated code is up to date: it runs `generate` and fails on any diff. GitHub rulesets `main` and `sprint` (Section 9.1) make the `code_quality`, `test`, `api`, and `build` jobs required checks. The `api_image` job is not required yet; add it to both rulesets before Lab 5. |
+| Branches | Repo convention: `<type>/<short-kebab-name>` (e.g. `feat/claim-submission`). Each sprint has a **staging branch** (`sprint-1`, `sprint-2`, `sprint-3`). Feature PRs target the current sprint's staging branch and are squash-merged; at the end of the sprint one release PR merges it into `main` with a merge commit, which triggers semantic-release. `CONTRIBUTING.md` documents the flow. |
 
 ### 9.1 Branch rulesets
 
 Both rulesets are active on GitHub and have no bypass actors.
 
-| Rule | `main` ruleset (`main`) | `staging` ruleset (`staging-*`) |
+| Rule | `main` ruleset (`main`) | `sprint` ruleset (`sprint-*`) |
 | --- | --- | --- |
 | Branch deletion | Blocked | Blocked |
 | Force push | Blocked | Blocked |
-| Pull request | Required, 0 approvals | Required, 0 approvals |
+| Pull request | Required, 1 approval | Required, 1 approval |
+| Review | Stale approvals dismissed on push; the last pusher cannot approve | Stale approvals dismissed on push; the last pusher cannot approve |
 | Merge method | Merge commit only | Squash only |
 | Linear history | – | Required |
 | Required checks | `code_quality`, `test`, `api`, `build` | `code_quality`, `test`, `api`, `build` |
 
 - Squash merges into staging make each PR title one commit subject. The merge commit into `main` keeps those subjects, so semantic-release reads one release signal per feature.
-- A PR needs 0 approvals, so the team can merge alone. The required checks are the gate.
+- A PR needs 1 approval from the teammate who did not push last, so authors do not approve their own work. A new push dismisses the approval. The required checks and the review are the gate.
 
 ## 10. Test strategy (system level)
 
@@ -742,3 +743,4 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.6 | 2026-11-04 | Feature-based code organization for API and web (1.4); sqlc output per feature; SD-12 | 1005, 1045 |
 | 0.7 | 2026-11-04 | Architecture review: claim module interface (3.1) and claim policy with `allowedActions` (5.2); list scopes (5.3); OpenAPI contract with generated server and client; RFC 9457 errors; `If-Match` versions; `money.Satang`; injected clock and Asia/Bangkok dates; one sqlc package; UUIDv7; `__Host-` cookie and `CrossOriginProtection`; `/ready`; web served by the API. Fixed SRS gaps: BR-12 Meals cap, BR-11 history trigger, fixed 8 h session and high-value threshold, claim number format, FR-13 filters, FR-14 summary shape, route-inventory and login tests, 5xx UI state. SD-13 to SD-16. Documented the existing branch rulesets (9.1). Web tests live in `__test__` folders, matching `apps/web/vite.config.ts`. | 1005, 1045 |
 | 0.8 | 2026-11-04 | Auth design (2.2, 5.1, 6, SD-10) written as this system's own design, with no references to outside frameworks | 1005, 1045 |
+| 0.9 | 2026-11-07 | Sprint branches renamed to `sprint-1`–`sprint-3` and the ruleset to `sprint` (#7); both rulesets require 1 approval, dismiss stale approvals, and block last-pusher approval (9.1) | 1005, 1045 |

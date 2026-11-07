@@ -26,7 +26,7 @@ Each feature is in exactly one sprint. Every dependency points to the same sprin
 - **Features:** F-01 Authentication and session · F-02 Submit claim · F-03 My claims · F-04 Review decision
 - **Responsibilities established:** SR-01 (authorization), SR-02 (local secrets), SR-03 (local persistence), SR-04 (lifecycle integrity), SR-06 (tests and CI gate)
 - **Dependencies:** F-01 → F-02 → F-03 and F-04. Contracts in `docs/sprints/sprint-1/` (#6) merge before implementation.
-- **Completion outcome:** every AC in the four contracts passes its planned test (`docs/traceability.md`). The Product DoD (`docs/sprints/sprint-1/definition-of-done.md`) is met. `staging-1` is released to `main` and the release tag is the accepted Sprint 1 release.
+- **Completion outcome:** every AC in the four contracts passes its planned test (`docs/traceability.md`). The Product DoD (`docs/sprints/sprint-1/definition-of-done.md`) is met. `sprint-1` is released to `main` and the release tag is the accepted Sprint 1 release.
 - **Work order (critical path):**
 
 ```mermaid
@@ -53,7 +53,7 @@ After F-02/01, the work splits into three paths (rules, My Claims, detail → de
 - **Features:** F-05 Drafts · F-06 Return and resubmit · F-07 Withdraw
 - **Responsibilities re-verified:** SR-01, SR-04, SR-06 on every new endpoint and transition
 - **Dependencies:** F-02 → F-05 → F-06 (F-06 also needs F-04) → F-07. F-05 builds the claim editor that F-06 reuses for `Returned` claims.
-- **Completion outcome:** all Sprint 2 contracts written and merged before their code (by 11 Nov). All Sprint 2 AC pass. `staging-2` is released to `main` by 22 Nov, one week before D2, so the week of 23 Nov is free for Sprint 3 and Lab 7.
+- **Completion outcome:** all Sprint 2 contracts written and merged before their code (by 11 Nov). All Sprint 2 AC pass. `sprint-2` is released to `main` by 22 Nov, one week before D2, so the week of 23 Nov is free for Sprint 3 and Lab 7.
 - **Work order:** F-05/01 save and view → F-05/02 edit → F-05/03 submit draft → F-05/04 delete → F-06/01 return → F-06/02 edit and resubmit → F-07/01 withdraw.
 
 ### 2.3 Sprint 3 – Completion and hardening (19 Nov → 13 Dec)
@@ -67,7 +67,7 @@ After F-02/01, the work splits into three paths (rules, My Claims, detail → de
   - **By 30 Nov:** F-09 and F-10 implemented and tested, so no main workflow is left for the exam period.
   - **1–11 Dec:** defect fixes, UAT re-tests, NFR-07 timed run on the deployed release, final regression, and the demo video only.
   - **By 13 Dec (Final):** final release on `main`, deployed on GCP.
-- **Work order:** Sprint 3 contracts (19–23 Nov, next to the end of Sprint 2; `docs:` PRs go to `staging-2` until `staging-3` exists) → F-08/01 Pending finance → F-08/02 Finance Queue and final decisions → F-09/01 filters and search → F-10/01 decision summary → F-10/02 load dataset and NFR-07 run.
+- **Work order:** Sprint 3 contracts (19–23 Nov, next to the end of Sprint 2; `docs:` PRs go to `sprint-2` until `sprint-3` exists) → F-08/01 Pending finance → F-08/02 Finance Queue and final decisions → F-09/01 filters and search → F-10/01 decision summary → F-10/02 load dataset and NFR-07 run.
 
 ## 3. Feature dependency graph
 
@@ -117,7 +117,7 @@ The dashed edge is a work-item dependency, not a feature dependency in `docs/fea
 | 6–8 Nov | F-01 → F-04 implementation; Sprint 1 release to `main` | **8 Nov: D1 due** (baseline + working Sprint 1) |
 | 9–11 Nov | Sprint 2 contracts; F-05 | Lab 5: Dockerfile, Docker Compose, CI/CD to GCP; 10, 12 Nov Lab 6 workshop |
 | 12–15 Nov | F-05, F-06/01 | Lab 5: deploy the Sprint 1 release on GCP; Secret Manager (NFR-04); redeploy check (NFR-05); one-command run (NFR-10). **15 Nov: Lab 5 due** |
-| 16–19 Nov | F-06/02, F-07 | Lab 6: cross-team UAT on the deployed release; log defects; fix as `fix/` PRs into `staging-2`. 17, 19 Nov Lab 7 workshop |
+| 16–19 Nov | F-06/02, F-07 | Lab 6: cross-team UAT on the deployed release; log defects; fix as `fix/` PRs into `sprint-2`. 17, 19 Nov Lab 7 workshop |
 | 19–22 Nov | Sprint 2 release to `main` (22 Nov); Sprint 3 contracts | **22 Nov: Lab 6 due** |
 | 23–28 Nov | F-08; D2 candidate released to `main` and deployed (28 Nov) | Lab 7: maintenance change, regression run, metrics, release readiness. 24, 26 Nov Final Exam Review |
 | 29 Nov | D2 report | **29 Nov: D2 and Lab 7 due** |
@@ -128,7 +128,7 @@ The dashed edge is a work-item dependency, not a feature dependency in `docs/fea
 How the labs fit next to sprint work:
 
 - **Lab 5** (Docker, CI/CD, GCP) runs in the first week of Sprint 2. It deploys the Sprint 1 release and closes the cloud parts of NFR-04, NFR-05, and NFR-10. Sprint 2 keeps only F-05 in that week to leave time for it.
-- **Lab 6** (independent UAT) tests the deployed release. Defects go in the change and defect register (D2 Part A) and are fixed in `staging-2` with `fix:` PRs.
+- **Lab 6** (independent UAT) tests the deployed release. Defects go in the change and defect register (D2 Part A) and are fixed in `sprint-2` with `fix:` PRs.
 - **Lab 7** (maintenance change, regression, release readiness) runs in the week after the Sprint 2 release, so the regression run covers Sprint 1 and Sprint 2 together.
 
 ## 5. Sprint 1 scope
@@ -190,15 +190,15 @@ Every NFR has a verification sprint. The requirement-level view is in `docs/trac
 ## 7. Branch strategy
 
 ```text
-feat/<name> ──squash──▶ staging-N ──merge commit──▶ main ──▶ semantic-release tag ──▶ GCP deploy (from Lab 5)
+feat/<name> ──squash──▶ sprint-N ──merge commit──▶ main ──▶ semantic-release tag ──▶ GCP deploy (from Lab 5)
 ```
 
-- Each sprint has one staging branch: `staging-1`, `staging-2`, `staging-3` (`CONTRIBUTING.md`).
-- Feature and fix branches start from the current `staging-N` and merge back with a squash merge. A contract PR (`docs:`) merges before its implementation PR.
-- At the end of a sprint, one release PR goes from `staging-N` to `main` with a merge commit. `staging-N+1` is created from `main` after the release.
+- Each sprint has one staging branch: `sprint-1`, `sprint-2`, `sprint-3` (`CONTRIBUTING.md`).
+- Feature and fix branches start from the current `sprint-N` and merge back with a squash merge. A contract PR (`docs:`) merges before its implementation PR.
+- At the end of a sprint, one release PR goes from `sprint-N` to `main` with a merge commit. `sprint-N+1` is created from `main` after the release.
 - **Interim releases.** Two checkpoints need work on `main` before a sprint ends:
-  - Lab 5 deployment work and Lab 6 fixes are in `staging-2`. A release PR to `main` by 14 Nov deploys them, together with any Sprint 2 feature that already meets the DoD.
-  - The D2 candidate on 28 Nov is a release PR from `staging-3` with F-08.
+  - Lab 5 deployment work and Lab 6 fixes are in `sprint-2`. A release PR to `main` by 14 Nov deploys them, together with any Sprint 2 feature that already meets the DoD.
+  - The D2 candidate on 28 Nov is a release PR from `sprint-3` with F-08.
 
   Each release has its own tag, so the accepted Sprint 1 and Sprint 2 releases stay identifiable (D2 Part A and Part B).
 
@@ -209,3 +209,4 @@ Record every scope or date change here with its reason. Do not rewrite earlier e
 | Date | Change | Reason | Approved by |
 | --- | --- | --- | --- |
 | 2026-11-05 | Staging branches are named `staging-N`, not `sprint-N` as #5 and #7 say. | `CONTRIBUTING.md`, the GitHub rulesets, and the system SDS already use `staging-N`. | Pending review |
+| 2026-11-07 | Staging branches are named `sprint-N`, as #7 says. `staging-1` was renamed to `sprint-1` and the ruleset now targets `sprint-*`. | Replaces the 2026-11-05 entry: the issue name was the intended one. | Pending review |

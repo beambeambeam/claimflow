@@ -8,6 +8,24 @@
 
 Related issue: #
 
+## Contract
+
+<!-- List the feature and acceptance criteria IDs this PR implements, for example `F-01`, `F01-AC-03`. Write `Not applicable` for tooling or docs-only changes. -->
+
+- Feature: F-
+- Acceptance criteria:
+
+## Tests run
+
+<!-- List the commands you ran and their result, and the test IDs (for example `F01-TEST-04`) that now pass. -->
+
+- [ ] `bun run check`
+- [ ] `bun run test:coverage`
+
+## Pair work
+
+<!-- Write `None`, or list both authors and what each person did. -->
+
 ## Naming and release
 
 - Branch: `<type>/<short-kebab-name>`

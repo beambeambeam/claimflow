@@ -90,5 +90,5 @@ This feature also lays the foundation that every later feature uses: PostgreSQL 
 ## Further Notes
 
 - The engineering contract for this feature (#6) must merge before the implementation PRs, so the history shows spec → test → code.
-- Sprint 1 integration branch is `staging-1` (SDS §9). Issues #5 and #7 say `sprint-N`; the SDS and the remote use `staging-N`.
+- Sprint 1 integration branch is `sprint-1` (SDS §9).
 - Use TDD for rule work and keep the red commit and green commit for the D1 report (#4).
