@@ -1,0 +1,138 @@
+openapi: 3.0.3
+info:
+  title: ClaimFlow API
+  version: 0.1.0
+  description: >-
+    The contract between apps/web and apps/api (SDS §4). Every error response is an RFC 9457 problem (`application/problem+json`).
+servers:
+  - url: /api/v1
+tags:
+  - name: system
+    description: Liveness and readiness
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness. Does not use the database.
+      tags: [system]
+      security: []
+      responses:
+        "200":
+          description: The API process is running.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        default:
+          $ref: "#/components/responses/Problem"
+  /ready:
+    get:
+      operationId: getReady
+      summary: Readiness. Returns 503 when the database is unreachable.
+      tags: [system]
+      security: []
+      responses:
+        "200":
+          description: The API can reach the database.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ready"
+        "503":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  responses:
+    Problem:
+      description: An RFC 9457 problem.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    Health:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+          description: The release tag or git SHA from APP_VERSION.
+    Ready:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    ProblemCode:
+      type: string
+      description: A stable error code for the client (SDS §4.2).
+      enum:
+        - BAD_REQUEST
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - INVALID_TRANSITION
+        - CONFLICT
+        - VALIDATION_FAILED
+        - PRECONDITION_REQUIRED
+        - INTERNAL
+        - UNAVAILABLE
+      x-enum-varnames:
+        - ProblemCodeBadRequest
+        - ProblemCodeUnauthenticated
+        - ProblemCodeForbidden
+        - ProblemCodeNotFound
+        - ProblemCodeInvalidTransition
+        - ProblemCodeConflict
+        - ProblemCodeValidationFailed
+        - ProblemCodePreconditionRequired
+        - ProblemCodeInternal
+        - ProblemCodeUnavailable
+    FieldError:
+      type: object
+      required: [field, rule, message]
+      properties:
+        field:
+          type: string
+          example: username
+        rule:
+          type: string
+          example: required
+        message:
+          type: string
+          example: Enter your username.
+    Problem:
+      type: object
+      description: RFC 9457 problem details with the `code`, `requestId`, and `errors` extensions.
+      required: [type, title, status, code, instance, requestId]
+      properties:
+        type:
+          type: string
+          enum: [about:blank]
+          x-enum-varnames: [ProblemTypeAboutBlank]
+        title:
+          type: string
+          example: Invalid username or password.
+        status:
+          type: integer
+          example: 401
+        code:
+          $ref: "#/components/schemas/ProblemCode"
+        instance:
+          type: string
+          description: The request path.
+          example: /api/v1/auth/login
+        requestId:
+          type: string
+          description: The `X-Request-Id` of the response. The server log line uses the same value.
+          example: 0192f1c4-7b2e-7c3a-9d41-3f0a6b8e2c11
+        errors:
+          type: array
+          description: Present only when a field can be named.
+          items:
+            $ref: "#/components/schemas/FieldError"

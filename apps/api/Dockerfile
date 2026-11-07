@@ -10,6 +10,8 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY *.go ./
 COPY env ./env
+COPY internal ./internal
+COPY migrations ./migrations
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/api .

@@ -4,9 +4,11 @@
   "scripts": {
     "dev": "GIN_MODE=debug varlock run -- go tool -modfile=tools.mod air",
     "build": "go build -trimpath -ldflags='-s -w' -o dist/api .",
-    "codegen": "varlock codegen",
+    "generate": "varlock codegen && go tool -modfile=tools.mod oapi-codegen -config oapi-codegen.yaml openapi.yaml && go tool -modfile=tools.mod sqlc generate",
+    "migrate": "varlock run -- go run . migrate",
+    "migrate:new": "go tool -modfile=tools.mod goose -dir migrations create",
     "test": "go test -race ./...",
-    "test:coverage": "go test -race -coverprofile=coverage.out ./... && go tool -modfile=tools.mod go-test-coverage --config=.testcoverage.yml",
+    "test:coverage": "go test -race -coverpkg=./... -coverprofile=coverage.out ./... && go tool -modfile=tools.mod go-test-coverage --config=.testcoverage.yml",
     "check": "bun run format:check && bun run lint && bun run tidy:check",
     "lint": "go tool -modfile=golangci-lint.mod golangci-lint run",
     "lint:fix": "go tool -modfile=golangci-lint.mod golangci-lint run --fix",
