@@ -3,5 +3,9 @@
 !go.sum
 !*.go
 !env/*.go
+!internal/**/*.go
+!migrations/*.go
+!migrations/*.sql
 !.env.schema
-*_test.go
+**/*_test.go
+internal/pgtest
