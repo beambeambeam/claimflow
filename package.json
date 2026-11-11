@@ -39,7 +39,7 @@
     "@semantic-release/release-notes-generator": "14.1.1",
     "@types/node": "catalog:",
     "semantic-release": "25.0.9",
-    "skills": "1.7.4",
+    "skills": "1.7.6",
     "typescript": "catalog:",
     "ultracite": "^8.1.1",
     "vite": "catalog:",
