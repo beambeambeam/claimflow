@@ -213,7 +213,9 @@ Creates `"user"`, `account`, and `session` exactly as SDS §2.2:
 | `account` | FK `user_id` ON DELETE CASCADE; UNIQUE (`provider_id`, `account_id`); CHECK `provider_id <> 'credential' OR password IS NOT NULL` |
 | `session` | FK `user_id` ON DELETE CASCADE; `token` BYTEA UNIQUE; `expires_at` NOT NULL |
 
-The migration has a `-- +goose Down` section that drops the three tables.
+Trigger `user_ban_deletes_sessions` runs after an update of `banned` or `ban_expires`. If the ban is active (`banned` and `ban_expires` null or in the future), it deletes all of the user's `session` rows. So a ban that seed data or a migration sets with a plain `UPDATE` also ends the sessions (F01-AC-05).
+
+The migration has a `-- +goose Down` section that drops the trigger, its function, and the three tables.
 
 ### 4.2 Seed
 
@@ -262,7 +264,7 @@ Integration tests use the seed users and a fixed clock.
 | F01-TEST-03 | F01-AC-02 | Integration | Seeded `req.anan` | Log in as `REQ.Anan` | 200; `data.id` equals `req.anan`'s ID |
 | F01-TEST-04 | F01-AC-03 | Integration | Seeded users | Log in with a wrong password; then as `nobody` | Both 401 `UNAUTHENTICATED`, title "Invalid username or password."; bodies equal except `requestId`; no `Set-Cookie` |
 | F01-TEST-05 | F01-AC-04 | Integration | Three users: banned with NULL expiry, banned until tomorrow, banned until yesterday | Log in as each | 401, 401, 200 |
-| F01-TEST-06 | F01-AC-05 | Integration | `req.anan` logged in | Ban `req.anan`; call `GET /auth/me` with the old cookie | 401; `req.anan` has 0 session rows |
+| F01-TEST-06 | F01-AC-05 | Integration | `req.anan` logged in | Ban `req.anan` with a direct SQL `UPDATE`; call `GET /auth/me` with the old cookie | 401; `req.anan` has 0 session rows |
 | F01-TEST-07 | F01-AC-06 | Integration | Sessions for `req.anan`, `rev.malee`, `fin.wanida` | `GET /auth/me` for each | Each `permissions` equals the §1.6 map; JSON has no `password`, `hash`, or `token` key |
 | F01-TEST-08 | F01-AC-07 | Integration | `req.anan` logged in | `POST /auth/logout`; then `GET /auth/me` with the old cookie | 204 with `Max-Age=0` cookie; then 401; session row deleted |
 | F01-TEST-09 | F01-AC-08 | Integration | Fixed clock at `t0`; login at `t0` | `GET /auth/me` at `t0 + 7h59m`, then at `t0 + 8h`; then log in again | 200, then 401; after the new login the expired row is gone |
@@ -299,3 +301,4 @@ The Product DoD (`definition-of-done.md`) applies. For F-01 the evidence is:
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
 | 0.2 | 2026-11-06 | Review fix (PR #23): session check runs before OpenAPI validation, so an anonymous request gets 401, not 400 (SDS §1.3) | 1005, 1045 |
 | 0.3 | 2026-11-07 | Ticket 01 (#24): problem `type` is `about:blank`, `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (SDS §4.2); migration `00001_auth.sql` (4.1) ships in ticket 01, because goose needs at least one migration; UI components are HeroUI v3 (SDS §1.2); PRs target `sprint-1` | 1005, 1045 |
+| 0.4 | 2026-11-11 | Review fix (PR #36): migration `00001_auth.sql` adds a trigger that deletes a user's sessions when a ban starts (4.1); F01-TEST-06 bans with a direct SQL `UPDATE` | 1005, 1045 |

@@ -47,7 +47,25 @@ CREATE TABLE session (
 
 CREATE INDEX session_user_id_idx ON session (user_id);
 
+-- A ban that starts deletes the user's sessions, also when seed data or a migration sets it with a plain UPDATE.
+-- +goose StatementBegin
+CREATE FUNCTION delete_banned_user_sessions() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    DELETE FROM session WHERE user_id = NEW.id;
+    RETURN NULL;
+END;
+$$;
+-- +goose StatementEnd
+
+CREATE TRIGGER user_ban_deletes_sessions
+    AFTER UPDATE OF banned, ban_expires ON "user"
+    FOR EACH ROW
+    WHEN (NEW.banned AND (NEW.ban_expires IS NULL OR NEW.ban_expires > now()))
+    EXECUTE FUNCTION delete_banned_user_sessions();
+
 -- +goose Down
+DROP TRIGGER user_ban_deletes_sessions ON "user";
+DROP FUNCTION delete_banned_user_sessions();
 DROP TABLE session;
 DROP TABLE account;
 DROP TABLE "user";
