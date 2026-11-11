@@ -106,6 +106,7 @@ func newRouter(logger *slog.Logger, version string, pool db.DBTX) *gin.Engine {
 }
 
 // newLogger writes JSON lines with the field names Cloud Logging reads (`severity`, `message`).
+// Cloud Logging knows DEBUG, INFO, and ERROR, but calls the warn level WARNING.
 func newLogger(w io.Writer, level string) *slog.Logger {
 	var minLevel slog.Level
 	_ = minLevel.UnmarshalText([]byte(level)) // varlock has already checked the value
@@ -117,6 +118,9 @@ func newLogger(w io.Writer, level string) *slog.Logger {
 				switch attr.Key {
 				case slog.LevelKey:
 					attr.Key = "severity"
+					if level, ok := attr.Value.Any().(slog.Level); ok && level == slog.LevelWarn {
+						attr.Value = slog.StringValue("WARNING")
+					}
 				case slog.MessageKey:
 					attr.Key = "message"
 				}

@@ -184,8 +184,8 @@ func TestLoggerUsesCloudLoggingFields(t *testing.T) {
 	logger.Warn("shown")
 
 	line := strings.TrimSpace(logs.String())
-	if strings.Contains(line, "hidden") || !strings.Contains(line, `"severity":"WARN"`) || !strings.Contains(line, `"message":"shown"`) {
-		t.Fatalf("logs = %s, want only the warn line with severity and message", line)
+	if strings.Contains(line, "hidden") || !strings.Contains(line, `"severity":"WARNING"`) || !strings.Contains(line, `"message":"shown"`) {
+		t.Fatalf("logs = %s, want only the warn line with severity WARNING and message", line)
 	}
 }
 
