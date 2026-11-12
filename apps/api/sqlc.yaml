@@ -1,0 +1,25 @@
+# sqlc: https://docs.sqlc.dev/en/latest/reference/config.html
+# Each feature keeps its queries in internal/<feature>/queries.sql. sqlc generates one internal/db package.
+version: "2"
+sql:
+  - engine: postgresql
+    schema: migrations
+    queries:
+      - internal/system/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/db
+        sql_package: pgx/v5
+        output_files_suffix: .gen
+        output_db_file_name: db.gen.go
+        output_models_file_name: models.gen.go
+        emit_interface: false
+        overrides:
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
+          - db_type: uuid
+            nullable: true
+            go_type:
+              import: github.com/google/uuid
+              type: NullUUID

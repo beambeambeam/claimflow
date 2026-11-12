@@ -1,6 +1,8 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import { Outlet, createRootRoute } from "@tanstack/react-router";
+import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+
+import type { RouterContext } from "#/router";
 
 // oxlint-disable-next-line import/no-relative-parent-imports
 import "../styles.css";
@@ -22,6 +24,6 @@ const RootComponent = () => (
   </>
 );
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
 });

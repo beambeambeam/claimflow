@@ -6,8 +6,8 @@ import type { OxlintOverride } from "vite-plus/lint";
 // Web-only lint and format rules. The root vite.config.ts applies them to apps/web.
 const root = "apps/web";
 
-// Varlock generates these types from `.env.schema`.
-export const webIgnorePatterns = [`${root}/env.d.ts`];
+// Varlock generates `env.d.ts` from `.env.schema`, and `bun run generate` writes the API client.
+export const webIgnorePatterns = [`${root}/env.d.ts`, `${root}/src/lib/api/**`];
 
 export const webLintOverrides: OxlintOverride[] = [
   {

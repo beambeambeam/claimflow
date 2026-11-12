@@ -1,0 +1,21 @@
+# Local PostgreSQL for development. Start it with `bun run db:up`.
+name: claimflow
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: claimflow
+      POSTGRES_PASSWORD: claimflow
+      POSTGRES_DB: claimflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U claimflow -d claimflow"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  db:

@@ -18,10 +18,20 @@ type Env struct {
 	// Valid values: "debug" | "release" | "test"
 	GinMode string
 	Port    int64
+	// PostgreSQL connection string, e.g. postgres://claimflow:claimflow@localhost:5432/claimflow?sslmode=disable
+	DatabaseUrl string
+	// Adds `Secure` and the `__Host-` cookie prefix. Set false only for local HTTP.
+	CookieSecure bool
+	// bcrypt cost for password hashes. Never below 10 (NFR-01).
+	BcryptCost int64
+	// Valid values: "debug" | "info" | "warn" | "error"
+	LogLevel string
+	// Release tag or git SHA. `/health` returns it as `version`.
+	AppVersion string
 }
 
 // SensitiveKeys marks which keys hold sensitive values — use to build your own redaction / leak-scanning.
-var SensitiveKeys = map[string]bool{}
+var SensitiveKeys = map[string]bool{"DATABASE_URL": true}
 
 // Load parses the __VARLOCK_ENV blob (injected by `varlock run`) into a typed, coerced Env.
 func Load() (Env, error) {
@@ -48,6 +58,11 @@ func Load() (Env, error) {
 	}{
 		{"GIN_MODE", &e.GinMode, true},
 		{"PORT", &e.Port, true},
+		{"DATABASE_URL", &e.DatabaseUrl, true},
+		{"COOKIE_SECURE", &e.CookieSecure, true},
+		{"BCRYPT_COST", &e.BcryptCost, true},
+		{"LOG_LEVEL", &e.LogLevel, true},
+		{"APP_VERSION", &e.AppVersion, true},
 	}
 	var missing []string
 	for _, f := range fields {

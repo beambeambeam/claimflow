@@ -2,7 +2,7 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System
 - **Baseline:** `docs/srs.md` v0.2 · Features: `docs/features.md` v1.0 · Design: `docs/system-sds.md` v0.8 · Sprint 1 contracts: `docs/sprints/sprint-1/`
-- **Last updated:** 2026-11-05
+- **Last updated:** 2026-11-11
 
 There is one row per SRS requirement. Each row traces requirement → feature or system responsibility → sprint → acceptance criteria → test → result. The design sections for each feature and responsibility are in section 4 of `docs/features.md`.
 
@@ -10,7 +10,7 @@ How to read and update the columns:
 
 - **AC / Planned test:** filled from each feature contract. Sprint 1 IDs come from the Sprint 1 contracts in `docs/sprints/sprint-1/` (#6). `F02-AC-03` is AC-03 in the F-02 contract; `F02-TEST-04` is its TEST-04. Rows for Sprints 2–3 and Lab 5 stay `planned` until their contracts are written.
 - **Actual test:** the test file and name that runs, e.g. `internal/claim/service_test.go › TestAct_SelfApproval`.
-- **Result / Version:** `pass`, `fail`, or `manual`, plus the release tag or commit it was run on.
+- **Result / Version:** `pass`, `fail`, `manual`, or `partial` (some planned tests pass, others have not run yet), plus the release tag or commit it was run on.
 - **Ownership:** when a requirement is enforced by several features, the row lists all of them, and each feature's contract carries its own AC for its own paths.
 
 ---
@@ -63,14 +63,14 @@ How to read and update the columns:
 | Requirement | Feature/responsibility | Sprint (established → verified) | AC | Planned test | Actual test | Result | Version |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | NFR-01 Passwords stored only as bcrypt/argon2 hashes | F-01 | 1 → 1 | F01-AC-09, 10 | F01-TEST-10, 11 | – | – | – |
-| NFR-02 401/403 enforced on every protected endpoint | SR-01; every feature with endpoints | 1 → 1, 2, 3 | F01-AC-03, 11–14; F03-AC-02, 04, 06, 09; F04-AC-02, 08, 09 (S1); planned | F01-TEST-04, 12–15; F03-TEST-02, 04, 06, 09; F04-TEST-02, 11, 12 (S1); planned | – | – | – |
+| NFR-02 401/403 enforced on every protected endpoint | SR-01; every feature with endpoints | 1 → 1, 2, 3 | F01-AC-03, 11–14; F03-AC-02, 04, 06, 09; F04-AC-02, 08, 09 (S1); planned | F01-TEST-04, 12–15; F03-TEST-02, 04, 06, 09; F04-TEST-02, 11, 12 (S1); planned | F01-TEST-15: `apps/api/server_test.go › TestProblemResponses` | partial: F01-TEST-15 pass (404, 500); no 401/403 test yet, F01-TEST-04 and 12–14 pending; F01-AC-14 partial – the cross-origin 403 and request-validation 400 are not problems yet (ticket 02, #25) | F-01/01 (#24) |
 | NFR-03 Session ≤ 8 h; logout invalidates immediately | F-01 | 1 → 1 | F01-AC-05, 07, 08, 21 | F01-TEST-06, 08, 09, 23, 24 | – | – | – |
-| NFR-04 No secrets in Git; config from env | SR-02 | 1 → 1 (local scan); Lab 5 (cloud secrets) | F01-AC-16 (S1); planned (Lab 5) | F01-TEST-17, 18 (S1); planned (Lab 5) | – | – | – |
+| NFR-04 No secrets in Git; config from env | SR-02 | 1 → 1 (local scan); Lab 5 (cloud secrets) | F01-AC-16 (S1); planned (Lab 5) | F01-TEST-17, 18 (S1); planned (Lab 5) | F01-TEST-17: `apps/api/config_test.go › TestLoadConfigNamesTheInvalidVariable`; F01-TEST-18: manual check | pass (F01-TEST-17); F01-TEST-18 recorded in the F-01/01 PR | F-01/01 (#24) |
 | NFR-05 Data survives restart and redeploy | SR-03 | 1 → 1 (local restart); Lab 5 (GCP redeploy) | F04-AC-16 (S1); planned (Lab 5) | F04-TEST-19 (S1); planned (Lab 5) | – | – | – |
 | NFR-06 Status change and history in one transaction | SR-04; F-04 | 1 → 1, 2, 3 | F02-AC-02; F04-AC-04, 14 (S1); planned | F02-TEST-03; F04-TEST-04, 17 (S1); planned | – | – | – |
 | NFR-07 95% of requests < 1 s with ≥ 200 claims | SR-05; F-03, F-04, F-09, F-10 | 3 → 3 | planned | planned | – | – | – |
 | NFR-08 Field-level validation messages naming the rule | F-02, F-04 reject reason (S1); F-05, F-06 (S2); F-08 final reject reason (S3) | 1 → 1, 2, 3 | F02-AC-11–13; F04-AC-06, 18 (S1); planned | F02-TEST-17–19, 21; F04-TEST-06, 07, 21, 24 (S1); planned | – | – | – |
-| NFR-09 Every BR tested; 100% Go coverage; CI on PRs | SR-06 | 1 → 1, 2, 3 | F01-AC-17 (S1); planned | F01-TEST-19; CI `api` job (`go-test-coverage`) | – | – | – |
+| NFR-09 Every BR tested; 100% Go coverage; CI on PRs | SR-06 | 1 → 1, 2, 3 | F01-AC-17 (S1); planned | F01-TEST-19; CI `api` job (`go-test-coverage`) | F01-TEST-19: CI checks on the F-01/01 PR | recorded in the F-01/01 PR | F-01/01 (#24) |
 | NFR-10 One-command Docker run | SR-07 | Lab 5 → Lab 5 | planned (Lab 5) | planned (Lab 5) | – | – | – |
 
 ## 4. Coverage
@@ -93,6 +93,10 @@ Reverse check: every feature F-01–F-10 and every responsibility SR-01–SR-07 
 **Verified outside a sprint deliverable** (by design, not gaps):
 
 - NFR-04 (cloud half), NFR-05 (GCP redeploy), and NFR-10 are verified in **Lab 5** (due 15 Nov).
+
+**Design-only AC** (trace to the SDS, not to an SRS requirement):
+
+- F01-AC-15 (`/health` and `/ready`, SDS §4.3): F01-TEST-16 `apps/api/server_test.go › TestHealthAndReadyFollowTheDatabase` – pass, F-01/01 (#24).
 
 ## 5. Change log
 
