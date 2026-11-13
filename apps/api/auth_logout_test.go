@@ -44,7 +44,7 @@ func TestF01TEST08LogoutEndsSession(t *testing.T) {
 		t.Fatalf("Set-Cookie = %q, want %q", got, want)
 	}
 
-	decodeProblem(t, getMeWithCookie(t, router, "sid", token), http.StatusUnauthorized, "UNAUTHENTICATED")
+	decodeProblem(t, getMeWithCookie(t, router, token), http.StatusUnauthorized, "UNAUTHENTICATED")
 
 	var sessions int
 	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM session WHERE user_id = $1`, userID).Scan(&sessions); err != nil {

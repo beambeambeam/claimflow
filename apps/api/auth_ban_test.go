@@ -70,12 +70,12 @@ func TestF01TEST05BannedUsersCannotLogIn(t *testing.T) {
 	}
 }
 
-// getMeWithCookie calls GET /auth/me with the session cookie token.
-func getMeWithCookie(t *testing.T, handler http.Handler, name, token string) *httptest.ResponseRecorder {
+// getMeWithCookie calls GET /auth/me with the plain-named session cookie (COOKIE_SECURE false) set to token.
+func getMeWithCookie(t *testing.T, handler http.Handler, token string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth/me", http.NoBody)
-	request.AddCookie(&http.Cookie{Name: name, Value: token, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
+	request.AddCookie(&http.Cookie{Name: "sid", Value: token, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 
@@ -94,7 +94,7 @@ func TestF01TEST06BanDeletesSessions(t *testing.T) {
 	}
 	token := sessionToken(t, login, "sid", sessionAttributesPlain)
 
-	if got := getMeWithCookie(t, router, "sid", token); got.Code != http.StatusOK {
+	if got := getMeWithCookie(t, router, token); got.Code != http.StatusOK {
 		t.Fatalf("status before ban = %d, want 200; body = %s", got.Code, got.Body)
 	}
 
@@ -102,7 +102,7 @@ func TestF01TEST06BanDeletesSessions(t *testing.T) {
 		t.Fatalf("ban user: %v", err)
 	}
 
-	decodeProblem(t, getMeWithCookie(t, router, "sid", token), http.StatusUnauthorized, "UNAUTHENTICATED")
+	decodeProblem(t, getMeWithCookie(t, router, token), http.StatusUnauthorized, "UNAUTHENTICATED")
 
 	var sessions int
 	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM session WHERE user_id = $1`, userID).Scan(&sessions); err != nil {
