@@ -42,6 +42,7 @@ const config = defineConfig({
       },
     },
     include: ["src/**/__test__/**/*.test.{ts,tsx}"],
+    setupFiles: ["src/__test__/setup.ts"],
   },
 });
 
