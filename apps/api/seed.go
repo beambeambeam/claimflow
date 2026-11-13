@@ -29,9 +29,9 @@ var seedUsers = []seedUser{
 	{username: "rev.prasert", name: "Prasert", role: "reviewer", position: "Department Head", reviewer: "fin.wanida"},
 	{username: "rev.malee", name: "Malee S.", role: "reviewer", position: "Section Head A", reviewer: "rev.prasert"},
 	{username: "rev.somchai", name: "Somchai", role: "reviewer", position: "Section Head B", reviewer: "rev.prasert"},
-	{username: "req.anan", name: "Anan K.", role: "requester", position: "Staff Section A", reviewer: "rev.malee"},
-	{username: "req.ploy", name: "Ploy", role: "requester", position: "Staff Section A", reviewer: "rev.malee"},
-	{username: "req.niran", name: "Niran", role: "requester", position: "Staff Section B", reviewer: "rev.somchai"},
+	{username: "req.anan", name: "Anan K.", role: "requester", position: "Staff, Section A", reviewer: "rev.malee"},
+	{username: "req.ploy", name: "Ploy", role: "requester", position: "Staff, Section A", reviewer: "rev.malee"},
+	{username: "req.niran", name: "Niran", role: "requester", position: "Staff, Section B", reviewer: "rev.somchai"},
 }
 
 // seed upserts the SDS §2.5 demo users. Each credential account stores a bcrypt hash of password, made at
