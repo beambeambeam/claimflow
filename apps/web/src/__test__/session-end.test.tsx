@@ -115,6 +115,21 @@ describe("session end", () => {
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 
+  it("F01-AC-21: stays on login without a redirect when the 401 comes on the login page", async () => {
+    const { router } = renderAt("/login");
+    await screen.findByLabelText("Username");
+
+    const { queryClient } = router.options.context;
+    await queryClient
+      .query({ ...getMeOptions(), retry: false, staleTime: 0 })
+      .catch(() => null);
+
+    await waitFor(() => {
+      expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    });
+    expect(router.state.location.href).toBe("/login");
+  });
+
   it("F01-AC-07: the Log out button ends the session, clears the cache, and opens login", async () => {
     sessionUser = requester;
     const { router, user } = renderAt("/claims");
