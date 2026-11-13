@@ -40,6 +40,9 @@ var (
 	ErrNotFound = &Error{Status: http.StatusNotFound, Code: api.ProblemCodeNotFound, Title: "Not found."}
 	// ErrUnavailable is the problem when a dependency, such as the database, cannot be reached.
 	ErrUnavailable = &Error{Status: http.StatusServiceUnavailable, Code: api.ProblemCodeUnavailable, Title: "Service unavailable."}
+	// ErrNotImplemented is the problem for an operation with no implementation yet.
+	// Its code is INTERNAL because SDS §4.2 defines no code for it.
+	ErrNotImplemented = &Error{Status: http.StatusNotImplemented, Code: api.ProblemCodeInternal, Title: "Not implemented."}
 
 	errInternal = &Error{Status: http.StatusInternalServerError, Code: api.ProblemCodeInternal, Title: "Something went wrong."}
 )

@@ -15,6 +15,7 @@ import (
 
 	"github.com/beambeambeam/claimflow/apps/api/env"
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
+	"github.com/beambeambeam/claimflow/apps/api/internal/auth"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 	"github.com/beambeambeam/claimflow/apps/api/internal/system"
@@ -82,9 +83,14 @@ func serve(ctx context.Context, listener net.Listener, handler http.Handler, log
 	return nil
 }
 
+// authHandler names auth.Handler here, because both feature handlers are called Handler and
+// embedding them under that name would clash.
+type authHandler = auth.Handler
+
 // server composes the feature handlers into the generated strict server interface.
 type server struct {
 	system.Handler
+	authHandler
 }
 
 // newRouter builds the router: request ID and log, problem responses, then the contract's operations.
@@ -94,7 +100,8 @@ func newRouter(logger *slog.Logger, version string, pool db.DBTX) *gin.Engine {
 	router.NoRoute(httperr.NotFound)
 
 	handler := api.NewStrictHandlerWithOptions(server{
-		Handler: system.NewHandler(version, db.New(pool)),
+		Handler:     system.NewHandler(version, db.New(pool)),
+		authHandler: auth.Handler{},
 	}, nil, api.StrictGinServerOptions{
 		HandlerErrorFunc:         httperr.Report,
 		ResponseErrorHandlerFunc: httperr.Report,

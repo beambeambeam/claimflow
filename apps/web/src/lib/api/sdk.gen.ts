@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetHealthData, GetHealthErrors, GetHealthResponses, GetReadyData, GetReadyErrors, GetReadyResponses } from './types.gen';
-import { zGetHealthResponse, zGetReadyResponse } from './zod.gen';
+import type { GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, LoginData, LoginErrors, LoginResponses } from './types.gen';
+import { zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zLoginBody, zLoginResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -46,5 +46,37 @@ export const getReady = <ThrowOnError extends boolean = false>(options?: Options
   }).parseAsync(data),
   responseValidator: async (data) => await zGetReadyResponse.parseAsync(data),
   url: '/ready',
+  ...options
+});
+
+/**
+ * Check the username and password, then start a session.
+ */
+export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>): RequestResult<LoginResponses, LoginErrors, ThrowOnError> => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zLoginBody,
+    path: z.never().optional(),
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zLoginResponse.parseAsync(data),
+  url: '/auth/login',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * The user of the current session. Requires a session cookie.
+ */
+export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, GetMeErrors, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, GetMeErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zGetMeResponse.parseAsync(data),
+  url: '/auth/me',
   ...options
 });
