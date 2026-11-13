@@ -2,10 +2,10 @@
 
 Bun workspace monorepo. Apps live in `apps/*`.
 
-| Path       | Description                                    |
-| ---------- | ---------------------------------------------- |
-| `apps/web` | Web app (React, TanStack Router, Tailwind CSS) |
-| `apps/api` | API (Go, Gin)                                  |
+| Path       | Description                              |
+| ---------- | ---------------------------------------- |
+| `apps/web` | Web app (React, TanStack Router, Astryx) |
+| `apps/api` | API (Go, Gin)                            |
 
 ## Getting started
 

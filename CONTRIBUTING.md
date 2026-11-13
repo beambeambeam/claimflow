@@ -112,10 +112,10 @@ Expected result: the release impact is clear from the commit subject before merg
 
 Both apps use feature folders with lint-enforced boundaries. See section 1.4 of [`docs/system-sds.md`](docs/system-sds.md).
 
-- Add file-based routes in `apps/web/src/routes/` and reusable UI in `apps/web/src/components/`.
+- Add thin file-based routes in `apps/web/src/routes/`, feature code in `apps/web/src/features/<name>/`, reusable UI in `apps/web/src/components/`, and shared non-UI code in `apps/web/src/lib/`.
 - Keep router setup in `apps/web/src/router.tsx` and app startup in `apps/web/src/main.tsx`.
 - Treat `apps/web/src/routeTree.gen.ts`, `apps/web/src/lib/api/`, `apps/api/env/env.go`, `apps/api/internal/api/`, and `apps/api/internal/db/` as generated output; do not edit them by hand. Run `bun run generate` after you change their sources.
-- Keep global styles in `apps/web/src/styles.css` and use Tailwind for component styling.
+- Build UI with Astryx components and their props; see `apps/web/AGENTS.md`. Change colors and fonts through the theme, not CSS files.
 
 ## Definition of ready
 

@@ -2,7 +2,7 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.9 (draft for Deliverable 1)
+- **Version:** 0.11 (draft for Deliverable 1)
 - **Last updated:** 2026-11-07
 - **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
@@ -41,10 +41,10 @@ flowchart LR
 | Layer | Choice | Status | Reason |
 | --- | --- | --- | --- |
 | Monorepo/tooling | Bun workspaces, Vite+ (`vp`) for lint/format/test, semantic-release | in repo | Existing team setup |
-| UI | React 19 + TypeScript, TanStack Router (file routes), Tailwind CSS 4 | in repo | Existing team setup; typed routes |
-| UI components | HeroUI v3 (React Aria based, Tailwind CSS 4) | to add | Accessible ready-made components that use the existing Tailwind 4 setup |
+| UI | React 19 + TypeScript, TanStack Router (file routes) | in repo | Existing team setup; typed routes |
+| UI components | Astryx (`@astryxdesign/core`, precompiled CSS) with the Neutral theme | in repo | Accessible ready-made components and layout, themed through tokens, with no CSS build step |
 | UI server state | TanStack Query | to add | Caching, plus built-in loading/error states for every API call |
-| UI forms | TanStack Form with the Zod schemas generated from the contract | to add | Client checks use the same limits as the server |
+| UI forms | TanStack Form with the Zod schemas generated from the contract; `#/lib/form` binds Astryx inputs to fields | in repo | Client checks use the same limits as the server |
 | API contract | OpenAPI 3.0.3, written by hand in `apps/api/openapi.yaml` | to add | One source for both apps; it is the feature contract for each sprint |
 | API code generation | `oapi-codegen` (Gin strict server + types), pinned in `tools.mod` | to add | Handlers implement a generated interface, so the code cannot drift from the contract |
 | Web code generation | `@hey-api/openapi-ts` (fetch client, TanStack Query options, Zod schemas) | to add | Typed calls and query keys with no hand-written fetch code |
@@ -136,7 +136,7 @@ This follows the `features/` model in [bulletproof-react](https://github.com/ala
 
 ```
 apps/web/src/
-  main.tsx  router.tsx  styles.css     # entry, router + QueryClient setup (router context holds both)
+  main.tsx  router.tsx  astryx-themes.ts  # entry, router + QueryClient setup (router context holds both), generated theme module
   routes/                              # thin route files (Section 7.1): path, beforeLoad guard, loader,
                                        #   search params; render feature components and nothing else
   features/
@@ -152,6 +152,7 @@ apps/web/src/
   lib/
     api/                               # shared: generated client, query options, Zod schemas (@hey-api/openapi-ts)
     problem.ts                         # shared: reads RFC 9457 errors into field messages
+    form.tsx                           # shared: TanStack Form hook with Astryx field components
     format.ts                          # shared: money and date formatting (Asia/Bangkok)
   __test__/                            # app-level tests (router, routes) and shared test helpers:
                                        #   render helpers, MSW handlers, seed users
@@ -748,3 +749,4 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.8 | 2026-11-04 | Auth design (2.2, 5.1, 6, SD-10) written as this system's own design, with no references to outside frameworks | 1005, 1045 |
 | 0.9 | 2026-11-07 | Sprint branches renamed to `sprint-1`–`sprint-3` and the ruleset to `sprint` (#7); both rulesets require 1 approval, dismiss stale approvals, and block last-pusher approval (9.1) | 1005, 1045 |
 | 0.10 | 2026-11-07 | F-01/01 (#24) decisions: HeroUI v3 (1.2); `system` package and per-test template databases in `pgtest` (1.4, 10); `db:up` at the root, `migrate up\|down\|status` subcommand with embedded migrations and an advisory lock (2.5); problem `type` is `about:blank`, and `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (4.2) | 1005, 1045 |
+| 0.11 | 2026-11-13 | Web UI: Astryx with the Neutral theme replaces Tailwind and HeroUI; TanStack Form in use through `#/lib/form` (1.2, 1.4.2) | 1005, 1045 |
