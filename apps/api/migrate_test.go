@@ -9,7 +9,10 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
 )
 
-const authMigration = "00001_auth.sql"
+const (
+	authMigration   = "00001_auth.sql"
+	claimsMigration = "00002_claims.sql"
+)
 
 func runMigrate(t *testing.T, databaseURL, command string) string {
 	t.Helper()
@@ -22,23 +25,27 @@ func runMigrate(t *testing.T, databaseURL, command string) string {
 	return out.String()
 }
 
+// Every migration rolls back to an empty database and applies again (F-02 DoD: 00002_claims.sql runs down and up).
 func TestMigrateDownStatusUp(t *testing.T) {
 	databaseURL := pgtest.New(t).Config().ConnString()
 
-	if out := runMigrate(t, databaseURL, "status"); !strings.Contains(out, "applied "+authMigration) {
-		t.Fatalf("status = %q, want %s applied", out, authMigration)
+	if out := runMigrate(t, databaseURL, "status"); !strings.Contains(out, "applied "+claimsMigration) {
+		t.Fatalf("status = %q, want %s applied", out, claimsMigration)
 	}
 
-	if out := runMigrate(t, databaseURL, "down"); out != "rolled back "+authMigration+"\n" {
-		t.Fatalf("down = %q, want %s rolled back", out, authMigration)
+	for _, migration := range []string{claimsMigration, authMigration} {
+		if out := runMigrate(t, databaseURL, "down"); out != "rolled back "+migration+"\n" {
+			t.Fatalf("down = %q, want %s rolled back", out, migration)
+		}
 	}
 
-	if out := runMigrate(t, databaseURL, "status"); !strings.Contains(out, "pending "+authMigration) {
-		t.Fatalf("status = %q, want %s pending", out, authMigration)
+	if out := runMigrate(t, databaseURL, "status"); !strings.Contains(out, "pending "+authMigration) ||
+		!strings.Contains(out, "pending "+claimsMigration) {
+		t.Fatalf("status = %q, want every migration pending", out)
 	}
 
-	if out := runMigrate(t, databaseURL, "up"); out != "applied "+authMigration+"\n" {
-		t.Fatalf("up = %q, want %s applied", out, authMigration)
+	if out := runMigrate(t, databaseURL, "up"); out != "applied "+authMigration+"\napplied "+claimsMigration+"\n" {
+		t.Fatalf("up = %q, want %s and %s applied", out, authMigration, claimsMigration)
 	}
 }
 
