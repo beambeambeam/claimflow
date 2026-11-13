@@ -226,3 +226,36 @@ func TestGetUnknownClaimIsNotFound(t *testing.T) {
 		t.Fatalf("Get error = %v, want ErrNotFound", err)
 	}
 }
+
+// Get also reads claims that later sprints write: a draft has no reviewer and no submission time, and a decided claim has
+// a decision time and history entries with a from-status and a comment. The rows are inserted directly.
+func TestGetReadsNullableClaimFields(t *testing.T) {
+	pool := pgtest.New(t)
+	anan := member(t, pool, "req.anan", "requester", uuid.Nil)
+	id := uuid.Must(uuid.NewV7())
+
+	for _, statement := range []string{
+		`INSERT INTO claims (id, claim_no, requester_id, title, purpose, status, total_satang, decided_at)
+		VALUES ($1, 'CLM-2026-000001', $2, 'Draft', 'Purpose', 'DRAFT', 100, '2026-11-05T03:00:00Z')`,
+		`INSERT INTO claim_history (claim_id, actor_id, action, from_status, to_status, comment)
+		VALUES ($1, $2, 'REJECT', 'SUBMITTED', 'REJECTED', 'No receipt')`,
+	} {
+		if _, err := pool.Exec(t.Context(), statement, id, anan); err != nil {
+			t.Fatalf("insert: %v", err)
+		}
+	}
+
+	got, err := newService(pool).Get(t.Context(), id)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	if got.AssignedReviewer != nil || got.FirstSubmittedAt != nil || got.SubmittedAt != nil || got.DecidedAt == nil {
+		t.Fatalf("claim = %+v, want no reviewer, no submission times, and a decision time", got)
+	}
+
+	if len(got.History) != 1 || got.History[0].FromStatus == nil || *got.History[0].FromStatus != db.ClaimStatus("SUBMITTED") ||
+		got.History[0].Comment == nil || *got.History[0].Comment != "No receipt" {
+		t.Fatalf("history = %+v, want one entry from SUBMITTED with the comment", got.History)
+	}
+}
