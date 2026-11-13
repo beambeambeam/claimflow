@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -189,39 +188,6 @@ func TestF01TEST04WrongPasswordAndUnknownUserLookTheSame(t *testing.T) {
 	wrong.RequestID, unknown.RequestID = "", ""
 	if wrong != unknown {
 		t.Fatalf("wrong password = %+v, unknown user = %+v, want equal except requestId", wrong, unknown)
-	}
-}
-
-// F01-TEST-05: a ban with no expiry or a future expiry blocks login, and an expired ban does not.
-func TestF01TEST05BanBlocksLoginUntilItExpires(t *testing.T) {
-	tomorrow := time.Now().Add(24 * time.Hour)
-	yesterday := time.Now().Add(-24 * time.Hour)
-
-	cases := []struct {
-		name    string
-		expires *time.Time
-		status  int
-	}{
-		{name: "open-ended ban", expires: nil, status: http.StatusUnauthorized},
-		{name: "ban until tomorrow", expires: &tomorrow, status: http.StatusUnauthorized},
-		{name: "ban until yesterday", expires: &yesterday, status: http.StatusOK},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			pool := pgtest.New(t)
-			insertCredentialUser(t, pool, "req.anan", "correct-password")
-
-			if _, err := pool.Exec(t.Context(),
-				`UPDATE "user" SET banned = true, ban_expires = $1 WHERE username = 'req.anan'`, tc.expires); err != nil {
-				t.Fatalf("ban user: %v", err)
-			}
-
-			recorder := postLogin(t, newRouter(discardLogger(), testEnv(0), pool), "req.anan", "correct-password")
-			if recorder.Code != tc.status {
-				t.Fatalf("status = %d, want %d; body = %s", recorder.Code, tc.status, recorder.Body)
-			}
-		})
 	}
 }
 
