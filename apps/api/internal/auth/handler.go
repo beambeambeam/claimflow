@@ -1,34 +1,16 @@
-// Package auth implements the sign-in and current-user operations (F-01).
+// Package auth implements sign-in, sessions, and the current user (F-01).
 package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 	"unicode/utf8"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
-	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
-)
-
-const (
-	sessionLifetime  = 8 * time.Hour
-	sessionTokenSize = 32
-	// dummyPassword is hashed once per Handler. Login compares against it when the username is unknown.
-	dummyPassword = "claimflow-dummy-password"
 )
 
 var (
@@ -44,87 +26,54 @@ var (
 	}
 )
 
-// Handler implements the auth operations of api.StrictServerInterface.
+// Handler implements the auth operations of api.StrictServerInterface. It maps requests to Service calls and
+// Service errors to problem responses.
 type Handler struct {
-	queries      *db.Queries
+	service      Service
 	cookieSecure bool
-	dummyHash    []byte
 }
 
-// NewHandler returns a Handler that keeps sessions in queries. When cookieSecure is set, the session
-// cookie gets the Secure attribute and the __Host- prefix. bcryptCost is the cost of every hash.
-func NewHandler(queries *db.Queries, cookieSecure bool, bcryptCost int) Handler {
-	dummyHash, err := bcrypt.GenerateFromPassword([]byte(dummyPassword), bcryptCost)
-	if err != nil { // coverage-ignore
-		panic(fmt.Sprintf("auth: hash dummy password: %v", err))
-	}
-
-	return Handler{queries: queries, cookieSecure: cookieSecure, dummyHash: dummyHash}
+// NewHandler returns a Handler over service. When cookieSecure is set, the session cookie gets the Secure
+// attribute and the __Host- prefix.
+func NewHandler(service Service, cookieSecure bool) Handler {
+	return Handler{service: service, cookieSecure: cookieSecure}
 }
 
-// Login checks the credential and starts a session. The cookie carries the token. The database keeps
-// only its SHA-256 digest.
+// Login checks the request's bounds, then logs in and sets the session cookie.
 func (h Handler) Login(ctx context.Context, request api.LoginRequestObject) (api.LoginResponseObject, error) {
 	if fields := loginFieldErrors(request.Body.Username, request.Body.Password); len(fields) > 0 {
 		return nil, fmt.Errorf("login fields: %w", httperr.InvalidFields(fields))
 	}
 
-	password := []byte(request.Body.Password)
-
-	credential, err := h.queries.GetCredentialForLogin(ctx, strings.ToLower(request.Body.Username))
-	if errors.Is(err, pgx.ErrNoRows) {
-		// Spend the same bcrypt time as a wrong password, so the response time does not reveal the username.
-		_ = bcrypt.CompareHashAndPassword(h.dummyHash, password)
-
+	user, token, err := h.service.Login(ctx, request.Body.Username, request.Body.Password)
+	if errors.Is(err, ErrInvalidCredentials) {
 		return nil, errInvalidCredentials
 	}
-	if err != nil { // coverage-ignore
-		return nil, fmt.Errorf("get credential: %w", err)
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(credential.PasswordHash), password); err != nil {
-		return nil, errInvalidCredentials
-	}
-
-	token, err := h.startSession(ctx, credential.UserID)
 	if err != nil { // coverage-ignore
 		return nil, err
 	}
 
-	cookie := h.sessionCookie(token)
+	cookie := sessionCookie(h.cookieSecure, token)
 
 	return api.Login200JSONResponse{
-		Body:    api.CurrentUserEnvelope{Data: currentUser(credential.UserID, credential.Name, credential.Username, credential.Role)},
+		Body:    api.CurrentUserEnvelope{Data: currentUser(user)},
 		Headers: api.Login200ResponseHeaders{SetCookie: &cookie},
 	}, nil
 }
 
-// startSession stores a new session for userID and returns the token that goes in the cookie.
-func (h Handler) startSession(ctx context.Context, userID uuid.UUID) (string, error) {
-	raw := make([]byte, sessionTokenSize)
-	if _, err := rand.Read(raw); err != nil { // coverage-ignore
-		return "", fmt.Errorf("session token: %w", err)
+// GetMe returns the user that the Session middleware found for the request.
+func (h Handler) GetMe(ctx context.Context, _ api.GetMeRequestObject) (api.GetMeResponseObject, error) {
+	user, ok := UserFrom(ctx)
+	if !ok {
+		return nil, errUnauthenticated
 	}
 
-	token := base64.RawURLEncoding.EncodeToString(raw)
-	digest := sha256.Sum256([]byte(token))
-
-	err := h.queries.CreateSession(ctx, db.CreateSessionParams{
-		ID:        uuid.Must(uuid.NewV7()),
-		UserID:    userID,
-		Token:     digest[:],
-		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(sessionLifetime), Valid: true},
-	})
-	if err != nil { // coverage-ignore
-		return "", fmt.Errorf("create session: %w", err)
-	}
-
-	return token, nil
+	return api.GetMe200JSONResponse{Data: currentUser(user)}, nil
 }
 
 // cookieName returns the session cookie name. The __Host- prefix requires Secure, so it is used only with it.
-func (h Handler) cookieName() string {
-	if h.cookieSecure {
+func cookieName(secure bool) string {
+	if secure {
 		return "__Host-sid"
 	}
 
@@ -132,24 +81,24 @@ func (h Handler) cookieName() string {
 }
 
 // sessionCookie builds the Set-Cookie value for token. Attributes follow F-01 §1.5.
-func (h Handler) sessionCookie(token string) string {
-	secure := ""
-	if h.cookieSecure {
-		secure = "Secure; "
+func sessionCookie(secure bool, token string) string {
+	secureAttr := ""
+	if secure {
+		secureAttr = "Secure; "
 	}
 
 	return fmt.Sprintf("%s=%s; HttpOnly; %sSameSite=Lax; Path=/; Max-Age=%d",
-		h.cookieName(), token, secure, int(sessionLifetime/time.Second))
+		cookieName(secure), token, secureAttr, int(sessionLifetime/time.Second))
 }
 
 // currentUser builds the body that describes a user, with the permissions of their role.
-func currentUser(id uuid.UUID, name, username, role string) api.CurrentUser {
+func currentUser(user User) api.CurrentUser {
 	return api.CurrentUser{
-		Id:          id.String(),
-		Name:        name,
-		Username:    username,
-		Role:        api.CurrentUserRole(role),
-		Permissions: permissionsByRole[api.CurrentUserRole(role)],
+		Id:          user.ID.String(),
+		Name:        user.Name,
+		Username:    user.Username,
+		Role:        api.CurrentUserRole(user.Role),
+		Permissions: permissionsByRole[api.CurrentUserRole(user.Role)],
 	}
 }
 
@@ -173,30 +122,4 @@ func loginFieldErrors(username, password string) []api.FieldError {
 	}
 
 	return fields
-}
-
-// GetMe returns the user of the session in the request cookie. The strict server passes the gin context
-// as ctx, and gin exposes the request through it.
-func (h Handler) GetMe(ctx context.Context, _ api.GetMeRequestObject) (api.GetMeResponseObject, error) {
-	request, ok := ctx.Value(gin.ContextRequestKey).(*http.Request)
-	if !ok { // coverage-ignore
-		return nil, errors.New("auth: request missing from context")
-	}
-
-	cookie, err := request.Cookie(h.cookieName())
-	if err != nil {
-		return nil, errUnauthenticated
-	}
-
-	digest := sha256.Sum256([]byte(cookie.Value))
-
-	user, err := h.queries.GetSessionUser(ctx, digest[:])
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, errUnauthenticated
-	}
-	if err != nil { // coverage-ignore
-		return nil, fmt.Errorf("get session user: %w", err)
-	}
-
-	return api.GetMe200JSONResponse{Data: currentUser(user.ID, user.Name, user.Username, user.Role)}, nil
 }

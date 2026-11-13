@@ -93,16 +93,22 @@ type server struct {
 	authHandler
 }
 
-// newRouter builds the router: request ID and log, problem responses, then the contract's operations.
+// newRouter builds the router: request ID and log, problem responses, cross-origin guard, session user,
+// then the contract's operations.
 func newRouter(logger *slog.Logger, cfg *env.Env, pool db.DBTX) *gin.Engine {
+	queries := db.New(pool)
+	authService := auth.NewService(queries, int(cfg.BcryptCost))
+
 	router := gin.New()
-	router.Use(httperr.RequestID(), requestLogger(logger), httperr.Handle(logger), crossOriginGuard())
+	// Handlers get the gin context; the fallback lets them read values that middleware put in the request context.
+	router.ContextWithFallback = true
+	router.Use(httperr.RequestID(), requestLogger(logger), httperr.Handle(logger), crossOriginGuard(),
+		auth.Session(authService, cfg.CookieSecure))
 	router.NoRoute(httperr.NotFound)
 
-	queries := db.New(pool)
 	handler := api.NewStrictHandlerWithOptions(server{
 		Handler:     system.NewHandler(cfg.AppVersion, queries),
-		authHandler: auth.NewHandler(queries, cfg.CookieSecure, int(cfg.BcryptCost)),
+		authHandler: auth.NewHandler(authService, cfg.CookieSecure),
 	}, nil, api.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  httperr.ReportInvalid,
 		HandlerErrorFunc:         httperr.Report,
