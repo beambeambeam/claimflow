@@ -123,3 +123,27 @@ func TestF01TEST02LoginSetsPlainSessionCookieWhenNotSecure(t *testing.T) {
 
 	sessionToken(t, recorder, "sid", "HttpOnly; SameSite=Lax; Path=/; Max-Age=28800")
 }
+
+// F01-TEST-03: the username is matched case-insensitively, and the response carries the user's ID.
+func TestF01TEST03LoginMatchesUsernameIgnoringCase(t *testing.T) {
+	pool := pgtest.New(t)
+	userID := insertCredentialUser(t, pool, "req.anan", "correct-password")
+
+	recorder := postLogin(t, newRouter(discardLogger(), testEnv(0), pool), "REQ.Anan", "correct-password")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", recorder.Code, recorder.Body)
+	}
+
+	var body struct {
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+
+	if body.Data.ID != userID.String() {
+		t.Fatalf("data.id = %q, want %s", body.Data.ID, userID)
+	}
+}
