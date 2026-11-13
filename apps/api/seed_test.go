@@ -128,3 +128,41 @@ func TestSeedIsIdempotent(t *testing.T) {
 		t.Fatalf("users = %d, accounts = %d, want %d of each", users, accounts, len(seedUsernames))
 	}
 }
+
+// TestSeedCommandRefusesEmptyPassword: `api seed` fails before it writes anything when SEED_USER_PASSWORD is unset.
+func TestSeedCommandRefusesEmptyPassword(t *testing.T) {
+	pool := pgtest.New(t)
+
+	var out bytes.Buffer
+	err := seedCommand(t.Context(), pool.Config().ConnString(), "", 10, &out)
+	if err == nil {
+		t.Fatal("seedCommand with empty password: err = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "SEED_USER_PASSWORD") {
+		t.Fatalf("error = %q, want it to name SEED_USER_PASSWORD", err)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("output = %q, want none", out.String())
+	}
+
+	var users int
+	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM "user"`).Scan(&users); err != nil {
+		t.Fatalf("count users: %v", err)
+	}
+	if users != 0 {
+		t.Fatalf("users = %d, want 0", users)
+	}
+}
+
+// TestSeedCommandSeedsWithPassword: with SEED_USER_PASSWORD set, `api seed` runs the seed and reports the count.
+func TestSeedCommandSeedsWithPassword(t *testing.T) {
+	pool := pgtest.New(t)
+
+	var out bytes.Buffer
+	if err := seedCommand(t.Context(), pool.Config().ConnString(), seedPassword, 10, &out); err != nil {
+		t.Fatalf("seedCommand: %v", err)
+	}
+	if got, want := out.String(), "seeded 7 users\n"; got != want {
+		t.Fatalf("output = %q, want %q", got, want)
+	}
+}
