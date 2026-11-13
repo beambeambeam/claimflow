@@ -1,6 +1,4 @@
 // Package auth implements the sign-in and current-user operations (F-01).
-//
-// GetMe is a stub until T3 implements it.
 package auth
 
 import (
@@ -15,6 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -32,11 +31,18 @@ const (
 	dummyPassword = "claimflow-dummy-password"
 )
 
-var errInvalidCredentials = &httperr.Error{
-	Status: http.StatusUnauthorized,
-	Code:   api.ProblemCodeUnauthenticated,
-	Title:  "Invalid username or password.",
-}
+var (
+	errInvalidCredentials = &httperr.Error{
+		Status: http.StatusUnauthorized,
+		Code:   api.ProblemCodeUnauthenticated,
+		Title:  "Invalid username or password.",
+	}
+	errUnauthenticated = &httperr.Error{
+		Status: http.StatusUnauthorized,
+		Code:   api.ProblemCodeUnauthenticated,
+		Title:  "Authentication required.",
+	}
+)
 
 // Handler implements the auth operations of api.StrictServerInterface.
 type Handler struct {
@@ -88,13 +94,7 @@ func (h Handler) Login(ctx context.Context, request api.LoginRequestObject) (api
 	cookie := h.sessionCookie(token)
 
 	return api.Login200JSONResponse{
-		Body: api.CurrentUserEnvelope{Data: api.CurrentUser{
-			Id:          credential.UserID.String(),
-			Name:        credential.Name,
-			Username:    credential.Username,
-			Role:        api.CurrentUserRole(credential.Role),
-			Permissions: roles[api.CurrentUserRole(credential.Role)],
-		}},
+		Body:    api.CurrentUserEnvelope{Data: currentUser(credential.UserID, credential.Name, credential.Username, credential.Role)},
 		Headers: api.Login200ResponseHeaders{SetCookie: &cookie},
 	}, nil
 }
@@ -122,15 +122,35 @@ func (h Handler) startSession(ctx context.Context, userID uuid.UUID) (string, er
 	return token, nil
 }
 
+// cookieName returns the session cookie name. The __Host- prefix requires Secure, so it is used only with it.
+func (h Handler) cookieName() string {
+	if h.cookieSecure {
+		return "__Host-sid"
+	}
+
+	return "sid"
+}
+
 // sessionCookie builds the Set-Cookie value for token. Attributes follow F-01 §1.5.
 func (h Handler) sessionCookie(token string) string {
-	name, secure := "sid", ""
+	secure := ""
 	if h.cookieSecure {
-		name, secure = "__Host-sid", "Secure; "
+		secure = "Secure; "
 	}
 
 	return fmt.Sprintf("%s=%s; HttpOnly; %sSameSite=Lax; Path=/; Max-Age=%d",
-		name, token, secure, int(sessionLifetime/time.Second))
+		h.cookieName(), token, secure, int(sessionLifetime/time.Second))
+}
+
+// currentUser builds the body that describes a user, with the permissions of their role.
+func currentUser(id uuid.UUID, name, username, role string) api.CurrentUser {
+	return api.CurrentUser{
+		Id:          id.String(),
+		Name:        name,
+		Username:    username,
+		Role:        api.CurrentUserRole(role),
+		Permissions: roles[api.CurrentUserRole(role)],
+	}
 }
 
 // validLogin reports whether a login request is within the bounds of LoginRequest:
@@ -141,7 +161,25 @@ func validLogin(username, password string) bool {
 	return length >= 1 && length <= 50 && len(password) >= 1 && len(password) <= 72
 }
 
-// GetMe returns the user of the current session. Not implemented yet.
-func (Handler) GetMe(context.Context, api.GetMeRequestObject) (api.GetMeResponseObject, error) {
-	return nil, httperr.ErrNotImplemented
+// GetMe returns the user of the session in the request cookie. The strict server passes the gin context
+// as ctx, and gin exposes the request through it.
+func (h Handler) GetMe(ctx context.Context, _ api.GetMeRequestObject) (api.GetMeResponseObject, error) {
+	request := ctx.Value(gin.ContextRequestKey).(*http.Request)
+
+	cookie, err := request.Cookie(h.cookieName())
+	if err != nil {
+		return nil, errUnauthenticated
+	}
+
+	digest := sha256.Sum256([]byte(cookie.Value))
+
+	user, err := h.queries.GetSessionUser(ctx, digest[:])
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, errUnauthenticated
+	}
+	if err != nil { // coverage-ignore
+		return nil, fmt.Errorf("get session user: %w", err)
+	}
+
+	return api.GetMe200JSONResponse{Data: currentUser(user.ID, user.Name, user.Username, user.Role)}, nil
 }
