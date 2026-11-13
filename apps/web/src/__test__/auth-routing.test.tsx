@@ -1,5 +1,11 @@
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -196,6 +202,53 @@ describe("auth routing", () => {
       await waitFor(() => {
         expect(router.state.location.href).toBe("/reviews");
       });
+    }
+  );
+});
+
+describe("app header", () => {
+  // Role labels and header links follow F-01 §2.2 and AC-20.
+  const roleLabels: Record<Role, string> = {
+    requester: "Requester",
+    reviewer: "Reviewer",
+    finance: "Finance Officer",
+  };
+
+  const expectedLinks: Record<Role, string[]> = {
+    requester: ["My Claims", "New Claim"],
+    reviewer: ["My Claims", "New Claim", "Review Queue"],
+    finance: ["Review Queue"],
+  };
+
+  it.each(roles)(
+    "F01-AC-20: shows the %s name, role label and Log out button",
+    async (role) => {
+      sessionUser = users[role];
+      renderAt("/claims");
+
+      const header = await screen.findByRole("banner");
+
+      expect(within(header).getByText(users[role].name)).toBeTruthy();
+      expect(within(header).getByText(roleLabels[role])).toBeTruthy();
+      expect(
+        within(header).getByRole("button", { name: "Log out" })
+      ).toBeTruthy();
+    }
+  );
+
+  it.each(roles)(
+    "F01-AC-20: shows only the header links the %s role may use",
+    async (role) => {
+      sessionUser = users[role];
+      renderAt("/claims");
+
+      const header = await screen.findByRole("banner");
+
+      const links = within(header)
+        .getAllByRole("link")
+        .map((link) => link.textContent);
+
+      expect(links).toEqual(expectedLinks[role]);
     }
   );
 });
