@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
@@ -218,5 +221,47 @@ func TestF02TEST14FinanceOfficerCannotCreateClaim(t *testing.T) {
 
 	if got := rowCount(t, pool, "SELECT count(*) FROM claims"); got != 0 {
 		t.Fatalf("claims = %d, want 0", got)
+	}
+}
+
+// F02-AC-09 (BR-15), second half: a requester-role member whose reviewer_id is NULL passes the route permission and is
+// refused by the claim module, so the handler maps ErrForbidden to 403 and stores nothing.
+func TestCreateClaimWithoutAssignedReviewerIsForbidden(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	token := loginAs(t, router, "req.anan")
+
+	if _, err := pool.Exec(t.Context(), `UPDATE "user" SET reviewer_id = NULL WHERE username = 'req.anan'`); err != nil {
+		t.Fatalf("clear reviewer: %v", err)
+	}
+
+	decodeProblem(t, postClaim(t, router, token, twoItemsBody("")), http.StatusForbidden, "FORBIDDEN")
+
+	if got := rowCount(t, pool, "SELECT count(*) FROM claims"); got != 0 {
+		t.Fatalf("claims = %d, want 0", got)
+	}
+}
+
+// failingBegin is a pool whose transactions cannot start, as in a database outage that begins after the session check.
+type failingBegin struct {
+	*pgxpool.Pool
+}
+
+func (failingBegin) Begin(context.Context) (pgx.Tx, error) {
+	return nil, errors.New("begin refused")
+}
+
+// An unexpected claim module failure is a 500 INTERNAL problem with no internal text.
+func TestCreateClaimFailureIsInternalProblem(t *testing.T) {
+	pool := pgtest.New(t)
+	seededClaimRouter(t, pool)
+	router := newRouterAt(discardLogger(), testEnv(0), failingBegin{pool}, func() time.Time { return claimsNow })
+	token := loginAs(t, router, "req.anan")
+
+	recorder := postClaim(t, router, token, twoItemsBody(""))
+	decodeProblem(t, recorder, http.StatusInternalServerError, "INTERNAL")
+
+	if strings.Contains(recorder.Body.String(), "begin refused") {
+		t.Fatalf("body leaks the error text: %s", recorder.Body)
 	}
 }

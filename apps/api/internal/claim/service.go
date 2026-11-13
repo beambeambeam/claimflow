@@ -68,7 +68,8 @@ func (s Service) Create(ctx context.Context, actor Actor, in Input, submit bool)
 			return ErrForbidden
 		}
 
-		if err := checkRules(in, now); err != nil {
+		// coverage-ignore: checkRules passes every input until F-02/02 fills it in; remove this mark with that change.
+		if err := checkRules(in, now); err != nil { // coverage-ignore
 			return err
 		}
 

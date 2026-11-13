@@ -5,11 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
-	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
 )
 
@@ -20,22 +17,6 @@ func TestCreateClaimWithoutSessionUserIsUnauthenticated(t *testing.T) {
 	_, err := handler.CreateClaim(t.Context(), api.CreateClaimRequestObject{Body: &api.CreateClaimJSONRequestBody{}})
 	if !errors.Is(err, errUnauthenticated) {
 		t.Fatalf("CreateClaim error = %v, want the 401 problem", err)
-	}
-}
-
-// A service failure other than BR-15 is not a problem of its own: it passes up and becomes a 500.
-func TestCreateClaimPassesUpUnexpectedErrors(t *testing.T) {
-	pool := pgtest.New(t)
-	pool.Close()
-
-	_, err := newService(pool).Create(t.Context(), Actor{ID: uuid.Must(uuid.NewV7())}, validInput(), true)
-	if err == nil {
-		t.Fatal("Create on a closed pool succeeded")
-	}
-
-	var problem *httperr.Error
-	if errors.As(err, &problem) {
-		t.Fatalf("error = %v, want one with no problem response", err)
 	}
 }
 
