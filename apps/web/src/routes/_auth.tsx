@@ -1,7 +1,24 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useRouteContext,
+} from "@tanstack/react-router";
 
+import { AppHeader } from "#/components/app-header";
 import { getMeOptions } from "#/lib/api/@tanstack/react-query.gen";
 import { zProblem } from "#/lib/api/zod.gen";
+
+const AuthLayout = () => {
+  const { user } = useRouteContext({ from: "/_auth" });
+
+  return (
+    <>
+      <AppHeader user={user} />
+      <Outlet />
+    </>
+  );
+};
 
 // Session guard for every route under _auth. Anonymous users go to /login with the requested path.
 export const Route = createFileRoute("/_auth")({
@@ -27,5 +44,5 @@ export const Route = createFileRoute("/_auth")({
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
   },
-  component: Outlet,
+  component: AuthLayout,
 });
