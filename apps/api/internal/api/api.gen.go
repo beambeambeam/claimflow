@@ -17,7 +17,30 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/oapi-codegen/runtime"
 )
+
+// Defines values for CurrentUserRole.
+const (
+	RoleFinance   CurrentUserRole = "finance"
+	RoleRequester CurrentUserRole = "requester"
+	RoleReviewer  CurrentUserRole = "reviewer"
+)
+
+// Valid indicates whether the value is a known member of the CurrentUserRole enum.
+func (e CurrentUserRole) Valid() bool {
+	switch e {
+	case RoleFinance:
+		return true
+	case RoleRequester:
+		return true
+	case RoleReviewer:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for HealthStatus.
 const (
@@ -106,6 +129,32 @@ func (e ReadyStatus) Valid() bool {
 	}
 }
 
+// CurrentUser defines model for CurrentUser.
+type CurrentUser struct {
+	// Id Example: 0192f1c4-7b2e-7c3a-9d41-3f0a6b8e2c11
+	Id string `json:"id"`
+
+	// Name Example: Anan K.
+	Name string `json:"name"`
+
+	// Permissions Actions the role grants, keyed by resource (F-01 §1.6).
+	//
+	// Example: {"claim":["create","list"]}
+	Permissions map[string][]string `json:"permissions"`
+	Role        CurrentUserRole     `json:"role"`
+
+	// Username Example: req.anan
+	Username string `json:"username"`
+}
+
+// CurrentUserRole defines model for CurrentUser.Role.
+type CurrentUserRole string
+
+// CurrentUserEnvelope defines model for CurrentUserEnvelope.
+type CurrentUserEnvelope struct {
+	Data CurrentUser `json:"data"`
+}
+
 // FieldError defines model for FieldError.
 type FieldError struct {
 	// Field Example: username
@@ -128,6 +177,13 @@ type Health struct {
 
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
+
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	// Password 1–72 bytes of UTF-8, the bcrypt input limit. maxLength counts characters, so it is only an upper bound; the server and the web client also check the byte length.
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
 
 // Problem RFC 9457 problem details with the `code`, `requestId`, and `errors` extensions.
 type Problem struct {
@@ -169,8 +225,17 @@ type Ready struct {
 // ReadyStatus defines model for Ready.Status.
 type ReadyStatus string
 
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Login Check the username and password, then start a session.
+	// (POST /auth/login)
+	Login(c *gin.Context)
+	// GetMe The user of the current session. Requires a session cookie.
+	// (GET /auth/me)
+	GetMe(c *gin.Context)
 	// GetHealth Liveness. Does not use the database.
 	// (GET /health)
 	GetHealth(c *gin.Context)
@@ -187,6 +252,32 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.Login(c)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMe(c)
+}
 
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(c *gin.Context) {
@@ -243,9 +334,158 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.GET(options.BaseURL+"/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/ready", wrapper.GetReady)
+	router.POST(options.BaseURL+"/auth/login", wrapper.Login)
+	router.GET(options.BaseURL+"/auth/me", wrapper.GetMe)
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type LoginRequestObject struct {
+	Body *LoginJSONRequestBody
+}
+
+type LoginResponseObject interface {
+	VisitLoginResponse(w http.ResponseWriter) error
+}
+
+type Login200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Login200JSONResponse struct {
+	Body    CurrentUserEnvelope
+	Headers Login200ResponseHeaders
+}
+
+func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Login400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response Login400ApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Login401ApplicationProblemPlusJSONResponse Problem
+
+func (response Login401ApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Login403ApplicationProblemPlusJSONResponse Problem
+
+func (response Login403ApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogindefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogindefaultApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse CurrentUserEnvelope
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMe401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetMe401ApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type GetHealthRequestObject struct {
 }
@@ -341,6 +581,12 @@ func (response GetReadydefaultApplicationProblemPlusJSONResponse) VisitGetReadyR
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Login Check the username and password, then start a session.
+	// (POST /auth/login)
+	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// GetMe The user of the current session. Requires a session cookie.
+	// (GET /auth/me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
 	// GetHealth Liveness. Does not use the database.
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -406,6 +652,72 @@ type strictHandler struct {
 	options     StrictGinServerOptions
 }
 
+// Login operation middleware
+func (sh *strictHandler) Login(ctx *gin.Context) {
+	var request LoginRequestObject
+
+	var body LoginJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Login(ctx, request.(LoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Login")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(LoginResponseObject); ok {
+		if err := validResponse.VisitLoginResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(ctx *gin.Context) {
+	var request GetMeRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx, request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		if err := validResponse.VisitGetMeResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealth operation middleware
 func (sh *strictHandler) GetHealth(ctx *gin.Context) {
 	var request GetHealthRequestObject
@@ -459,26 +771,36 @@ func (sh *strictHandler) GetReady(ctx *gin.Context) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

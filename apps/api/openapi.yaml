@@ -9,6 +9,8 @@ servers:
 tags:
   - name: system
     description: Liveness and readiness
+  - name: auth
+    description: Sign-in and the current user
 paths:
   /health:
     get:
@@ -42,6 +44,54 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /auth/login:
+    post:
+      operationId: login
+      summary: Check the username and password, then start a session.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: The user is signed in. The session cookie is set (F-01 §3.3).
+          headers:
+            Set-Cookie:
+              description: The session cookie. `__Host-sid` when COOKIE_SECURE is true, else `sid`.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserEnvelope"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /auth/me:
+    get:
+      operationId: getMe
+      summary: The user of the current session. Requires a session cookie.
+      tags: [auth]
+      responses:
+        "200":
+          description: The signed-in user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserEnvelope"
+        "401":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   responses:
     Problem:
@@ -68,6 +118,52 @@ components:
         status:
           type: string
           enum: [ok]
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 50
+        password:
+          type: string
+          description: >-
+            1–72 bytes of UTF-8, the bcrypt input limit. maxLength counts characters, so it is only an upper bound; the server and the web client also check the byte length.
+          minLength: 1
+          maxLength: 72
+    CurrentUser:
+      type: object
+      required: [id, username, name, role, permissions]
+      properties:
+        id:
+          type: string
+          example: 0192f1c4-7b2e-7c3a-9d41-3f0a6b8e2c11
+        username:
+          type: string
+          example: req.anan
+        name:
+          type: string
+          example: Anan K.
+        role:
+          type: string
+          enum: [requester, reviewer, finance]
+          x-enum-varnames: [RoleRequester, RoleReviewer, RoleFinance]
+        permissions:
+          type: object
+          description: Actions the role grants, keyed by resource (F-01 §1.6).
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            claim: [create, list]
+    CurrentUserEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/CurrentUser"
     ProblemCode:
       type: string
       description: A stable error code for the client (SDS §4.2).

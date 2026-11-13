@@ -24,6 +24,10 @@ coverage
 apps/api/tmp
 apps/api/coverage.out
 
+# Playwright (apps/web)
+apps/web/test-results
+apps/web/playwright-report
+
 # Agent skills (restore with `bun run skills:install`)
 .agents/skills
 .claude/skills

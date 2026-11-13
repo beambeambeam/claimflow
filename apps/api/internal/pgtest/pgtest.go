@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -62,12 +63,12 @@ func Start(ctx context.Context) (*Server, error) {
 }
 
 func (s *Server) migrateTemplate(ctx context.Context) error {
-	url, err := s.container.ConnectionString(ctx, "sslmode=disable")
+	dsn, err := s.container.ConnectionString(ctx, "sslmode=disable")
 	if err != nil { // coverage-ignore
 		return fmt.Errorf("template connection string: %w", err)
 	}
 
-	db, err := sql.Open("pgx", url)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil { // coverage-ignore
 		return fmt.Errorf("open template: %w", err)
 	}
@@ -95,17 +96,23 @@ func (s *Server) New(t *testing.T) *pgxpool.Pool {
 
 	s.exec(t, "CREATE DATABASE "+name+" TEMPLATE "+templateName)
 
-	url, err := s.container.ConnectionString(ctx, "sslmode=disable")
+	dsn, err := s.container.ConnectionString(ctx, "sslmode=disable")
 	if err != nil { // coverage-ignore
 		t.Fatalf("connection string: %v", err)
 	}
 
-	config, err := pgxpool.ParseConfig(url)
+	// The pool keeps the DSN it was parsed from, so the database name must be in the DSN itself.
+	target, err := url.Parse(dsn)
 	if err != nil { // coverage-ignore
 		t.Fatalf("parse connection string: %v", err)
 	}
 
-	config.ConnConfig.Database = name
+	target.Path = "/" + name
+
+	config, err := pgxpool.ParseConfig(target.String())
+	if err != nil { // coverage-ignore
+		t.Fatalf("parse connection string: %v", err)
+	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil { // coverage-ignore
@@ -132,12 +139,12 @@ func (s *Server) exec(t *testing.T, statement string) {
 
 	ctx := context.WithoutCancel(t.Context())
 
-	url, err := s.container.ConnectionString(ctx, "sslmode=disable")
+	dsn, err := s.container.ConnectionString(ctx, "sslmode=disable")
 	if err != nil { // coverage-ignore
 		t.Fatalf("connection string: %v", err)
 	}
 
-	config, err := pgx.ParseConfig(url)
+	config, err := pgx.ParseConfig(dsn)
 	if err != nil { // coverage-ignore
 		t.Fatalf("parse connection string: %v", err)
 	}

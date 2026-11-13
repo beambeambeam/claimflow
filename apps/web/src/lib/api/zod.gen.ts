@@ -11,6 +11,27 @@ export const zReady = z.object({
   status: z.enum(['ok'])
 });
 
+export const zLoginRequest = z.object({
+  username: z.string().min(1).max(50),
+  password: z.string().min(1).max(72)
+});
+
+export const zCurrentUser = z.object({
+  id: z.string(),
+  username: z.string(),
+  name: z.string(),
+  role: z.enum([
+    'requester',
+    'reviewer',
+    'finance'
+  ]),
+  permissions: z.record(z.string(), z.array(z.string()))
+});
+
+export const zCurrentUserEnvelope = z.object({
+  data: zCurrentUser
+});
+
 /**
  * A stable error code for the client (SDS §4.2).
  */
@@ -55,3 +76,15 @@ export const zGetHealthResponse = zHealth;
  * The API can reach the database.
  */
 export const zGetReadyResponse = zReady;
+
+export const zLoginBody = zLoginRequest;
+
+/**
+ * The user is signed in. The session cookie is set (F-01 §3.3).
+ */
+export const zLoginResponse = zCurrentUserEnvelope;
+
+/**
+ * The signed-in user.
+ */
+export const zGetMeResponse = zCurrentUserEnvelope;

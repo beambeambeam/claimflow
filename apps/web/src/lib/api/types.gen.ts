@@ -16,6 +16,31 @@ export type Ready = {
   status: 'ok';
 };
 
+export type LoginRequest = {
+  username: string;
+  /**
+   * 1–72 bytes of UTF-8, the bcrypt input limit. maxLength counts characters, so it is only an upper bound; the server and the web client also check the byte length.
+   */
+  password: string;
+};
+
+export type CurrentUser = {
+  id: string;
+  username: string;
+  name: string;
+  role: 'requester' | 'reviewer' | 'finance';
+  /**
+   * Actions the role grants, keyed by resource (F-01 §1.6).
+   */
+  permissions: {
+    [key: string]: Array<string>;
+  };
+};
+
+export type CurrentUserEnvelope = {
+  data: CurrentUser;
+};
+
 /**
  * A stable error code for the client (SDS §4.2).
  */
@@ -102,3 +127,69 @@ export type GetReadyResponses = {
 };
 
 export type GetReadyResponse = GetReadyResponses[keyof GetReadyResponses];
+
+export type LoginData = {
+  body: LoginRequest;
+  path?: never;
+  query?: never;
+  url: '/auth/login';
+};
+
+export type LoginErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type LoginError = LoginErrors[keyof LoginErrors];
+
+export type LoginResponses = {
+  /**
+   * The user is signed in. The session cookie is set (F-01 §3.3).
+   */
+  200: CurrentUserEnvelope;
+};
+
+export type LoginResponse = LoginResponses[keyof LoginResponses];
+
+export type GetMeData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/auth/me';
+};
+
+export type GetMeErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type GetMeError = GetMeErrors[keyof GetMeErrors];
+
+export type GetMeResponses = {
+  /**
+   * The signed-in user.
+   */
+  200: CurrentUserEnvelope;
+};
+
+export type GetMeResponse = GetMeResponses[keyof GetMeResponses];

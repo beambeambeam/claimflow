@@ -5,7 +5,7 @@
 - **Requirements:** FR-01, NFR-01, NFR-03
 - **Responsibilities established here:** SR-01 (NFR-02), SR-02 (NFR-04, local), SR-06 (NFR-09)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `user`, `account`, `session`; §4.1–4.2; §5.1; §6; §7.1 Login; §8
-- **Version:** 0.2 (draft) · **Last updated:** 2026-11-06
+- **Version:** 0.5 (draft) · **Last updated:** 2026-11-13
 
 This feature also lays the foundation that every other feature uses: the OpenAPI contract file, the problem error format, the database and migrations, code generation, and the health checks. Those parts have their own acceptance criteria below because later features depend on them.
 
@@ -52,7 +52,7 @@ sequenceDiagram
 | Rule | Detail |
 | --- | --- |
 | Username | 1–50 characters. Lowercased before lookup. |
-| Password | 1–72 characters (bcrypt input limit). Compared with `bcrypt.CompareHashAndPassword`. |
+| Password | 1–72 bytes of UTF-8 (bcrypt input limit), not characters: a Thai character takes 3 bytes. Compared with `bcrypt.CompareHashAndPassword`. |
 | Unknown username | Compared against a fixed dummy hash, so the response time does not show that the account does not exist. |
 | Ban | `banned = true` and `ban_expires` NULL or in the future. A ban with `ban_expires` in the past counts as no ban. |
 | Session token | 32 bytes from `crypto/rand`, base64url. Only its SHA-256 is stored. |
@@ -122,6 +122,7 @@ Route permissions by role (SDS §5.1), returned by `/auth/me`:
 | ---------- | ------------ | ------------------------------- |
 | Username   | required     | "Enter your username."          |
 | Password   | required     | "Enter your password."          |
+| Password   | ≤ 72 bytes   | "Password must be 1–72 bytes."  |
 | Form (401) | –            | "Invalid username or password." |
 
 ### 2.4 States
@@ -179,7 +180,7 @@ All paths are under `/api/v1`. Shapes are defined in `apps/api/openapi.yaml`.
 
 | Method | Path | Request | Success | Errors | Auth |
 | --- | --- | --- | --- | --- | --- |
-| POST | `/auth/login` | `{ "username": string 1–50, "password": string 1–72 }` | 200 `{ "data": CurrentUser }` + `Set-Cookie` | 400, 401, 403 (cross-origin) | none |
+| POST | `/auth/login` | `{ "username": string 1–50 characters, "password": string 1–72 bytes }` | 200 `{ "data": CurrentUser }` + `Set-Cookie` | 400, 401, 403 (cross-origin) | none |
 | POST | `/auth/logout` | – | 204 + `Set-Cookie` that clears the cookie | 401, 403 (cross-origin) | session |
 | GET | `/auth/me` | – | 200 `{ "data": CurrentUser }` | 401 | session |
 | GET | `/health` | – | 200 `{ "status": "ok", "version": string }` | – | none |
@@ -302,3 +303,4 @@ The Product DoD (`definition-of-done.md`) applies. For F-01 the evidence is:
 | 0.2 | 2026-11-06 | Review fix (PR #23): session check runs before OpenAPI validation, so an anonymous request gets 401, not 400 (SDS §1.3) | 1005, 1045 |
 | 0.3 | 2026-11-07 | Ticket 01 (#24): problem `type` is `about:blank`, `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (SDS §4.2); migration `00001_auth.sql` (4.1) ships in ticket 01, because goose needs at least one migration; UI components are HeroUI v3 (SDS §1.2); PRs target `sprint-1` | 1005, 1045 |
 | 0.4 | 2026-11-11 | Review fix (PR #36): migration `00001_auth.sql` adds a trigger that deletes a user's sessions when a ban starts (4.1); F01-TEST-06 bans with a direct SQL `UPDATE` | 1005, 1045 |
+| 0.5 | 2026-11-13 | Ticket 02 (#25, PR #56): UI components are Astryx with the Neutral theme, replacing HeroUI v3 and Tailwind (SDS 0.11 §1.2); forms use TanStack Form through `#/lib/form`; the password limit is 72 bytes, not characters, in §1.5, §2.3, the endpoint table, and `openapi.yaml` (the client checks bytes too) | 1005, 1045 |

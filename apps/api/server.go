@@ -15,6 +15,7 @@ import (
 
 	"github.com/beambeambeam/claimflow/apps/api/env"
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
+	"github.com/beambeambeam/claimflow/apps/api/internal/auth"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 	"github.com/beambeambeam/claimflow/apps/api/internal/system"
@@ -44,7 +45,7 @@ func run(ctx context.Context, cfg *env.Env, logger *slog.Logger) error {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}
 
-	return serve(ctx, listener, newRouter(logger, cfg.AppVersion, pool), logger)
+	return serve(ctx, listener, newRouter(logger, cfg, pool), logger)
 }
 
 // serve handles requests on listener until ctx is canceled, then shuts down gracefully.
@@ -82,20 +83,34 @@ func serve(ctx context.Context, listener net.Listener, handler http.Handler, log
 	return nil
 }
 
+// authHandler names auth.Handler here, because both feature handlers are called Handler and
+// embedding them under that name would clash.
+type authHandler = auth.Handler
+
 // server composes the feature handlers into the generated strict server interface.
 type server struct {
 	system.Handler
+	authHandler
 }
 
-// newRouter builds the router: request ID and log, problem responses, then the contract's operations.
-func newRouter(logger *slog.Logger, version string, pool db.DBTX) *gin.Engine {
+// newRouter builds the router: request ID and log, problem responses, cross-origin guard, session user,
+// then the contract's operations.
+func newRouter(logger *slog.Logger, cfg *env.Env, pool db.DBTX) *gin.Engine {
+	queries := db.New(pool)
+	authService := auth.NewService(queries, int(cfg.BcryptCost))
+
 	router := gin.New()
-	router.Use(httperr.RequestID(), requestLogger(logger), httperr.Handle(logger))
+	// Handlers get the gin context; the fallback lets them read values that middleware put in the request context.
+	router.ContextWithFallback = true
+	router.Use(httperr.RequestID(), requestLogger(logger), httperr.Handle(logger), crossOriginGuard(),
+		auth.Session(authService, cfg.CookieSecure))
 	router.NoRoute(httperr.NotFound)
 
 	handler := api.NewStrictHandlerWithOptions(server{
-		Handler: system.NewHandler(version, db.New(pool)),
+		Handler:     system.NewHandler(cfg.AppVersion, queries),
+		authHandler: auth.NewHandler(authService, cfg.CookieSecure),
 	}, nil, api.StrictGinServerOptions{
+		RequestErrorHandlerFunc:  httperr.ReportInvalid,
 		HandlerErrorFunc:         httperr.Report,
 		ResponseErrorHandlerFunc: httperr.Report,
 	})
@@ -129,6 +144,23 @@ func newLogger(w io.Writer, level string) *slog.Logger {
 			return attr
 		},
 	}))
+}
+
+// crossOriginGuard refuses unsafe browser requests that come from another origin (F-01 §1.5, CSRF).
+// The zero CrossOriginProtection trusts no origin. Safe methods always pass.
+func crossOriginGuard() gin.HandlerFunc {
+	var protection http.CrossOriginProtection
+
+	return func(c *gin.Context) {
+		if err := protection.Check(c.Request); err != nil {
+			httperr.Report(c, httperr.ErrForbidden)
+			c.Abort()
+
+			return
+		}
+
+		c.Next()
+	}
 }
 
 func requestLogger(logger *slog.Logger) gin.HandlerFunc {

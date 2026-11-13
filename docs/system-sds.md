@@ -2,7 +2,7 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.9 (draft for Deliverable 1)
+- **Version:** 0.11 (draft for Deliverable 1)
 - **Last updated:** 2026-11-07
 - **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
@@ -41,10 +41,10 @@ flowchart LR
 | Layer | Choice | Status | Reason |
 | --- | --- | --- | --- |
 | Monorepo/tooling | Bun workspaces, Vite+ (`vp`) for lint/format/test, semantic-release | in repo | Existing team setup |
-| UI | React 19 + TypeScript, TanStack Router (file routes), Tailwind CSS 4 | in repo | Existing team setup; typed routes |
-| UI components | HeroUI v3 (React Aria based, Tailwind CSS 4) | to add | Accessible ready-made components that use the existing Tailwind 4 setup |
+| UI | React 19 + TypeScript, TanStack Router (file routes) | in repo | Existing team setup; typed routes |
+| UI components | Astryx (`@astryxdesign/core`, precompiled CSS) with the Neutral theme | in repo | Accessible ready-made components and layout, themed through tokens, with no CSS build step |
 | UI server state | TanStack Query | to add | Caching, plus built-in loading/error states for every API call |
-| UI forms | TanStack Form with the Zod schemas generated from the contract | to add | Client checks use the same limits as the server |
+| UI forms | TanStack Form with the Zod schemas generated from the contract; `#/lib/form` binds Astryx inputs to fields | in repo | Client checks use the same limits as the server |
 | API contract | OpenAPI 3.0.3, written by hand in `apps/api/openapi.yaml` | to add | One source for both apps; it is the feature contract for each sprint |
 | API code generation | `oapi-codegen` (Gin strict server + types), pinned in `tools.mod` | to add | Handlers implement a generated interface, so the code cannot drift from the contract |
 | Web code generation | `@hey-api/openapi-ts` (fetch client, TanStack Query options, Zod schemas) | to add | Typed calls and query keys with no hand-written fetch code |
@@ -93,6 +93,7 @@ This follows the Go guide [Organizing a Go module](https://go.dev/doc/modules/la
 ```
 apps/api/
   main.go  server.go  config.go   # entry: startup, config, router; composes the feature handlers
+  migrate.go  seed.go              # `migrate` and `seed` subcommands of the one binary
   openapi.yaml                     # the API contract (Section 4)
   oapi-codegen.yaml  sqlc.yaml     # code generation config
   env/                             # varlock-generated (excluded from coverage)
@@ -102,6 +103,7 @@ apps/api/
     auth/                          # feature: login/logout/me, sessions, bans, route permissions
       handler.go                   #   implements the auth operations of the strict server interface
       service.go                   #   login, logout, session lookup, ban check
+      middleware.go                #   Session: session cookie → current user in the request context
       access.go                    #   statement, roles, RequirePermission (Section 5.1)
       queries.sql  *_test.go
     claim/                         # feature: claims, line items, lifecycle, review and finance actions
@@ -118,7 +120,6 @@ apps/api/
     money/                         # shared: the money.Satang type (Section 2.3)
     pgtest/                        # shared, tests only: one PostgreSQL container per package, a fresh database per test
   migrations/                      # goose SQL migrations (one schema for all features)
-  seed/                            # seed data, run with `bun run seed`
 ```
 
 - **Inside a feature, files split by responsibility.** `handler.go` maps the generated request and response types. `service.go` is the feature's interface and owns transactions. `policy.go`, `lifecycle.go`, and `rules.go` are pure functions behind it.
@@ -136,7 +137,7 @@ This follows the `features/` model in [bulletproof-react](https://github.com/ala
 
 ```
 apps/web/src/
-  main.tsx  router.tsx  styles.css     # entry, router + QueryClient setup (router context holds both)
+  main.tsx  router.tsx  astryx-themes.ts  # entry, router + QueryClient setup (router context holds both), generated theme module
   routes/                              # thin route files (Section 7.1): path, beforeLoad guard, loader,
                                        #   search params; render feature components and nothing else
   features/
@@ -152,6 +153,7 @@ apps/web/src/
   lib/
     api/                               # shared: generated client, query options, Zod schemas (@hey-api/openapi-ts)
     problem.ts                         # shared: reads RFC 9457 errors into field messages
+    form.tsx                           # shared: TanStack Form hook with Astryx field components
     format.ts                          # shared: money and date formatting (Asia/Bangkok)
   __test__/                            # app-level tests (router, routes) and shared test helpers:
                                        #   render helpers, MSW handlers, seed users
@@ -574,7 +576,7 @@ The "not own" check uses `requester_id` directly, so self-approval is blocked ev
 | Failed login | 401 with the generic message "Invalid username or password." A banned user (`banned = true` and `ban_expires` NULL or in the future) gets the same response, so the response does not show which accounts exist or are banned. To limit timing differences, an unknown username is still compared against a dummy hash. |
 | Session creation | 32 bytes from `crypto/rand`, base64url-encoded, becomes the cookie value. Its SHA-256 is stored in `session.token` with `expires_at = now + 8h`, `ip_address`, and `user_agent`. The 8-hour lifetime is a constant, not configuration (NFR-03). |
 | Cookie | `__Host-sid=<token>`; `HttpOnly`; `Secure`; `SameSite=Lax`; `Path=/`; no `Domain`; `Max-Age=28800`. The `__Host-` prefix makes the browser enforce `Secure`, `Path=/`, and no `Domain`. Local development over plain HTTP (`COOKIE_SECURE=false`) uses the name `sid` without `Secure`. |
-| Request handling | Gin middleware hashes the cookie, loads an unexpired session and its user, and stores the actor (`id`, `role`, `reviewer_id`) in the request context. A missing, unknown, or expired session, or a banned user → 401. |
+| Request handling | The `auth.Session` Gin middleware hashes the cookie, loads an unexpired session of a user who is not banned through `auth.Service`, and stores the user in the request context. A request with no such session continues without a user, because login and health are public. An operation that needs a user reads it with `auth.UserFrom` and returns 401 when it is missing; route-level permissions (Section 5.1) build on the same value. |
 | Current user | `GET /auth/me`. The `_auth` route's `beforeLoad` calls `queryClient.ensureQueryData` for it, puts the user in router context, and redirects anonymous users to `/login?redirect=<path>` before any protected screen renders. |
 | Logout | Delete the session row and clear the cookie. Reusing the old token afterwards → 401 (NFR-03). |
 | Expiry | Fixed lifetime, no sliding renewal. Expired rows are deleted at login. |
@@ -748,3 +750,4 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.8 | 2026-11-04 | Auth design (2.2, 5.1, 6, SD-10) written as this system's own design, with no references to outside frameworks | 1005, 1045 |
 | 0.9 | 2026-11-07 | Sprint branches renamed to `sprint-1`–`sprint-3` and the ruleset to `sprint` (#7); both rulesets require 1 approval, dismiss stale approvals, and block last-pusher approval (9.1) | 1005, 1045 |
 | 0.10 | 2026-11-07 | F-01/01 (#24) decisions: HeroUI v3 (1.2); `system` package and per-test template databases in `pgtest` (1.4, 10); `db:up` at the root, `migrate up\|down\|status` subcommand with embedded migrations and an advisory lock (2.5); problem `type` is `about:blank`, and `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (4.2) | 1005, 1045 |
+| 0.11 | 2026-11-13 | Web UI: Astryx with the Neutral theme replaces Tailwind and HeroUI; TanStack Form in use through `#/lib/form` (1.2, 1.4.2) | 1005, 1045 |

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
-import { HomePage } from "#/components/home-page";
+import { HomePage } from "#/features/home/components/home-page";
 import { getHealthQueryKey } from "#/lib/api/@tanstack/react-query.gen";
 
 describe("home page", () => {
