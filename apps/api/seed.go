@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -93,4 +94,15 @@ func seed(ctx context.Context, databaseURL, password string, cost int, out io.Wr
 	}
 
 	return nil
+}
+
+var errSeedPasswordUnset = errors.New("SEED_USER_PASSWORD is not set")
+
+// seedCommand runs `api seed`. It refuses an empty password, so no demo user is written with a blank credential.
+func seedCommand(ctx context.Context, databaseURL, password string, cost int, out io.Writer) error {
+	if password == "" {
+		return errSeedPasswordUnset
+	}
+
+	return seed(ctx, databaseURL, password, cost, out)
 }
