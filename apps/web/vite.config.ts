@@ -26,6 +26,7 @@ const config = defineConfig({
   resolve: { tsconfigPaths: true },
   server: { proxy: { "/api": ENV.API_URL } },
   test: {
+    environment: "jsdom",
     coverage: {
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
