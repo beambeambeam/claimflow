@@ -101,7 +101,7 @@ func newRouter(logger *slog.Logger, cfg *env.Env, pool db.DBTX) *gin.Engine {
 
 	handler := api.NewStrictHandlerWithOptions(server{
 		Handler:     system.NewHandler(cfg.AppVersion, db.New(pool)),
-		authHandler: auth.Handler{},
+		authHandler: auth.NewHandler(db.New(pool), cfg.CookieSecure, int(cfg.BcryptCost)),
 	}, nil, api.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  httperr.ReportInvalid,
 		HandlerErrorFunc:         httperr.Report,
