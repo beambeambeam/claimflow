@@ -24,11 +24,13 @@ const (
 	requestIDKey    = "httperr.requestID"
 )
 
-// Error is an error with a known problem response.
+// Error is an error with a known problem response. Errors names the invalid fields of a 400, and is
+// empty when no field can be named.
 type Error struct {
 	Status int
 	Code   api.ProblemCode
 	Title  string
+	Errors []api.FieldError
 }
 
 func (e *Error) Error() string {
@@ -43,8 +45,8 @@ var (
 	// ErrNotImplemented is the problem for an operation with no implementation yet.
 	// Its code is INTERNAL because SDS §4.2 defines no code for it.
 	ErrNotImplemented = &Error{Status: http.StatusNotImplemented, Code: api.ProblemCodeInternal, Title: "Not implemented."}
-	// ErrValidation is the problem for a request that does not decode or breaks a bound.
-	ErrValidation = &Error{Status: http.StatusBadRequest, Code: api.ProblemCodeValidationFailed, Title: "Invalid request."}
+	// ErrValidation is the problem for a request that does not decode. It names no field.
+	ErrValidation = &Error{Status: http.StatusBadRequest, Code: api.ProblemCodeBadRequest, Title: "Invalid request."}
 	// ErrForbidden is the problem for a request the server refuses on policy, such as a cross-origin write.
 	ErrForbidden = &Error{Status: http.StatusForbidden, Code: api.ProblemCodeForbidden, Title: "Forbidden."}
 
@@ -120,6 +122,14 @@ func ReportInvalid(c *gin.Context, _ error) {
 	Report(c, ErrValidation)
 }
 
+// InvalidFields returns the 400 problem for a request whose fields break a bound. It names each field in fields.
+func InvalidFields(fields []api.FieldError) *Error {
+	problem := *ErrValidation
+	problem.Errors = fields
+
+	return &problem
+}
+
 func write(c *gin.Context, problem *Error) {
 	body := api.Problem{
 		Type:      api.ProblemTypeAboutBlank,
@@ -129,6 +139,10 @@ func write(c *gin.Context, problem *Error) {
 		Instance:  c.Request.URL.Path,
 		RequestId: RequestIDFrom(c),
 	}
+	if len(problem.Errors) > 0 {
+		body.Errors = &problem.Errors
+	}
+
 	c.Header("Content-Type", contentType)
 	c.JSON(problem.Status, body)
 }

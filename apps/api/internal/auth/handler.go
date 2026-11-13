@@ -65,8 +65,8 @@ func NewHandler(queries *db.Queries, cookieSecure bool, bcryptCost int) Handler 
 // Login checks the credential and starts a session. The cookie carries the token. The database keeps
 // only its SHA-256 digest.
 func (h Handler) Login(ctx context.Context, request api.LoginRequestObject) (api.LoginResponseObject, error) {
-	if !validLogin(request.Body.Username, request.Body.Password) {
-		return nil, httperr.ErrValidation
+	if fields := loginFieldErrors(request.Body.Username, request.Body.Password); len(fields) > 0 {
+		return nil, httperr.InvalidFields(fields)
 	}
 
 	password := []byte(request.Body.Password)
@@ -153,12 +153,26 @@ func currentUser(id uuid.UUID, name, username, role string) api.CurrentUser {
 	}
 }
 
-// validLogin reports whether a login request is within the bounds of LoginRequest:
-// username 1–50 characters, password 1–72 bytes.
-func validLogin(username, password string) bool {
-	length := utf8.RuneCountInString(username)
+// loginFieldErrors names each field of a login request that breaks its bound in LoginRequest:
+// username 1–50 characters, password 1–72 bytes. It returns nil when both fields are within bounds.
+func loginFieldErrors(username, password string) []api.FieldError {
+	var fields []api.FieldError
 
-	return length >= 1 && length <= 50 && len(password) >= 1 && len(password) <= 72
+	switch length := utf8.RuneCountInString(username); {
+	case length == 0:
+		fields = append(fields, api.FieldError{Field: "username", Rule: "required", Message: "Enter your username."})
+	case length > 50:
+		fields = append(fields, api.FieldError{Field: "username", Rule: "length", Message: "Username must be 1–50 characters."})
+	}
+
+	switch {
+	case password == "":
+		fields = append(fields, api.FieldError{Field: "password", Rule: "required", Message: "Enter your password."})
+	case len(password) > 72:
+		fields = append(fields, api.FieldError{Field: "password", Rule: "length", Message: "Password must be 1–72 bytes."})
+	}
+
+	return fields
 }
 
 // GetMe returns the user of the session in the request cookie. The strict server passes the gin context
