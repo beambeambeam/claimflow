@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { loginMutation } from "#/lib/api/@tanstack/react-query.gen";
 import type { CurrentUserEnvelope } from "#/lib/api/types.gen";
-import { readProblem } from "#/lib/problem";
+import { isProblem } from "#/lib/problem";
 
 interface FieldErrors {
   username?: string;
@@ -28,7 +28,7 @@ export const LoginForm = ({
       onLoggedIn(envelope);
     },
     onError: (error) => {
-      if (readProblem(error)?.status === 401) {
+      if (isProblem(error) && error.status === 401) {
         setPassword("");
       }
     },
@@ -54,7 +54,7 @@ export const LoginForm = ({
     login.mutate({ body: { username, password } });
   };
 
-  const problem = readProblem(login.error);
+  const problem = isProblem(login.error) ? login.error : null;
 
   return (
     <form

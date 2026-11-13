@@ -7,7 +7,7 @@ import {
 
 import { AppHeader } from "#/components/app-header";
 import { getMeOptions } from "#/lib/api/@tanstack/react-query.gen";
-import { zProblem } from "#/lib/api/zod.gen";
+import { isProblem } from "#/lib/problem";
 
 const AuthLayout = () => {
   const { user } = useRouteContext({ from: "/_auth" });
@@ -32,10 +32,7 @@ export const Route = createFileRoute("/_auth")({
 
       return { user: envelope.data };
     } catch (error) {
-      // Caught values are unknown, so validate with the schema instead of readProblem.
-      const problem = zProblem.safeParse(error);
-
-      if (!problem.success || problem.data.status !== 401) {
+      if (!isProblem(error) || error.status !== 401) {
         throw error;
       }
 
