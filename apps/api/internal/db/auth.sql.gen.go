@@ -93,3 +93,72 @@ func (q *Queries) GetSessionUser(ctx context.Context, token []byte) (GetSessionU
 	)
 	return i, err
 }
+
+const upsertSeedAccount = `-- name: UpsertSeedAccount :exec
+INSERT INTO account (id, user_id, provider_id, account_id, password)
+VALUES ($1, $2, 'credential', $3, $4)
+ON CONFLICT (provider_id, account_id) DO UPDATE SET
+  user_id = EXCLUDED.user_id,
+  password = EXCLUDED.password,
+  updated_at = now()
+`
+
+type UpsertSeedAccountParams struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	AccountID string
+	Password  pgtype.Text
+}
+
+// UpsertSeedAccount stores the bcrypt hash of a demo user's credential account. The account id is the user id,
+// as Better Auth keys credential accounts.
+func (q *Queries) UpsertSeedAccount(ctx context.Context, arg UpsertSeedAccountParams) error {
+	_, err := q.db.Exec(ctx, upsertSeedAccount,
+		arg.ID,
+		arg.UserID,
+		arg.AccountID,
+		arg.Password,
+	)
+	return err
+}
+
+const upsertSeedUser = `-- name: UpsertSeedUser :one
+INSERT INTO "user" (id, name, email, username, display_username, role, position, reviewer_id)
+VALUES ($1, $2, $3, $4, $4, $5, $6, $7)
+ON CONFLICT (username) DO UPDATE SET
+  name = EXCLUDED.name,
+  email = EXCLUDED.email,
+  display_username = EXCLUDED.display_username,
+  role = EXCLUDED.role,
+  position = EXCLUDED.position,
+  reviewer_id = EXCLUDED.reviewer_id,
+  updated_at = now()
+RETURNING id
+`
+
+type UpsertSeedUserParams struct {
+	ID         uuid.UUID
+	Name       string
+	Email      string
+	Username   string
+	Role       string
+	Position   string
+	ReviewerID uuid.NullUUID
+}
+
+// UpsertSeedUser inserts a demo user, or updates the user with the same username. It returns the user id,
+// which the row keeps across runs, so a reviewer_id taken from it stays valid.
+func (q *Queries) UpsertSeedUser(ctx context.Context, arg UpsertSeedUserParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, upsertSeedUser,
+		arg.ID,
+		arg.Name,
+		arg.Email,
+		arg.Username,
+		arg.Role,
+		arg.Position,
+		arg.ReviewerID,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}

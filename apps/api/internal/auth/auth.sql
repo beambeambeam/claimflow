@@ -19,3 +19,28 @@ JOIN "user" u ON u.id = s.user_id
 WHERE s.token = sqlc.arg(token)
   AND s.expires_at > now()
   AND NOT (u.banned AND (u.ban_expires IS NULL OR u.ban_expires > now()));
+
+-- name: UpsertSeedUser :one
+-- UpsertSeedUser inserts a demo user, or updates the user with the same username. It returns the user id,
+-- which the row keeps across runs, so a reviewer_id taken from it stays valid.
+INSERT INTO "user" (id, name, email, username, display_username, role, position, reviewer_id)
+VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(email), sqlc.arg(username), sqlc.arg(username), sqlc.arg(role), sqlc.arg(position), sqlc.narg(reviewer_id))
+ON CONFLICT (username) DO UPDATE SET
+  name = EXCLUDED.name,
+  email = EXCLUDED.email,
+  display_username = EXCLUDED.display_username,
+  role = EXCLUDED.role,
+  position = EXCLUDED.position,
+  reviewer_id = EXCLUDED.reviewer_id,
+  updated_at = now()
+RETURNING id;
+
+-- name: UpsertSeedAccount :exec
+-- UpsertSeedAccount stores the bcrypt hash of a demo user's credential account. The account id is the user id,
+-- as Better Auth keys credential accounts.
+INSERT INTO account (id, user_id, provider_id, account_id, password)
+VALUES (sqlc.arg(id), sqlc.arg(user_id), 'credential', sqlc.arg(account_id), sqlc.arg(password))
+ON CONFLICT (provider_id, account_id) DO UPDATE SET
+  user_id = EXCLUDED.user_id,
+  password = EXCLUDED.password,
+  updated_at = now();
