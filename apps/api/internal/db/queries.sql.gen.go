@@ -7,6 +7,9 @@ package db
 
 import (
 	"context"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const checkReady = `-- name: CheckReady :one
@@ -19,4 +22,155 @@ func (q *Queries) CheckReady(ctx context.Context) (int32, error) {
 	var ok int32
 	err := row.Scan(&ok)
 	return ok, err
+}
+
+const createSession = `-- name: CreateSession :exec
+INSERT INTO session (id, user_id, token, expires_at)
+VALUES ($1, $2, $3, $4)
+`
+
+type CreateSessionParams struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Token     []byte
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
+	_, err := q.db.Exec(ctx, createSession,
+		arg.ID,
+		arg.UserID,
+		arg.Token,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const getCredentialForLogin = `-- name: GetCredentialForLogin :one
+SELECT u.id AS user_id, u.name, u.username, u.role, COALESCE(a.password, '')::text AS password_hash
+FROM "user" u
+JOIN account a ON a.user_id = u.id AND a.provider_id = 'credential'
+WHERE u.username = $1
+`
+
+type GetCredentialForLoginRow struct {
+	UserID       uuid.UUID
+	Name         string
+	Username     string
+	Role         string
+	PasswordHash string
+}
+
+// GetCredentialForLogin returns the user and password hash of the credential account for a lowercase username.
+// The migration requires a password on every credential account, so COALESCE only guards the scan type.
+func (q *Queries) GetCredentialForLogin(ctx context.Context, username string) (GetCredentialForLoginRow, error) {
+	row := q.db.QueryRow(ctx, getCredentialForLogin, username)
+	var i GetCredentialForLoginRow
+	err := row.Scan(
+		&i.UserID,
+		&i.Name,
+		&i.Username,
+		&i.Role,
+		&i.PasswordHash,
+	)
+	return i, err
+}
+
+const getSessionUser = `-- name: GetSessionUser :one
+SELECT u.id, u.name, u.username, u.role
+FROM session s
+JOIN "user" u ON u.id = s.user_id
+WHERE s.token = $1
+  AND s.expires_at > now()
+  AND NOT (u.banned AND (u.ban_expires IS NULL OR u.ban_expires > now()))
+`
+
+type GetSessionUserRow struct {
+	ID       uuid.UUID
+	Name     string
+	Username string
+	Role     string
+}
+
+// GetSessionUser returns the user of an unexpired session whose user is not banned.
+// A ban with no end, or with an end in the future, is active.
+func (q *Queries) GetSessionUser(ctx context.Context, token []byte) (GetSessionUserRow, error) {
+	row := q.db.QueryRow(ctx, getSessionUser, token)
+	var i GetSessionUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Username,
+		&i.Role,
+	)
+	return i, err
+}
+
+const upsertSeedAccount = `-- name: UpsertSeedAccount :exec
+INSERT INTO account (id, user_id, provider_id, account_id, password)
+VALUES ($1, $2, 'credential', $3, $4)
+ON CONFLICT (provider_id, account_id) DO UPDATE SET
+  user_id = EXCLUDED.user_id,
+  password = EXCLUDED.password,
+  updated_at = now()
+`
+
+type UpsertSeedAccountParams struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	AccountID string
+	Password  pgtype.Text
+}
+
+// UpsertSeedAccount stores the bcrypt hash of a demo user's credential account. The account id is the user id,
+// as Better Auth keys credential accounts.
+func (q *Queries) UpsertSeedAccount(ctx context.Context, arg UpsertSeedAccountParams) error {
+	_, err := q.db.Exec(ctx, upsertSeedAccount,
+		arg.ID,
+		arg.UserID,
+		arg.AccountID,
+		arg.Password,
+	)
+	return err
+}
+
+const upsertSeedUser = `-- name: UpsertSeedUser :one
+INSERT INTO "user" (id, name, email, username, display_username, role, position, reviewer_id)
+VALUES ($1, $2, $3, $4, $4, $5, $6, $7)
+ON CONFLICT (username) DO UPDATE SET
+  name = EXCLUDED.name,
+  email = EXCLUDED.email,
+  display_username = EXCLUDED.display_username,
+  role = EXCLUDED.role,
+  position = EXCLUDED.position,
+  reviewer_id = EXCLUDED.reviewer_id,
+  updated_at = now()
+RETURNING id
+`
+
+type UpsertSeedUserParams struct {
+	ID         uuid.UUID
+	Name       string
+	Email      string
+	Username   string
+	Role       string
+	Position   string
+	ReviewerID uuid.NullUUID
+}
+
+// UpsertSeedUser inserts a demo user, or updates the user with the same username. It returns the user id,
+// which the row keeps across runs, so a reviewer_id taken from it stays valid.
+func (q *Queries) UpsertSeedUser(ctx context.Context, arg UpsertSeedUserParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, upsertSeedUser,
+		arg.ID,
+		arg.Name,
+		arg.Email,
+		arg.Username,
+		arg.Role,
+		arg.Position,
+		arg.ReviewerID,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
