@@ -102,6 +102,7 @@ apps/api/
     auth/                          # feature: login/logout/me, sessions, bans, route permissions
       handler.go                   #   implements the auth operations of the strict server interface
       service.go                   #   login, logout, session lookup, ban check
+      middleware.go                #   Session: session cookie → current user in the request context
       access.go                    #   statement, roles, RequirePermission (Section 5.1)
       queries.sql  *_test.go
     claim/                         # feature: claims, line items, lifecycle, review and finance actions
@@ -575,7 +576,7 @@ The "not own" check uses `requester_id` directly, so self-approval is blocked ev
 | Failed login | 401 with the generic message "Invalid username or password." A banned user (`banned = true` and `ban_expires` NULL or in the future) gets the same response, so the response does not show which accounts exist or are banned. To limit timing differences, an unknown username is still compared against a dummy hash. |
 | Session creation | 32 bytes from `crypto/rand`, base64url-encoded, becomes the cookie value. Its SHA-256 is stored in `session.token` with `expires_at = now + 8h`, `ip_address`, and `user_agent`. The 8-hour lifetime is a constant, not configuration (NFR-03). |
 | Cookie | `__Host-sid=<token>`; `HttpOnly`; `Secure`; `SameSite=Lax`; `Path=/`; no `Domain`; `Max-Age=28800`. The `__Host-` prefix makes the browser enforce `Secure`, `Path=/`, and no `Domain`. Local development over plain HTTP (`COOKIE_SECURE=false`) uses the name `sid` without `Secure`. |
-| Request handling | Gin middleware hashes the cookie, loads an unexpired session and its user, and stores the actor (`id`, `role`, `reviewer_id`) in the request context. A missing, unknown, or expired session, or a banned user → 401. |
+| Request handling | The `auth.Session` Gin middleware hashes the cookie, loads an unexpired session of a user who is not banned through `auth.Service`, and stores the user in the request context. A request with no such session continues without a user, because login and health are public. An operation that needs a user reads it with `auth.UserFrom` and returns 401 when it is missing; route-level permissions (Section 5.1) build on the same value. |
 | Current user | `GET /auth/me`. The `_auth` route's `beforeLoad` calls `queryClient.ensureQueryData` for it, puts the user in router context, and redirects anonymous users to `/login?redirect=<path>` before any protected screen renders. |
 | Logout | Delete the session row and clear the cookie. Reusing the old token afterwards → 401 (NFR-03). |
 | Expiry | Fixed lifetime, no sliding renewal. Expired rows are deleted at login. |
