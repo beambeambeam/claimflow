@@ -99,9 +99,10 @@ func newRouter(logger *slog.Logger, cfg *env.Env, pool db.DBTX) *gin.Engine {
 	router.Use(httperr.RequestID(), requestLogger(logger), httperr.Handle(logger), crossOriginGuard())
 	router.NoRoute(httperr.NotFound)
 
+	queries := db.New(pool)
 	handler := api.NewStrictHandlerWithOptions(server{
-		Handler:     system.NewHandler(cfg.AppVersion, db.New(pool)),
-		authHandler: auth.NewHandler(db.New(pool), cfg.CookieSecure, int(cfg.BcryptCost)),
+		Handler:     system.NewHandler(cfg.AppVersion, queries),
+		authHandler: auth.NewHandler(queries, cfg.CookieSecure, int(cfg.BcryptCost)),
 	}, nil, api.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  httperr.ReportInvalid,
 		HandlerErrorFunc:         httperr.Report,
