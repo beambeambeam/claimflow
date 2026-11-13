@@ -62,7 +62,10 @@ func NewService(queries *db.Queries, bcryptCost int, now func() time.Time) Servi
 // Login checks the credential and starts a session. It returns the user and the token for the cookie.
 // The database keeps only the token's SHA-256 digest.
 func (s Service) Login(ctx context.Context, username, password string) (User, string, error) {
-	credential, err := s.queries.GetCredentialForLogin(ctx, strings.ToLower(username))
+	credential, err := s.queries.GetCredentialForLogin(ctx, db.GetCredentialForLoginParams{
+		Username: strings.ToLower(username),
+		Now:      pgtype.Timestamptz{Time: s.now(), Valid: true},
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Spend the same bcrypt time as a wrong password, so the response time does not reveal the username.
 		_ = bcrypt.CompareHashAndPassword(s.dummyHash, []byte(password))

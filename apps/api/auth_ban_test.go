@@ -14,7 +14,7 @@ import (
 
 // insertUserWithBan writes a user and a credential account with the password "correct-password". A banned user
 // gets ban_expires as given; nil means the ban has no end.
-func insertUserWithBan(t *testing.T, pool *pgxpool.Pool, username string, banned bool, banExpires *time.Time) uuid.UUID {
+func insertUserWithBan(t *testing.T, pool *pgxpool.Pool, username string, banned bool, banExpires *time.Time) {
 	t.Helper()
 
 	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), 10)
@@ -35,8 +35,6 @@ func insertUserWithBan(t *testing.T, pool *pgxpool.Pool, username string, banned
 		uuid.Must(uuid.NewV7()), userID, userID.String(), string(hash)); err != nil {
 		t.Fatalf("insert account %s: %v", username, err)
 	}
-
-	return userID
 }
 
 // F01-TEST-05: a ban with no end or an end in the future blocks login with the generic 401. A ban that ended
