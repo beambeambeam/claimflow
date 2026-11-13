@@ -88,19 +88,28 @@ func (s Service) Login(ctx context.Context, username, password string) (User, st
 	return User{ID: credential.UserID, Username: credential.Username, Name: credential.Name, Role: credential.Role}, token, nil
 }
 
-// SessionUser returns the user of the session that token names.
-func (s Service) SessionUser(ctx context.Context, token string) (User, error) {
+// SessionUser returns the user of the session that token names, and the session's id.
+func (s Service) SessionUser(ctx context.Context, token string) (User, uuid.UUID, error) {
 	digest := sha256.Sum256([]byte(token))
 
-	user, err := s.queries.GetSessionUser(ctx, digest[:])
+	row, err := s.queries.GetSessionUser(ctx, digest[:])
 	if errors.Is(err, pgx.ErrNoRows) {
-		return User{}, ErrNoSession
+		return User{}, uuid.Nil, ErrNoSession
 	}
 	if err != nil { // coverage-ignore
-		return User{}, fmt.Errorf("get session user: %w", err)
+		return User{}, uuid.Nil, fmt.Errorf("get session user: %w", err)
 	}
 
-	return User{ID: user.ID, Username: user.Username, Name: user.Name, Role: user.Role}, nil
+	return User{ID: row.ID, Username: row.Username, Name: row.Name, Role: row.Role}, row.SessionID, nil
+}
+
+// Logout deletes the session, so its token stops working at once.
+func (s Service) Logout(ctx context.Context, sessionID uuid.UUID) error {
+	if err := s.queries.DeleteSession(ctx, sessionID); err != nil { // coverage-ignore
+		return fmt.Errorf("delete session: %w", err)
+	}
+
+	return nil
 }
 
 // startSession stores a new session for userID and returns the token that goes in the cookie.

@@ -46,6 +46,16 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 	return err
 }
 
+const deleteSession = `-- name: DeleteSession :exec
+DELETE FROM session WHERE id = $1
+`
+
+// DeleteSession ends one session.
+func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteSession, id)
+	return err
+}
+
 const getCredentialForLogin = `-- name: GetCredentialForLogin :one
 SELECT u.id AS user_id, u.name, u.username, u.role, COALESCE(a.password, '')::text AS password_hash
 FROM "user" u
@@ -85,7 +95,7 @@ func (q *Queries) GetCredentialForLogin(ctx context.Context, arg GetCredentialFo
 }
 
 const getSessionUser = `-- name: GetSessionUser :one
-SELECT u.id, u.name, u.username, u.role
+SELECT s.id AS session_id, u.id, u.name, u.username, u.role
 FROM session s
 JOIN "user" u ON u.id = s.user_id
 WHERE s.token = $1
@@ -94,10 +104,11 @@ WHERE s.token = $1
 `
 
 type GetSessionUserRow struct {
-	ID       uuid.UUID
-	Name     string
-	Username string
-	Role     string
+	SessionID uuid.UUID
+	ID        uuid.UUID
+	Name      string
+	Username  string
+	Role      string
 }
 
 // GetSessionUser returns the user of an unexpired session whose user is not banned.
@@ -106,6 +117,7 @@ func (q *Queries) GetSessionUser(ctx context.Context, token []byte) (GetSessionU
 	row := q.db.QueryRow(ctx, getSessionUser, token)
 	var i GetSessionUserRow
 	err := row.Scan(
+		&i.SessionID,
 		&i.ID,
 		&i.Name,
 		&i.Username,

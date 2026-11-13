@@ -16,12 +16,16 @@ VALUES (sqlc.arg(id), sqlc.arg(user_id), sqlc.arg(token), sqlc.arg(expires_at));
 -- name: GetSessionUser :one
 -- GetSessionUser returns the user of an unexpired session whose user is not banned.
 -- A ban with no end, or with an end in the future, is active.
-SELECT u.id, u.name, u.username, u.role
+SELECT s.id AS session_id, u.id, u.name, u.username, u.role
 FROM session s
 JOIN "user" u ON u.id = s.user_id
 WHERE s.token = sqlc.arg(token)
   AND s.expires_at > now()
   AND NOT (u.banned AND (u.ban_expires IS NULL OR u.ban_expires > now()));
+
+-- name: DeleteSession :exec
+-- DeleteSession ends one session.
+DELETE FROM session WHERE id = sqlc.arg(id);
 
 -- name: UpsertSeedUser :one
 -- UpsertSeedUser inserts a demo user, or updates the user with the same username. It returns the user id,
