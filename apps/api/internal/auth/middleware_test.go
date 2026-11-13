@@ -37,3 +37,11 @@ func TestGetMeWithoutUserIsUnauthenticated(t *testing.T) {
 		t.Fatalf("err = %v, want errUnauthenticated", err)
 	}
 }
+
+// Logout still answers 401 if it is ever reached without a session.
+func TestLogoutWithoutSessionIsUnauthenticated(t *testing.T) {
+	_, err := Handler{}.Logout(t.Context(), api.LogoutRequestObject{})
+	if !errors.Is(err, errUnauthenticated) {
+		t.Fatalf("err = %v, want errUnauthenticated", err)
+	}
+}
