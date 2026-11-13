@@ -182,6 +182,12 @@ func TestF01TEST07GetMeReturnsThePermissionsOfEachRole(t *testing.T) {
 				}
 			}
 
+			for _, secret := range []string{token, seedPassword} {
+				if strings.Contains(recorder.Body.String(), secret) {
+					t.Fatalf("body leaks a secret value; body = %s", recorder.Body)
+				}
+			}
+
 			var body struct {
 				Data struct {
 					ID          string              `json:"id"`
