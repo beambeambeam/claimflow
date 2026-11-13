@@ -52,7 +52,7 @@ How to read and update the columns:
 | BR-12 Categories; Meals ≤ 1,500.00 | F-02 (S1); F-05, F-06 edit (S2) | 1 / 2 | F02-AC-06 (S1); planned | F02-TEST-09, 10 (S1); planned | – | – | – |
 | BR-13 Concurrent decisions: at most one succeeds | SR-04; F-04 | 1 | F04-AC-12, 13 | F04-TEST-15, 16 | – | – | – |
 | BR-14 Return at most 3 times | F-06 | 2 | planned | planned | – | – | – |
-| BR-15 No assigned reviewer, no claims (incl. drafts) | F-02 (S1); F-05 drafts (S2) | 1 / 2 | F01-AC-20; F02-AC-09, 14 (S1); planned | F01-TEST-22; F02-TEST-14, 15, 20 (S1); planned | – | – | – |
+| BR-15 No assigned reviewer, no claims (incl. drafts) | F-02 (S1); F-05 drafts (S2) | 1 / 2 | F01-AC-20; F02-AC-09, 14 (S1); planned | F01-TEST-22; F02-TEST-14, 15, 20 (S1); planned | F01-TEST-22: `apps/web/src/__test__/auth-routing.test.tsx › F01-TEST-22: shows a Finance Officer no My Claims or New Claim link (BR-15)` | partial: F01-TEST-22 pass (header part); F-02 server checks open | F-01/04 (#27) |
 | BR-16 Withdraw only from `Submitted`/`Returned` | F-07 | 2 | planned | planned | – | – | – |
 | BR-17 Reviewer fixed at first submission | F-02 (S1); F-05 draft submit, F-06 resubmit (S2) | 1 / 2 | F02-AC-01, 10 (S1); planned | F02-TEST-01, 02, 16, 21 (S1); planned | – | – | – |
 
@@ -108,3 +108,4 @@ Record every approved change to requirements, features, or their mapping. Featur
 | 2026-11-14 | Actual test and result recorded for F01-AC-04, 05, 07, 08, 21 (FR-01, NFR-03); F01-TEST-24 now covers logout | F01-AC-04, 05, 07, 08, 21 | Sprint 1 F-01/03 test evidence (#26) | – |
 | 2026-11-14 | F01-TEST-14 logout cases recorded (F01-AC-13 now fully tested); F01-AC-21 mutation test and logout failure tests added; F01-TEST-24 result changed from an undocumented value to `manual`; each test cites its own commit | F01-AC-07, 13, 21 | Review fixes for #26 | – |
 | 2026-11-14 | F01-TEST-24 re-run on 8f31a67: pass on a local seeded stack (not in CI) | F01-AC-07, 21 | Sprint 1 F-01/03 E2E evidence (#26) | – |
+| 2026-11-14 | Actual test and result recorded for F01-AC-06, 11, 12, 20 (FR-01, NFR-02, BR-15); F01-TEST-22 relabelled from `F01-AC-20` | F01-AC-06, 11, 12, 20 | Sprint 1 F-01/04 test evidence (#27). **Log out** in F01-AC-20 stays with ticket 03 | – |
