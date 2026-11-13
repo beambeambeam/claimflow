@@ -1,30 +1,31 @@
-# Issue tracker: Local Markdown
+# Issue tracker: GitHub Issues
 
-Issues and specs for this repo live as markdown files in `.scratch/`.
+Issues and specs for this repo live as GitHub Issues on `beambeambeam/claimflow`. Use the `gh` CLI.
 
 ## Conventions
 
-- One feature per directory: `.scratch/<feature-slug>/`
-- The spec is `.scratch/<feature-slug>/spec.md`
-- Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
-- Triage state is recorded as a `Status:` line near the top of each issue file
-- Comments and conversation history append to the bottom of the file under a `## Comments` heading
+- Title an implementation ticket `<feature or lab>/<NN>: <title>`, for example `F-05/01: Save and view drafts` or `L5/02: Cloud-ready image, compose stack, and image CI gate`. `NN` starts at `01` for each feature.
+- The body follows the existing tickets: Objective, Context, Scope (In scope, Out of scope), Implementation notes, Dependencies and risks, Acceptance criteria, Validation, Related work.
+- Record blocking as `Blocked by #N (<ticket>)` under Dependencies and risks.
+- Add every issue to the "claimflow's project" board (project 5). Its Status field is the triage state: `Backlog`, `Ready`, `In progress`, `Done`.
+- Label lab work with its lab label (for example `lab5`), so lab evidence stays separate from feature work.
+- Comments and conversation history are issue comments.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
+`gh issue create --repo beambeambeam/claimflow`, then `gh project item-add 5 --owner beambeambeam --url <issue URL>`.
 
 ## When a skill says "fetch the relevant ticket"
 
-Read the file at the referenced path. The user will normally pass the path or the issue number directly.
+`gh issue view <number> --repo beambeambeam/claimflow`. The user normally passes the issue number.
 
 ## Wayfinding operations
 
-Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
+Used by `/wayfinder`. The **map** is one issue; each **child** ticket is another issue.
 
-- **Map**: `.scratch/<effort>/map.md` (the Notes / Decisions-so-far / Fog body).
-- **Child ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `claimed`/`resolved`.
-- **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
-- **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
-- **Claim**: set `Status: claimed` and save before any work.
-- **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
+- **Map**: an issue whose body holds the Notes, Decisions-so-far, and Fog sections.
+- **Child ticket**: an issue with the question in the body and the map linked under Related work. Its type (`research`, `prototype`, `grilling`, `task`) goes in the title prefix.
+- **Blocking**: a `Blocked by #N` line. A ticket is unblocked when every issue it lists is closed.
+- **Frontier**: open, unblocked, unassigned child issues; the lowest number wins.
+- **Claim**: assign yourself and set Status to `In progress` before any work.
+- **Resolve**: post the answer as a comment headed `## Answer`, close the issue, then add a context pointer (gist + link) to the map's Decisions-so-far.
