@@ -2,7 +2,7 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System
 - **Baseline:** `docs/srs.md` v0.2 · Features: `docs/features.md` v1.0 · Design: `docs/system-sds.md` v0.8 · Sprint 1 contracts: `docs/sprints/sprint-1/`
-- **Last updated:** 2026-11-11
+- **Last updated:** 2026-11-13
 
 There is one row per SRS requirement. Each row traces requirement → feature or system responsibility → sprint → acceptance criteria → test → result. The design sections for each feature and responsibility are in section 4 of `docs/features.md`.
 
@@ -19,7 +19,7 @@ How to read and update the columns:
 
 | Requirement | Feature/responsibility | Sprint | AC | Planned test | Actual test | Result | Version |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| FR-01 Log in, log out, current user | F-01 | 1 | F01-AC-01–04, 06, 07, 18–20 | F01-TEST-01–05, 07, 08, 20–22, 24 | – | – | – |
+| FR-01 Log in, log out, current user | F-01 | 1 | F01-AC-01–04, 06, 07, 18–20 | F01-TEST-01–05, 07, 08, 20–22, 24 | F01-TEST-01: `apps/api/auth_login_test.go › TestF01TEST01LoginSetsHostSessionCookie`; F01-TEST-02: `apps/api/auth_login_test.go › TestF01TEST02LoginSetsPlainSessionCookieWhenNotSecure`; F01-TEST-03: `apps/api/auth_login_test.go › TestF01TEST03LoginMatchesUsernameIgnoringCase`; F01-TEST-04: `apps/api/auth_login_test.go › TestF01TEST04WrongPasswordAndUnknownUserLookTheSame`; F01-TEST-20: `apps/web/src/__test__/auth-routing.test.tsx › F01-TEST-20: returns anonymous /claims to /claims after a %s logs in`; F01-TEST-20: `apps/web/src/__test__/auth-routing.test.tsx › F01-TEST-20: sends a %s without a redirect to the role landing page`; F01-TEST-21: `apps/web/src/__test__/login-form.test.tsx › F01-TEST-21: shows a message for each empty field and sends no login request`; F01-TEST-21: `apps/web/src/__test__/login-form.test.tsx › F01-TEST-21: keeps the username and clears the password after a 401`; F01-TEST-24 (login part): `apps/web/e2e/f01-auth.spec.ts › F01-TEST-24: anonymous claims visit redirects to login, then req.anan lands on /claims` | partial: AC-01, 02, 03, 18, 19 pass. Gaps (ticket 03): logout (F01-TEST-08) not built, its E2E step skipped; 8 h expiry (F01-TEST-09) and live-session ban (F01-TEST-06) not built; login does not refuse banned users (F01-AC-04, F01-TEST-05, no test); F01-TEST-07 no test; F01-TEST-22 content is in tests labelled `F01-AC-20`; F01-TEST-23 (AC-21) no test and no owner; 401 handling beyond the `_auth` redirect not built | 04e18c1 (#25) |
 | FR-02 Create and submit a claim with line items | F-02 | 1 | F02-AC-01, 02, 12, 13 | F02-TEST-01–03, 18, 19, 21 | – | – | – |
 | FR-03 Server calculates the claim total | F-02 (S1); F-05, F-06 (S2) | 1 / 2 | F02-AC-01, 08 (S1); planned | F02-TEST-01, 02, 13, 21 (S1); planned | – | – | – |
 | FR-04 List and view own claims with history | F-03 | 1 | F03-AC-01–03, 05, 07, 08, 10, 11 | F03-TEST-01–03, 05, 07, 08, 10–12 | – | – | – |
@@ -62,8 +62,8 @@ How to read and update the columns:
 
 | Requirement | Feature/responsibility | Sprint (established → verified) | AC | Planned test | Actual test | Result | Version |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| NFR-01 Passwords stored only as bcrypt/argon2 hashes | F-01 | 1 → 1 | F01-AC-09, 10 | F01-TEST-10, 11 | – | – | – |
-| NFR-02 401/403 enforced on every protected endpoint | SR-01; every feature with endpoints | 1 → 1, 2, 3 | F01-AC-03, 11–14; F03-AC-02, 04, 06, 09; F04-AC-02, 08, 09 (S1); planned | F01-TEST-04, 12–15; F03-TEST-02, 04, 06, 09; F04-TEST-02, 11, 12 (S1); planned | F01-TEST-15: `apps/api/server_test.go › TestProblemResponses` | partial: F01-TEST-15 pass (404, 500); no 401/403 test yet, F01-TEST-04 and 12–14 pending; F01-AC-14 partial – the cross-origin 403 and request-validation 400 are not problems yet (ticket 02, #25) | F-01/01 (#24) |
+| NFR-01 Passwords stored only as bcrypt/argon2 hashes | F-01 | 1 → 1 | F01-AC-09, 10 | F01-TEST-10, 11 | F01-TEST-10: `apps/api/seed_test.go › TestF01TEST10SeedStoresBcryptHashesOnly`; F01-TEST-11: `apps/api/auth_login_test.go › TestF01TEST11SessionStoresHashOfCookieValue` | pass (F01-TEST-10, 11) | 04e18c1 (#25) |
+| NFR-02 401/403 enforced on every protected endpoint | SR-01; every feature with endpoints | 1 → 1, 2, 3 | F01-AC-03, 11–14; F03-AC-02, 04, 06, 09; F04-AC-02, 08, 09 (S1); planned | F01-TEST-04, 12–15; F03-TEST-02, 04, 06, 09; F04-TEST-02, 11, 12 (S1); planned | F01-TEST-04: `apps/api/auth_login_test.go › TestF01TEST04WrongPasswordAndUnknownUserLookTheSame`; F01-TEST-14: `apps/api/auth_cross_origin_test.go › TestF01TEST14CrossOriginRequestsAreForbidden`; F01-TEST-15: `apps/api/server_test.go › TestProblemResponses` | partial: F01-TEST-04, 14 (login cases), 15 pass; F01-TEST-12 (401 on every operation) and 13 (403 by permission) no test yet; F01-TEST-14 logout cases pending ticket 03; F01-AC-14: 400, 403, 404, 500 problem bodies tested, 401 on protected endpoints pending TEST-12 | F-01/01 (#24); 04e18c1 (#25) |
 | NFR-03 Session ≤ 8 h; logout invalidates immediately | F-01 | 1 → 1 | F01-AC-05, 07, 08, 21 | F01-TEST-06, 08, 09, 23, 24 | – | – | – |
 | NFR-04 No secrets in Git; config from env | SR-02 | 1 → 1 (local scan); Lab 5 (cloud secrets) | F01-AC-16 (S1); planned (Lab 5) | F01-TEST-17, 18 (S1); planned (Lab 5) | F01-TEST-17: `apps/api/config_test.go › TestLoadConfigNamesTheInvalidVariable`; F01-TEST-18: manual check | pass (F01-TEST-17); F01-TEST-18 recorded in the F-01/01 PR | F-01/01 (#24) |
 | NFR-05 Data survives restart and redeploy | SR-03 | 1 → 1 (local restart); Lab 5 (GCP redeploy) | F04-AC-16 (S1); planned (Lab 5) | F04-TEST-19 (S1); planned (Lab 5) | – | – | – |
@@ -102,6 +102,6 @@ Reverse check: every feature F-01–F-10 and every responsibility SR-01–SR-07 
 
 Record every approved change to requirements, features, or their mapping. Feature and SR IDs are frozen when this document is first merged; a removed ID is marked as retired, never reused.
 
-| Date | Change         | Affected IDs | Reason | Approved by |
-| ---- | -------------- | ------------ | ------ | ----------- |
-| –    | No changes yet | –            | –      | –           |
+| Date | Change | Affected IDs | Reason | Approved by |
+| --- | --- | --- | --- | --- |
+| 2026-11-13 | Actual test and result recorded for F01-AC-01, 02, 03, 09, 10, 13, 18, 19 (FR-01, NFR-01, NFR-02); F01-TEST-24 login E2E added | F01-AC-01, 02, 03, 09, 10, 13, 18, 19 | Sprint 1 F-01 test evidence (#25, T4). Logout, expiry and bans still open (ticket 03) | – |
