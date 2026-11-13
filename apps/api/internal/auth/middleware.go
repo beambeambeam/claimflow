@@ -60,3 +60,10 @@ func UserFrom(ctx context.Context) (User, bool) {
 
 	return user, ok
 }
+
+// RequireSession is a stub.
+func RequireSession(_ map[string]bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+	}
+}
