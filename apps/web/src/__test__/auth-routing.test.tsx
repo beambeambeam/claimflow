@@ -1,41 +1,16 @@
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import {
-  cleanup,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { screen, waitFor, within } from "@testing-library/react";
+import type userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vite-plus/test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { client } from "#/lib/api/client.gen";
 import type { CurrentUser } from "#/lib/api/types.gen";
 import { zLoginRequest } from "#/lib/api/zod.gen";
-import { getRouter } from "#/router";
 
-// Third-party dev UI. Its unmount throws under jsdom, which breaks cleanup for every later test.
-vi.mock("@tanstack/react-devtools", () => ({
-  TanStackDevtools: () => null,
-}));
-
-vi.mock("@tanstack/react-router-devtools", () => ({
-  TanStackRouterDevtoolsPanel: () => null,
-}));
+import { apiUrl, renderAt, unauthenticated, serveApi } from "./support";
 
 type Role = CurrentUser["role"];
 
-const apiUrl = "http://localhost/api/v1";
 const password = "correct-password";
 const roles: Role[] = ["requester", "reviewer", "finance"];
 
@@ -69,15 +44,6 @@ const landingPaths: Record<Role, string> = {
   requester: "/claims",
   reviewer: "/reviews",
   finance: "/reviews",
-};
-
-const unauthenticated = {
-  type: "about:blank",
-  title: "Unauthorized",
-  status: 401,
-  code: "UNAUTHENTICATED",
-  instance: "/api/v1/auth/me",
-  requestId: "req-me-401",
 };
 
 const invalidCredentials = {
@@ -116,33 +82,11 @@ const server = setupServer(
   })
 );
 
-beforeAll(() => {
-  // Node fetch needs an absolute URL; the browser resolves `/api/v1` against the page.
-  client.setConfig({ baseUrl: apiUrl });
-  server.listen({ onUnhandledFrame: "error" });
-});
+serveApi(server);
 
 afterEach(() => {
-  cleanup();
-  server.resetHandlers();
   sessionUser = null;
 });
-
-afterAll(() => {
-  server.close();
-});
-
-const renderAt = (initialEntry: string) => {
-  const router = getRouter();
-  router.update({
-    ...router.options,
-    history: createMemoryHistory({ initialEntries: [initialEntry] }),
-  });
-
-  render(<RouterProvider router={router} />);
-
-  return { router, user: userEvent.setup() };
-};
 
 const logIn = async (user: ReturnType<typeof userEvent.setup>, role: Role) => {
   // Routes load asynchronously, so wait for the form instead of querying it synchronously.

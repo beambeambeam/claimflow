@@ -76,6 +76,25 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: End the current session. The session row is deleted and the cookie is cleared.
+      tags: [auth]
+      responses:
+        "204":
+          description: The session ended. The cookie is cleared with Max-Age=0 (F-01 §3.3).
+          headers:
+            Set-Cookie:
+              description: The session cookie name with an empty value and `Max-Age=0`.
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /auth/me:
     get:
       operationId: getMe

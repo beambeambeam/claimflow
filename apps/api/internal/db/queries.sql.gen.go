@@ -46,12 +46,38 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 	return err
 }
 
+const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
+DELETE FROM session WHERE expires_at <= $1
+`
+
+// DeleteExpiredSessions removes every session that has ended by the given time.
+func (q *Queries) DeleteExpiredSessions(ctx context.Context, now pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, deleteExpiredSessions, now)
+	return err
+}
+
+const deleteSession = `-- name: DeleteSession :exec
+DELETE FROM session WHERE id = $1
+`
+
+// DeleteSession ends one session.
+func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteSession, id)
+	return err
+}
+
 const getCredentialForLogin = `-- name: GetCredentialForLogin :one
 SELECT u.id AS user_id, u.name, u.username, u.role, COALESCE(a.password, '')::text AS password_hash
 FROM "user" u
 JOIN account a ON a.user_id = u.id AND a.provider_id = 'credential'
 WHERE u.username = $1
+  AND NOT (u.banned AND (u.ban_expires IS NULL OR u.ban_expires > $2::timestamptz))
 `
+
+type GetCredentialForLoginParams struct {
+	Username string
+	Now      pgtype.Timestamptz
+}
 
 type GetCredentialForLoginRow struct {
 	UserID       uuid.UUID
@@ -63,8 +89,10 @@ type GetCredentialForLoginRow struct {
 
 // GetCredentialForLogin returns the user and password hash of the credential account for a lowercase username.
 // The migration requires a password on every credential account, so COALESCE only guards the scan type.
-func (q *Queries) GetCredentialForLogin(ctx context.Context, username string) (GetCredentialForLoginRow, error) {
-	row := q.db.QueryRow(ctx, getCredentialForLogin, username)
+// A user with an active ban matches no row, so login treats them like an unknown username. A ban with no end,
+// or with an end after the given time, is active.
+func (q *Queries) GetCredentialForLogin(ctx context.Context, arg GetCredentialForLoginParams) (GetCredentialForLoginRow, error) {
+	row := q.db.QueryRow(ctx, getCredentialForLogin, arg.Username, arg.Now)
 	var i GetCredentialForLoginRow
 	err := row.Scan(
 		&i.UserID,
@@ -77,27 +105,34 @@ func (q *Queries) GetCredentialForLogin(ctx context.Context, username string) (G
 }
 
 const getSessionUser = `-- name: GetSessionUser :one
-SELECT u.id, u.name, u.username, u.role
+SELECT s.id AS session_id, u.id, u.name, u.username, u.role
 FROM session s
 JOIN "user" u ON u.id = s.user_id
 WHERE s.token = $1
-  AND s.expires_at > now()
-  AND NOT (u.banned AND (u.ban_expires IS NULL OR u.ban_expires > now()))
+  AND s.expires_at > $2::timestamptz
+  AND NOT (u.banned AND (u.ban_expires IS NULL OR u.ban_expires > $2::timestamptz))
 `
 
-type GetSessionUserRow struct {
-	ID       uuid.UUID
-	Name     string
-	Username string
-	Role     string
+type GetSessionUserParams struct {
+	Token []byte
+	Now   pgtype.Timestamptz
 }
 
-// GetSessionUser returns the user of an unexpired session whose user is not banned.
-// A ban with no end, or with an end in the future, is active.
-func (q *Queries) GetSessionUser(ctx context.Context, token []byte) (GetSessionUserRow, error) {
-	row := q.db.QueryRow(ctx, getSessionUser, token)
+type GetSessionUserRow struct {
+	SessionID uuid.UUID
+	ID        uuid.UUID
+	Name      string
+	Username  string
+	Role      string
+}
+
+// GetSessionUser returns the user of a session that has not expired at the given time, if the user is not banned.
+// A session ends at its expires_at. A ban with no end, or with an end after the given time, is active.
+func (q *Queries) GetSessionUser(ctx context.Context, arg GetSessionUserParams) (GetSessionUserRow, error) {
+	row := q.db.QueryRow(ctx, getSessionUser, arg.Token, arg.Now)
 	var i GetSessionUserRow
 	err := row.Scan(
+		&i.SessionID,
 		&i.ID,
 		&i.Name,
 		&i.Username,

@@ -71,6 +71,22 @@ func (h Handler) GetMe(ctx context.Context, _ api.GetMeRequestObject) (api.GetMe
 	return api.GetMe200JSONResponse{Data: currentUser(user)}, nil
 }
 
+// Logout ends the session of the request and clears the session cookie.
+func (h Handler) Logout(ctx context.Context, _ api.LogoutRequestObject) (api.LogoutResponseObject, error) {
+	sessionID, ok := SessionIDFrom(ctx)
+	if !ok {
+		return nil, errUnauthenticated
+	}
+
+	if err := h.service.Logout(ctx, sessionID); err != nil { // coverage-ignore
+		return nil, err
+	}
+
+	cookie := clearedCookie(h.cookieSecure)
+
+	return api.Logout204Response{Headers: api.Logout204ResponseHeaders{SetCookie: &cookie}}, nil
+}
+
 // cookieName returns the session cookie name. The __Host- prefix requires Secure, so it is used only with it.
 func cookieName(secure bool) string {
 	if secure {
@@ -82,13 +98,22 @@ func cookieName(secure bool) string {
 
 // sessionCookie builds the Set-Cookie value for token. Attributes follow F-01 §1.5.
 func sessionCookie(secure bool, token string) string {
+	return setCookie(secure, token, int(sessionLifetime/time.Second))
+}
+
+// clearedCookie builds the Set-Cookie value that removes the session cookie: same name, empty value, Max-Age=0.
+func clearedCookie(secure bool) string {
+	return setCookie(secure, "", 0)
+}
+
+// setCookie builds the Set-Cookie value of the session cookie with the given value and Max-Age in seconds.
+func setCookie(secure bool, value string, maxAge int) string {
 	secureAttr := ""
 	if secure {
 		secureAttr = "Secure; "
 	}
 
-	return fmt.Sprintf("%s=%s; HttpOnly; %sSameSite=Lax; Path=/; Max-Age=%d",
-		cookieName(secure), token, secureAttr, int(sessionLifetime/time.Second))
+	return fmt.Sprintf("%s=%s; HttpOnly; %sSameSite=Lax; Path=/; Max-Age=%d", cookieName(secure), value, secureAttr, maxAge)
 }
 
 // currentUser builds the body that describes a user, with the permissions of their role.

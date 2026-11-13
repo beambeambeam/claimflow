@@ -5,11 +5,15 @@ import (
 	"errors"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
 
-type userKey struct{}
+type (
+	userKey    struct{}
+	sessionKey struct{}
+)
 
 // Session puts the user of the request's session cookie in the request context (SDS §6). A request with no
 // cookie, or with a token of no active session, continues without a user, because login and health are
@@ -26,7 +30,7 @@ func Session(service Service, cookieSecure bool) gin.HandlerFunc {
 			return
 		}
 
-		user, err := service.SessionUser(c.Request.Context(), cookie.Value)
+		user, sessionID, err := service.SessionUser(c.Request.Context(), cookie.Value)
 		if err != nil && !errors.Is(err, ErrNoSession) { // coverage-ignore
 			httperr.Report(c, err)
 			c.Abort()
@@ -35,11 +39,19 @@ func Session(service Service, cookieSecure bool) gin.HandlerFunc {
 		}
 
 		if err == nil {
-			c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), userKey{}, user))
+			ctx := context.WithValue(c.Request.Context(), userKey{}, user)
+			c.Request = c.Request.WithContext(context.WithValue(ctx, sessionKey{}, sessionID))
 		}
 
 		c.Next()
 	}
+}
+
+// SessionIDFrom returns the id of the session that Session stored in ctx.
+func SessionIDFrom(ctx context.Context) (uuid.UUID, bool) {
+	id, ok := ctx.Value(sessionKey{}).(uuid.UUID)
+
+	return id, ok
 }
 
 // UserFrom returns the user that Session stored in ctx.

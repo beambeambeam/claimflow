@@ -233,6 +233,9 @@ type ServerInterface interface {
 	// Login Check the username and password, then start a session.
 	// (POST /auth/login)
 	Login(c *gin.Context)
+	// Logout End the current session. The session row is deleted and the cookie is cleared.
+	// (POST /auth/logout)
+	Logout(c *gin.Context)
 	// GetMe The user of the current session. Requires a session cookie.
 	// (GET /auth/me)
 	GetMe(c *gin.Context)
@@ -264,6 +267,19 @@ func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
 	}
 
 	siw.Handler.Login(c)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.Logout(c)
 }
 
 // GetMe operation middleware
@@ -335,6 +351,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/ready", wrapper.GetReady)
 	router.POST(options.BaseURL+"/auth/login", wrapper.Login)
+	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout)
 	router.GET(options.BaseURL+"/auth/me", wrapper.GetMe)
 }
 
@@ -422,6 +439,76 @@ type LogindefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response LogindefaultApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Logout204Response struct {
+	Headers Logout204ResponseHeaders
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type Logout401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response Logout401ApplicationProblemPlusJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Logout403ApplicationProblemPlusJSONResponse Problem
+
+func (response Logout403ApplicationProblemPlusJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogoutdefaultApplicationProblemPlusJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -584,6 +671,9 @@ type StrictServerInterface interface {
 	// Login Check the username and password, then start a session.
 	// (POST /auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// Logout End the current session. The session row is deleted and the cookie is cleared.
+	// (POST /auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
 	// GetMe The user of the current session. Requires a session cookie.
 	// (GET /auth/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
@@ -694,6 +784,30 @@ func (sh *strictHandler) Login(ctx *gin.Context) {
 	}
 }
 
+// Logout operation middleware
+func (sh *strictHandler) Logout(ctx *gin.Context) {
+	var request LogoutRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		if err := validResponse.VisitLogoutResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetMe operation middleware
 func (sh *strictHandler) GetMe(ctx *gin.Context) {
 	var request GetMeRequestObject
@@ -771,36 +885,38 @@ func (sh *strictHandler) GetReady(ctx *gin.Context) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"bre7etvcbf47AA==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -165,6 +165,39 @@ export type LoginResponses = {
 
 export type LoginResponse = LoginResponses[keyof LoginResponses];
 
+export type LogoutData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/auth/logout';
+};
+
+export type LogoutErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type LogoutError = LogoutErrors[keyof LogoutErrors];
+
+export type LogoutResponses = {
+  /**
+   * The session ended. The cookie is cleared with Max-Age=0 (F-01 §3.3).
+   */
+  204: void;
+};
+
+export type LogoutResponse = LogoutResponses[keyof LogoutResponses];
+
 export type GetMeData = {
   body?: never;
   path?: never;

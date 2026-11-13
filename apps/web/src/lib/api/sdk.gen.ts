@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, LoginData, LoginErrors, LoginResponses } from './types.gen';
-import { zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zLoginBody, zLoginResponse } from './zod.gen';
+import type { GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses } from './types.gen';
+import { zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zLoginBody, zLoginResponse, zLogoutResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -65,6 +65,20 @@ export const login = <ThrowOnError extends boolean = false>(options: Options<Log
     'Content-Type': 'application/json',
     ...options.headers
   }
+});
+
+/**
+ * End the current session. The session row is deleted and the cookie is cleared.
+ */
+export const logout = <ThrowOnError extends boolean = false>(options?: Options<LogoutData, ThrowOnError>): RequestResult<LogoutResponses, LogoutErrors, ThrowOnError> => (options?.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zLogoutResponse.parseAsync(data),
+  url: '/auth/logout',
+  ...options
 });
 
 /**

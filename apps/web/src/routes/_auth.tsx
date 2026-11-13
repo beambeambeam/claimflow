@@ -7,8 +7,8 @@ import {
 } from "@tanstack/react-router";
 
 import { AppHeader } from "#/features/auth/components/app-header";
+import { isUnauthorized } from "#/features/auth/session";
 import { getMeOptions } from "#/lib/api/@tanstack/react-query.gen";
-import { isProblem } from "#/lib/problem";
 
 const AuthLayout = () => {
   const { user } = useRouteContext({ from: "/_auth" });
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_auth")({
 
       return { user: envelope.data };
     } catch (error) {
-      if (!isProblem(error) || error.status !== 401) {
+      if (!isUnauthorized(error)) {
         throw error;
       }
 

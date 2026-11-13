@@ -96,8 +96,13 @@ type server struct {
 // newRouter builds the router: request ID and log, problem responses, cross-origin guard, session user,
 // then the contract's operations.
 func newRouter(logger *slog.Logger, cfg *env.Env, pool db.DBTX) *gin.Engine {
+	return newRouterAt(logger, cfg, pool, time.Now)
+}
+
+// newRouterAt is newRouter with the clock that the auth rules read. Tests pass a fixed clock.
+func newRouterAt(logger *slog.Logger, cfg *env.Env, pool db.DBTX, now func() time.Time) *gin.Engine {
 	queries := db.New(pool)
-	authService := auth.NewService(queries, int(cfg.BcryptCost))
+	authService := auth.NewService(queries, int(cfg.BcryptCost), now)
 
 	router := gin.New()
 	// Handlers get the gin context; the fallback lets them read values that middleware put in the request context.
