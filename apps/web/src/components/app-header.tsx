@@ -1,4 +1,8 @@
-import { Link } from "@tanstack/react-router";
+import { Button } from "@astryxdesign/core/Button";
+import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Text } from "@astryxdesign/core/Text";
+import { TopNav, TopNavItem } from "@astryxdesign/core/TopNav";
+import { useRouterState } from "@tanstack/react-router";
 
 import type { CurrentUser } from "#/lib/api/types.gen";
 
@@ -15,24 +19,48 @@ const roleLabels: Record<Role, string> = {
 const can = (user: CurrentUser, resource: string, action: string) =>
   user.permissions[resource]?.includes(action);
 
-export const AppHeader = ({ user }: { user: CurrentUser }) => (
-  <header className="flex items-center justify-between gap-4 border-b p-4">
-    <nav className="flex gap-4">
-      {can(user, "claim", "list") ? <Link to="/claims">My Claims</Link> : null}
-      {can(user, "claim", "create") ? (
-        // No /claims/new route until F-02, so a plain anchor avoids a broken router link.
-        <a href="/claims/new">New Claim</a>
-      ) : null}
-      {can(user, "review", "list") ? (
-        <Link to="/reviews">Review Queue</Link>
-      ) : null}
-    </nav>
-    <div className="flex items-center gap-4">
-      <div className="text-right">
-        <p className="font-medium">{user.name}</p>
-        <p className="text-sm text-gray-600">{roleLabels[user.role]}</p>
-      </div>
-      <button type="button">Log out</button>
-    </div>
-  </header>
-);
+export const AppHeader = ({ user }: { user: CurrentUser }) => {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+
+  return (
+    <TopNav
+      endContent={
+        <HStack gap={4} vAlign="center">
+          <VStack gap={0} hAlign="end">
+            <Text type="body" weight="bold">
+              {user.name}
+            </Text>
+            <Text type="body" color="secondary" size="sm">
+              {roleLabels[user.role]}
+            </Text>
+          </VStack>
+          <Button label="Log out" variant="ghost" />
+        </HStack>
+      }
+      label="Main navigation"
+      startContent={
+        <>
+          {can(user, "claim", "list") ? (
+            <TopNavItem
+              href="/claims"
+              isSelected={pathname === "/claims"}
+              label="My Claims"
+            />
+          ) : null}
+          {can(user, "claim", "create") ? (
+            <TopNavItem href="/claims/new" label="New Claim" />
+          ) : null}
+          {can(user, "review", "list") ? (
+            <TopNavItem
+              href="/reviews"
+              isSelected={pathname === "/reviews"}
+              label="Review Queue"
+            />
+          ) : null}
+        </>
+      }
+    />
+  );
+};

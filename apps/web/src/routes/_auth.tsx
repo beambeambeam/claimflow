@@ -1,3 +1,4 @@
+import { AppShell } from "@astryxdesign/core/AppShell";
 import {
   createFileRoute,
   Outlet,
@@ -13,10 +14,9 @@ const AuthLayout = () => {
   const { user } = useRouteContext({ from: "/_auth" });
 
   return (
-    <>
-      <AppHeader user={user} />
+    <AppShell contentPadding={6} topNav={<AppHeader user={user} />}>
       <Outlet />
-    </>
+    </AppShell>
   );
 };
 

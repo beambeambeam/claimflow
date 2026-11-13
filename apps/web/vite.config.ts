@@ -1,4 +1,3 @@
-import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import {
@@ -18,7 +17,6 @@ const config = defineConfig({
     varlockVitePlugin(),
     lazyPlugins(() => [
       devtools(),
-      tailwindcss(),
       tanstackRouter({ autoCodeSplitting: true, target: "react" }),
       viteReact(),
     ]),

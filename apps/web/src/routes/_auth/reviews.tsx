@@ -1,10 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { PlaceholderPage } from "#/components/placeholder-page";
+
 const ReviewsPage = () => (
-  <main className="p-8">
-    <h1 className="text-2xl font-bold">Review Queue</h1>
-    <p className="text-gray-600">Placeholder until F-04.</p>
-  </main>
+  <PlaceholderPage note="Placeholder until F-04." title="Review Queue" />
 );
 
 export const Route = createFileRoute("/_auth/reviews")({

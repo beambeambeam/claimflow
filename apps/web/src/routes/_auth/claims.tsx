@@ -1,10 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { PlaceholderPage } from "#/components/placeholder-page";
+
 const ClaimsPage = () => (
-  <main className="p-8">
-    <h1 className="text-2xl font-bold">My Claims</h1>
-    <p className="text-gray-600">Placeholder until F-03.</p>
-  </main>
+  <PlaceholderPage note="Placeholder until F-03." title="My Claims" />
 );
 
 export const Route = createFileRoute("/_auth/claims")({

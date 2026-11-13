@@ -115,13 +115,36 @@ describe("login form", () => {
     await user.type(screen.getByLabelText("Password"), "wrong-password");
     await user.click(getLogInButton());
 
+    // The button stays focusable while loading, so it is blocked with aria-disabled, not `disabled`.
     await waitFor(() => {
-      expect(getLogInButton().disabled).toBe(true);
+      expect(getLogInButton().getAttribute("aria-disabled")).toBe("true");
     });
-    screen.getByRole("status", { name: "Logging in" });
+    expect(getLogInButton().getAttribute("aria-busy")).toBe("true");
 
     await screen.findByText("Invalid username or password.");
-    expect(getLogInButton().disabled).toBe(false);
+    expect(getLogInButton().getAttribute("aria-busy")).not.toBe("true");
+  });
+
+  it("F01-TEST-21: sends one login request when Enter is pressed while one is in flight", async () => {
+    server.use(
+      http.post(loginUrl, async ({ request }) => {
+        loginBodies.push(zLoginRequest.parse(await request.json()));
+        await delay(300);
+
+        return HttpResponse.json(invalidCredentials, { status: 401 });
+      })
+    );
+    const { user } = renderLoginForm();
+
+    await user.type(screen.getByLabelText("Username"), "req.anan");
+    await user.type(screen.getByLabelText("Password"), "wrong-password{Enter}");
+    await waitFor(() => {
+      expect(getLogInButton().getAttribute("aria-busy")).toBe("true");
+    });
+    await user.type(screen.getByLabelText("Password"), "{Enter}");
+
+    await screen.findByText("Invalid username or password.");
+    expect(loginBodies).toHaveLength(1);
   });
 
   it("F01-TEST-21 extra: shows the request ID and a Try again action after a server error", async () => {

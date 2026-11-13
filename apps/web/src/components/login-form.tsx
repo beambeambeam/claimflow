@@ -1,3 +1,7 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { VStack } from "@astryxdesign/core/Layout";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -10,8 +14,8 @@ interface FieldErrors {
   password?: string;
 }
 
-const inputClassName =
-  "rounded border border-gray-400 px-3 py-2 focus:outline-2 focus:outline-blue-700";
+const errorStatus = (message: string | undefined) =>
+  message === undefined ? undefined : { type: "error" as const, message };
 
 export const LoginForm = ({
   onLoggedIn,
@@ -57,93 +61,62 @@ export const LoginForm = ({
   const problem = isProblem(login.error) ? login.error : null;
 
   return (
-    <form
-      className="flex w-full max-w-sm flex-col gap-4"
-      noValidate
+    <VStack
+      as="form"
+      gap={4}
+      hAlign="stretch"
       onSubmit={(event) => {
         event.preventDefault();
         submitCredentials();
       }}
     >
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor="username">
-          Username
-        </label>
-        <input
-          autoComplete="username"
-          className={inputClassName}
-          id="username"
-          name="username"
-          onChange={(event) => {
-            setUsername(event.target.value);
-          }}
-          type="text"
-          value={username}
-        />
-        {fieldErrors.username === undefined ? null : (
-          <p className="text-sm text-red-700">{fieldErrors.username}</p>
-        )}
-      </div>
+      <TextInput
+        autoComplete="username"
+        hasAutoCorrect={false}
+        autoCapitalize="none"
+        label="Username"
+        onChange={setUsername}
+        size="lg"
+        status={errorStatus(fieldErrors.username)}
+        value={username}
+      />
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor="password">
-          Password
-        </label>
-        <input
-          autoComplete="current-password"
-          className={inputClassName}
-          id="password"
-          name="password"
-          onChange={(event) => {
-            setPassword(event.target.value);
-          }}
-          type="password"
-          value={password}
-        />
-        {fieldErrors.password === undefined ? null : (
-          <p className="text-sm text-red-700">{fieldErrors.password}</p>
-        )}
-      </div>
+      <TextInput
+        autoComplete="current-password"
+        label="Password"
+        onChange={setPassword}
+        size="lg"
+        status={errorStatus(fieldErrors.password)}
+        type="password"
+        value={password}
+      />
 
       {login.isError && problem?.status === 401 ? (
-        <p className="text-sm text-red-700" role="alert">
-          Invalid username or password.
-        </p>
+        <Banner status="error" title="Invalid username or password." />
       ) : null}
 
       {login.isError && problem?.status !== 401 ? (
-        <div className="flex flex-col gap-2 text-sm text-red-700" role="alert">
-          <p>Something went wrong.</p>
-          {problem?.requestId === undefined ? null : (
-            <p className="text-xs text-gray-600">
-              Request ID: {problem.requestId}
-            </p>
-          )}
-          <button
-            className="self-start rounded border border-red-700 px-3 py-1"
-            onClick={submitCredentials}
-            type="button"
-          >
-            Try again
-          </button>
-        </div>
+        <Banner
+          description={
+            problem?.requestId === undefined
+              ? undefined
+              : `Request ID: ${problem.requestId}`
+          }
+          endContent={
+            <Button label="Try again" onClick={submitCredentials} size="sm" />
+          }
+          status="error"
+          title="Something went wrong."
+        />
       ) : null}
 
-      <div className="flex items-center gap-3">
-        <button
-          className="rounded bg-blue-700 px-4 py-2 font-medium text-white disabled:opacity-60"
-          disabled={login.isPending}
-          type="submit"
-        >
-          Log in
-        </button>
-        {login.isPending ? (
-          <output
-            aria-label="Logging in"
-            className="inline-block size-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent"
-          />
-        ) : null}
-      </div>
-    </form>
+      <Button
+        isLoading={login.isPending}
+        label="Log in"
+        size="lg"
+        type="submit"
+        variant="primary"
+      />
+    </VStack>
   );
 };

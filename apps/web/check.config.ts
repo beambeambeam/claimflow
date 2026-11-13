@@ -1,13 +1,17 @@
 import ultraciteOxlintReact from "ultracite/oxlint/react";
 import ultraciteOxlintTanstack from "ultracite/oxlint/tanstack";
-import type { OxfmtOverrideConfig } from "vite-plus/fmt";
 import type { OxlintOverride } from "vite-plus/lint";
 
 // Web-only lint and format rules. The root vite.config.ts applies them to apps/web.
 const root = "apps/web";
 
-// Varlock generates `env.d.ts` from `.env.schema`, and `bun run generate` writes the API client.
-export const webIgnorePatterns = [`${root}/env.d.ts`, `${root}/src/lib/api/**`];
+// Varlock generates `env.d.ts` from `.env.schema`, `bun run generate` writes the API client,
+// and `astryx theme add` writes `astryx-themes.ts`.
+export const webIgnorePatterns = [
+  `${root}/env.d.ts`,
+  `${root}/src/lib/api/**`,
+  `${root}/src/astryx-themes.ts`,
+];
 
 export const webLintOverrides: OxlintOverride[] = [
   {
@@ -29,13 +33,3 @@ export const webLintOverrides: OxlintOverride[] = [
     },
   },
 ];
-
-export const webFmtOverride: OxfmtOverrideConfig = {
-  files: [`${root}/**`],
-  options: {
-    sortTailwindcss: {
-      functions: ["clsx", "cva", "tw", "twMerge", "cn", "twJoin", "tv"],
-      stylesheet: `${root}/src/styles.css`,
-    },
-  },
-};
