@@ -65,3 +65,30 @@ func TestLogoutNeedsSession(t *testing.T) {
 	decodeProblem(t, postLogout(t, router, ""), http.StatusUnauthorized, "UNAUTHENTICATED")
 	decodeProblem(t, postLogout(t, router, "unknown-token"), http.StatusUnauthorized, "UNAUTHENTICATED")
 }
+
+// TestLogoutClearsHostCookieWhenSecure is outside the F01-TEST list. F-01 §3.3: with COOKIE_SECURE true, logout
+// clears __Host-sid with the Secure attribute.
+func TestLogoutClearsHostCookieWhenSecure(t *testing.T) {
+	pool := pgtest.New(t)
+	insertCredentialUser(t, pool)
+
+	cfg := testEnv(0)
+	cfg.CookieSecure = true
+	router := newRouter(discardLogger(), cfg, pool)
+
+	token := sessionToken(t, postLogin(t, router, "req.anan", "correct-password"), "__Host-sid", sessionAttributes)
+
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/logout", http.NoBody)
+	request.AddCookie(&http.Cookie{Name: "__Host-sid", Value: token, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("logout status = %d, want 204; body = %s", recorder.Code, recorder.Body)
+	}
+
+	if got, want := recorder.Header().Get("Set-Cookie"), "__Host-sid=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0"; got != want {
+		t.Fatalf("Set-Cookie = %q, want %q", got, want)
+	}
+}
