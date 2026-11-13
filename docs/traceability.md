@@ -104,4 +104,4 @@ Record every approved change to requirements, features, or their mapping. Featur
 
 | Date | Change | Affected IDs | Reason | Approved by |
 | --- | --- | --- | --- | --- |
-| 2026-11-13 | Actual test and result recorded for F01-AC-01, 02, 03, 09, 10, 13, 18, 19 (FR-01, NFR-01, NFR-02); F01-TEST-24 login E2E added | F01-AC-01, 02, 03, 09, 10, 13, 18, 19 | Sprint 1 F-01 test evidence (#25, T4). Logout, expiry and bans still open (ticket 03) | – |
+| 2026-11-13 | Actual test and result recorded for F01-AC-01, 02, 03, 09, 10, 18, 19 (FR-01, NFR-01, NFR-02); F01-AC-13 partial (F01-TEST-14 login and cross-origin cases only; logout cases pending); F01-TEST-24 login E2E added | F01-AC-01, 02, 03, 09, 10, 13, 18, 19 | Sprint 1 F-01 test evidence (#25, T4). Logout, expiry and bans still open (ticket 03) | – |
