@@ -61,9 +61,18 @@ func UserFrom(ctx context.Context) (User, bool) {
 	return user, ok
 }
 
-// RequireSession is a stub.
-func RequireSession(_ map[string]bool) gin.HandlerFunc {
+// RequireSession answers 401 UNAUTHENTICATED, without calling the handler, when a request to a protected
+// route has no session user. protected holds gin routes as "METHOD /full/path". It runs after Session and
+// before the request is validated (F-01 §3.4, step 3), so each operation needs no check of its own.
+func RequireSession(protected map[string]bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if _, ok := UserFrom(c.Request.Context()); !ok && protected[c.Request.Method+" "+c.FullPath()] {
+			httperr.Report(c, errUnauthenticated)
+			c.Abort()
+
+			return
+		}
+
 		c.Next()
 	}
 }

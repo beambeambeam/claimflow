@@ -1,6 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"regexp"
+
+	"github.com/getkin/kin-openapi/openapi3"
+
+	"github.com/beambeambeam/claimflow/apps/api/internal/api"
 	"github.com/beambeambeam/claimflow/apps/api/internal/auth"
 )
 
@@ -9,3 +15,42 @@ import (
 // letter in upper case. The check runs after the request is validated (F-01 §3.4, step 5). An operation not
 // listed needs only a session. For example, F-02 adds "CreateClaim": {Resource: "claim", Action: "create"}.
 var operationPermissions = map[string]auth.Permission{}
+
+// pathParam matches a path parameter in a contract path, such as {id}.
+var pathParam = regexp.MustCompile(`\{([^}]+)\}`)
+
+// contractProtectedRoutes returns protectedRoutes of the embedded openapi.yaml.
+func contractProtectedRoutes() map[string]bool {
+	spec, err := api.GetSpec()
+	if err != nil { // coverage-ignore
+		panic(fmt.Sprintf("load embedded openapi.yaml: %v", err))
+	}
+
+	return protectedRoutes(spec)
+}
+
+// protectedRoutes returns the gin route ("METHOD /api/v1/path") of every contract operation that needs a
+// session (F-01 §1.6, NFR-02). An operation added to openapi.yaml needs a session unless it opts out.
+func protectedRoutes(spec *openapi3.T) map[string]bool {
+	routes := map[string]bool{}
+
+	for path, item := range spec.Paths.Map() {
+		for method, operation := range item.Operations() {
+			if !isPublic(spec, operation) {
+				routes[method+" "+basePath+pathParam.ReplaceAllString(path, ":$1")] = true
+			}
+		}
+	}
+
+	return routes
+}
+
+// isPublic reports whether operation opts out of the session with an empty security list (`security: []`),
+// its own or, when it has none, the document's.
+func isPublic(spec *openapi3.T, operation *openapi3.Operation) bool {
+	if operation.Security != nil {
+		return len(*operation.Security) == 0
+	}
+
+	return spec.Security != nil && len(spec.Security) == 0
+}
