@@ -3,6 +3,7 @@ package claim
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,9 @@ var (
 	// ErrDraftNotSupported means Create was asked to save a draft, which F-05 adds in Sprint 2.
 	ErrDraftNotSupported = errors.New("claim: drafts are not supported yet")
 )
+
+// bangkok is the zone of every business date and of the claim number year (AS-06). Thailand has no daylight saving time.
+var bangkok = time.FixedZone("Asia/Bangkok", 7*60*60)
 
 // Pool is the database handle of a Service: it runs queries and starts the transaction of each call (NFR-06).
 type Pool interface {
@@ -53,5 +57,5 @@ func (s Service) Get(ctx context.Context, id uuid.UUID) (Claim, error) {
 
 // claimNumber builds CLM-<Bangkok year of now>-<seq, 6 digits> (SDS §2.2).
 func claimNumber(now time.Time, seq int64) string {
-	return ""
+	return fmt.Sprintf("CLM-%d-%06d", now.In(bangkok).Year(), seq)
 }
