@@ -47,6 +47,7 @@ const unauthenticated = {
 };
 
 let sessionUser: CurrentUser | null = null;
+let logoutCalls = 0;
 
 const server = setupServer(
   http.get(`${apiUrl}/auth/me`, () => {
@@ -55,6 +56,12 @@ const server = setupServer(
     }
 
     return HttpResponse.json({ data: sessionUser });
+  }),
+  http.post(`${apiUrl}/auth/logout`, () => {
+    logoutCalls += 1;
+    sessionUser = null;
+
+    return new HttpResponse(null, { status: 204 });
   })
 );
 
@@ -68,6 +75,7 @@ afterEach(() => {
   cleanup();
   server.resetHandlers();
   sessionUser = null;
+  logoutCalls = 0;
 });
 
 afterAll(() => {
@@ -105,5 +113,20 @@ describe("session end", () => {
       expect(router.state.location.href).toBe("/login?redirect=%2Fclaims");
     });
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it("F01-AC-07: the Log out button ends the session, clears the cache, and opens login", async () => {
+    sessionUser = requester;
+    const { router, user } = renderAt("/claims");
+
+    await user.click(await screen.findByRole("button", { name: "Log out" }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/login");
+    });
+    expect(logoutCalls).toBe(1);
+    expect(
+      router.options.context.queryClient.getQueryCache().getAll()
+    ).toHaveLength(0);
   });
 });
