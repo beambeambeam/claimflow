@@ -19,12 +19,12 @@ import (
 // sessionAttributes are the cookie attributes after the value when COOKIE_SECURE is true (F-01 §3.3).
 const sessionAttributes = "HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=28800"
 
-// insertCredentialUser writes a user and its credential account directly, so login tests do not
+// insertCredentialUser writes req.anan and its credential account directly, so login tests do not
 // depend on the seed. The account_id is the user ID, as the seed writes it.
-func insertCredentialUser(t *testing.T, pool *pgxpool.Pool, username, password string) uuid.UUID {
+func insertCredentialUser(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 	t.Helper()
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), 10)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
@@ -32,7 +32,7 @@ func insertCredentialUser(t *testing.T, pool *pgxpool.Pool, username, password s
 	userID := uuid.Must(uuid.NewV7())
 	if _, err := pool.Exec(t.Context(),
 		`INSERT INTO "user" (id, name, email, username, display_username, position) VALUES ($1, $2, $3, $2, $2, 'Staff')`,
-		userID, username, username+"@claimflow.test"); err != nil {
+		userID, "req.anan", "req.anan@claimflow.test"); err != nil {
 		t.Fatalf("insert user: %v", err)
 	}
 
@@ -97,7 +97,7 @@ func sessionToken(t *testing.T, recorder *httptest.ResponseRecorder, name, attri
 // F01-TEST-01: a valid login returns the current user and sets __Host-sid when COOKIE_SECURE is true.
 func TestF01TEST01LoginSetsHostSessionCookie(t *testing.T) {
 	pool := pgtest.New(t)
-	insertCredentialUser(t, pool, "req.anan", "correct-password")
+	insertCredentialUser(t, pool)
 
 	cfg := testEnv(0)
 	cfg.CookieSecure = true
@@ -126,7 +126,7 @@ func TestF01TEST01LoginSetsHostSessionCookie(t *testing.T) {
 // F01-TEST-02: with COOKIE_SECURE false, the session cookie is named sid and has no Secure attribute.
 func TestF01TEST02LoginSetsPlainSessionCookieWhenNotSecure(t *testing.T) {
 	pool := pgtest.New(t)
-	insertCredentialUser(t, pool, "req.anan", "correct-password")
+	insertCredentialUser(t, pool)
 
 	cfg := testEnv(0)
 	cfg.CookieSecure = false
@@ -142,7 +142,7 @@ func TestF01TEST02LoginSetsPlainSessionCookieWhenNotSecure(t *testing.T) {
 // F01-TEST-03: the username is matched case-insensitively, and the response carries the user's ID.
 func TestF01TEST03LoginMatchesUsernameIgnoringCase(t *testing.T) {
 	pool := pgtest.New(t)
-	userID := insertCredentialUser(t, pool, "req.anan", "correct-password")
+	userID := insertCredentialUser(t, pool)
 
 	recorder := postLogin(t, newRouter(discardLogger(), testEnv(0), pool), "REQ.Anan", "correct-password")
 	if recorder.Code != http.StatusOK {
@@ -166,7 +166,7 @@ func TestF01TEST03LoginMatchesUsernameIgnoringCase(t *testing.T) {
 // F01-TEST-04: a wrong password and an unknown username get the same 401 problem, and no cookie.
 func TestF01TEST04WrongPasswordAndUnknownUserLookTheSame(t *testing.T) {
 	pool := pgtest.New(t)
-	insertCredentialUser(t, pool, "req.anan", "correct-password")
+	insertCredentialUser(t, pool)
 	router := newRouter(discardLogger(), testEnv(0), pool)
 
 	wrongPassword := postLogin(t, router, "req.anan", "wrong-password")
@@ -194,7 +194,7 @@ func TestF01TEST04WrongPasswordAndUnknownUserLookTheSame(t *testing.T) {
 // F01-TEST-11: the session row stores the SHA-256 of the cookie value, never the cookie value itself.
 func TestF01TEST11SessionStoresHashOfCookieValue(t *testing.T) {
 	pool := pgtest.New(t)
-	insertCredentialUser(t, pool, "req.anan", "correct-password")
+	insertCredentialUser(t, pool)
 
 	recorder := postLogin(t, newRouter(discardLogger(), testEnv(0), pool), "req.anan", "correct-password")
 	if recorder.Code != http.StatusOK {
@@ -222,7 +222,7 @@ func TestF01TEST11SessionStoresHashOfCookieValue(t *testing.T) {
 // or breaks the LoginRequest bounds (username 1–50 characters, password 1–72 bytes), gets a 400 VALIDATION_FAILED problem.
 func TestLoginRejectsMalformedOrOutOfRangeRequests(t *testing.T) {
 	pool := pgtest.New(t)
-	insertCredentialUser(t, pool, "req.anan", "correct-password")
+	insertCredentialUser(t, pool)
 	router := newRouter(discardLogger(), testEnv(0), pool)
 
 	cases := []struct {

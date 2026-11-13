@@ -16,7 +16,7 @@ import (
 // session, returns the session's user with the role's permissions, and never echoes the cookie or a secret.
 func TestGetMeRequiresSessionAndReturnsCurrentUser(t *testing.T) {
 	pool := pgtest.New(t)
-	userID := insertCredentialUser(t, pool, "req.anan", "correct-password")
+	userID := insertCredentialUser(t, pool)
 	router := newRouter(discardLogger(), testEnv(0), pool)
 
 	decodeProblem(t, get(t, router, "/api/v1/auth/me"), http.StatusUnauthorized, "UNAUTHENTICATED")
@@ -28,7 +28,13 @@ func TestGetMeRequiresSessionAndReturnsCurrentUser(t *testing.T) {
 	token := sessionToken(t, login, "sid", "HttpOnly; SameSite=Lax; Path=/; Max-Age=28800")
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth/me", http.NoBody)
-	request.AddCookie(&http.Cookie{Name: "sid", Value: token})
+	request.AddCookie(&http.Cookie{
+		Name:     "sid",
+		Value:    token,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 
@@ -80,7 +86,13 @@ func TestGetMeRejectsUnknownSession(t *testing.T) {
 	router := newRouter(discardLogger(), testEnv(0), pgtest.New(t))
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth/me", http.NoBody)
-	request.AddCookie(&http.Cookie{Name: "sid", Value: "not-a-session"})
+	request.AddCookie(&http.Cookie{
+		Name:     "sid",
+		Value:    "not-a-session",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 

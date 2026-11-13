@@ -27,7 +27,7 @@ func postLoginFrom(t *testing.T, handler http.Handler, header, value string) *ht
 // Logout is ticket 03, so the cases use login, the only state-changing operation in this slice.
 func TestF01TEST14CrossOriginRequestsAreForbidden(t *testing.T) {
 	pool := pgtest.New(t)
-	insertCredentialUser(t, pool, "req.anan", "correct-password")
+	insertCredentialUser(t, pool)
 	router := newRouter(discardLogger(), testEnv(0), pool)
 
 	crossSite := postLoginFrom(t, router, "Sec-Fetch-Site", "cross-site")
