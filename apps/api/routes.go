@@ -19,24 +19,25 @@ var operationPermissions = map[string]auth.Permission{}
 // pathParam matches a path parameter in a contract path, such as {id}.
 var pathParam = regexp.MustCompile(`\{([^}]+)\}`)
 
-// contractProtectedRoutes returns protectedRoutes of the embedded openapi.yaml.
-func contractProtectedRoutes() map[string]bool {
+// contractPublicRoutes returns publicRoutes of the embedded openapi.yaml.
+func contractPublicRoutes() map[string]bool {
 	spec, err := api.GetSpec()
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("load embedded openapi.yaml: %v", err))
 	}
 
-	return protectedRoutes(spec)
+	return publicRoutes(spec)
 }
 
-// protectedRoutes returns the gin route ("METHOD /api/v1/path") of every contract operation that needs a
-// session (F-01 §1.6, NFR-02). An operation added to openapi.yaml needs a session unless it opts out.
-func protectedRoutes(spec *openapi3.T) map[string]bool {
+// publicRoutes returns the gin route ("METHOD /api/v1/path") of every contract operation that opts out of the
+// session (F-01 §1.6, NFR-02). auth.RequireSession asks for a session on every other route, so an operation
+// added to openapi.yaml, or a gin route added outside it, needs a session unless it opts out.
+func publicRoutes(spec *openapi3.T) map[string]bool {
 	routes := map[string]bool{}
 
 	for path, item := range spec.Paths.Map() {
 		for method, operation := range item.Operations() {
-			if !isPublic(spec, operation) {
+			if isPublic(spec, operation) {
 				routes[method+" "+basePath+pathParam.ReplaceAllString(path, ":$1")] = true
 			}
 		}
