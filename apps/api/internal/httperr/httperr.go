@@ -45,6 +45,8 @@ var (
 	ErrNotImplemented = &Error{Status: http.StatusNotImplemented, Code: api.ProblemCodeInternal, Title: "Not implemented."}
 	// ErrValidation is the problem for a request that does not decode or breaks a bound.
 	ErrValidation = &Error{Status: http.StatusBadRequest, Code: api.ProblemCodeValidationFailed, Title: "Invalid request."}
+	// ErrForbidden is the problem for a request the server refuses on policy, such as a cross-origin write.
+	ErrForbidden = &Error{Status: http.StatusForbidden, Code: api.ProblemCodeForbidden, Title: "Forbidden."}
 
 	errInternal = &Error{Status: http.StatusInternalServerError, Code: api.ProblemCodeInternal, Title: "Something went wrong."}
 )

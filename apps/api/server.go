@@ -96,7 +96,7 @@ type server struct {
 // newRouter builds the router: request ID and log, problem responses, then the contract's operations.
 func newRouter(logger *slog.Logger, cfg *env.Env, pool db.DBTX) *gin.Engine {
 	router := gin.New()
-	router.Use(httperr.RequestID(), requestLogger(logger), httperr.Handle(logger))
+	router.Use(httperr.RequestID(), requestLogger(logger), httperr.Handle(logger), crossOriginGuard())
 	router.NoRoute(httperr.NotFound)
 
 	handler := api.NewStrictHandlerWithOptions(server{
@@ -137,6 +137,23 @@ func newLogger(w io.Writer, level string) *slog.Logger {
 			return attr
 		},
 	}))
+}
+
+// crossOriginGuard refuses unsafe browser requests that come from another origin (F-01 §1.5, CSRF).
+// The zero CrossOriginProtection trusts no origin. Safe methods always pass.
+func crossOriginGuard() gin.HandlerFunc {
+	var protection http.CrossOriginProtection
+
+	return func(c *gin.Context) {
+		if err := protection.Check(c.Request); err != nil {
+			httperr.Report(c, httperr.ErrForbidden)
+			c.Abort()
+
+			return
+		}
+
+		c.Next()
+	}
 }
 
 func requestLogger(logger *slog.Logger) gin.HandlerFunc {
