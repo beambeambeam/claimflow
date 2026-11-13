@@ -33,6 +33,108 @@ export const zCurrentUserEnvelope = z.object({
 });
 
 /**
+ * An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+ */
+export const zMoney = z.string().regex(/^\d{1,6}\.\d{2}$/);
+
+export const zExpenseCategory = z.enum([
+  'TRAVEL',
+  'ACCOMMODATION',
+  'MEALS',
+  'SUPPLIES',
+  'TRAINING',
+  'OTHER'
+]);
+
+export const zClaimStatus = z.enum([
+  'DRAFT',
+  'SUBMITTED',
+  'RETURNED',
+  'PENDING_FINANCE',
+  'APPROVED',
+  'REJECTED',
+  'WITHDRAWN'
+]);
+
+export const zClaimAction = z.enum([
+  'SUBMIT',
+  'APPROVE',
+  'REJECT',
+  'RETURN',
+  'RESUBMIT',
+  'WITHDRAW',
+  'FINAL_APPROVE',
+  'FINAL_REJECT'
+]);
+
+export const zLineItemInput = z.object({
+  category: zExpenseCategory,
+  description: z.string().min(1).max(200),
+  expenseDate: z.iso.date(),
+  amount: zMoney,
+  receiptRef: z.string().min(1).max(50)
+});
+
+/**
+ * The line-item count and every business limit are checked by the claim module (422), not by this schema. Unknown fields, including `total`, are ignored (BR-08).
+ */
+export const zClaimInput = z.object({
+  title: z.string().min(1).max(120),
+  purpose: z.string().min(1).max(1000),
+  items: z.array(zLineItemInput)
+});
+
+export const zMemberSummary = z.object({
+  id: z.string(),
+  name: z.string(),
+  position: z.string()
+});
+
+export const zLineItem = z.object({
+  lineNo: z.int().gte(1).lte(20),
+  category: zExpenseCategory,
+  description: z.string(),
+  expenseDate: z.iso.date(),
+  amount: zMoney,
+  receiptRef: z.string()
+});
+
+export const zHistoryEntry = z.object({
+  id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+  action: zClaimAction,
+  fromStatus: zClaimStatus.nullable(),
+  toStatus: zClaimStatus,
+  actor: zMemberSummary,
+  comment: z.string().nullable(),
+  createdAt: z.iso.datetime()
+});
+
+export const zClaim = z.object({
+  id: z.string(),
+  claimNo: z.string(),
+  status: zClaimStatus,
+  title: z.string(),
+  purpose: z.string(),
+  total: zMoney,
+  returnCount: z.int(),
+  version: z.int(),
+  requester: zMemberSummary,
+  assignedReviewer: zMemberSummary.nullable(),
+  firstSubmittedAt: z.iso.datetime().nullable(),
+  submittedAt: z.iso.datetime().nullable(),
+  decidedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+  items: z.array(zLineItem),
+  history: z.array(zHistoryEntry),
+  allowedActions: z.array(z.string())
+});
+
+export const zClaimEnvelope = z.object({
+  data: zClaim
+});
+
+/**
  * A stable error code for the client (SDS §4.2).
  */
 export const zProblemCode = z.enum([
@@ -93,3 +195,10 @@ export const zLogoutResponse = z.void();
  * The signed-in user.
  */
 export const zGetMeResponse = zCurrentUserEnvelope;
+
+export const zCreateClaimBody = zClaimInput;
+
+/**
+ * The claim is stored with status `SUBMITTED`.
+ */
+export const zCreateClaimResponse = zClaimEnvelope;

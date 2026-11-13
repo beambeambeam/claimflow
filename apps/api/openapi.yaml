@@ -11,6 +11,8 @@ tags:
     description: Liveness and readiness
   - name: auth
     description: Sign-in and the current user
+  - name: claims
+    description: Submit and read claims
 paths:
   /health:
     get:
@@ -111,6 +113,47 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /claims:
+    post:
+      operationId: createClaim
+      summary: Create a claim and submit it for review (F-02). Sprint 1 always submits.
+      description: >-
+        Needs the `claim:create` route permission, and an assigned reviewer (BR-15). The server calculates the total and ignores any `total` in the request (BR-08).
+      tags: [claims]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimInput"
+      responses:
+        "201":
+          description: The claim is stored with status `SUBMITTED`.
+          headers:
+            ETag:
+              description: The claim's `version` in quotes, such as `"0"`.
+              required: true
+              schema:
+                type: string
+            Location:
+              description: The path of the new claim, `/api/v1/claims/{id}`.
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimEnvelope"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   responses:
     Problem:
@@ -183,6 +226,246 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/CurrentUser"
+    Money:
+      type: string
+      description: An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+      pattern: '^\d{1,6}\.\d{2}$'
+      example: "1250.00"
+      x-go-type: money.Satang
+      x-go-type-import:
+        path: github.com/beambeambeam/claimflow/apps/api/internal/money
+    ExpenseCategory:
+      type: string
+      enum: [TRAVEL, ACCOMMODATION, MEALS, SUPPLIES, TRAINING, OTHER]
+      x-enum-varnames:
+        [
+          ExpenseCategoryTravel,
+          ExpenseCategoryAccommodation,
+          ExpenseCategoryMeals,
+          ExpenseCategorySupplies,
+          ExpenseCategoryTraining,
+          ExpenseCategoryOther,
+        ]
+    ClaimStatus:
+      type: string
+      enum:
+        [
+          DRAFT,
+          SUBMITTED,
+          RETURNED,
+          PENDING_FINANCE,
+          APPROVED,
+          REJECTED,
+          WITHDRAWN,
+        ]
+      x-enum-varnames:
+        [
+          ClaimStatusDraft,
+          ClaimStatusSubmitted,
+          ClaimStatusReturned,
+          ClaimStatusPendingFinance,
+          ClaimStatusApproved,
+          ClaimStatusRejected,
+          ClaimStatusWithdrawn,
+        ]
+    ClaimAction:
+      type: string
+      enum:
+        [
+          SUBMIT,
+          APPROVE,
+          REJECT,
+          RETURN,
+          RESUBMIT,
+          WITHDRAW,
+          FINAL_APPROVE,
+          FINAL_REJECT,
+        ]
+      x-enum-varnames:
+        [
+          ClaimActionSubmit,
+          ClaimActionApprove,
+          ClaimActionReject,
+          ClaimActionReturn,
+          ClaimActionResubmit,
+          ClaimActionWithdraw,
+          ClaimActionFinalApprove,
+          ClaimActionFinalReject,
+        ]
+    LineItemInput:
+      type: object
+      required: [category, description, expenseDate, amount, receiptRef]
+      properties:
+        category:
+          $ref: "#/components/schemas/ExpenseCategory"
+        description:
+          type: string
+          minLength: 1
+          maxLength: 200
+        expenseDate:
+          type: string
+          format: date
+        amount:
+          $ref: "#/components/schemas/Money"
+        receiptRef:
+          type: string
+          minLength: 1
+          maxLength: 50
+    ClaimInput:
+      type: object
+      description: The line-item count and every business limit are checked by the claim module (422), not by this schema. Unknown fields, including `total`, are ignored (BR-08).
+      required: [title, purpose, items]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        purpose:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItemInput"
+    MemberSummary:
+      type: object
+      required: [id, name, position]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: Anan K.
+        position:
+          type: string
+          example: Staff, Section A
+    LineItem:
+      type: object
+      required: [lineNo, category, description, expenseDate, amount, receiptRef]
+      properties:
+        lineNo:
+          type: integer
+          minimum: 1
+          maximum: 20
+        category:
+          $ref: "#/components/schemas/ExpenseCategory"
+        description:
+          type: string
+        expenseDate:
+          type: string
+          format: date
+        amount:
+          $ref: "#/components/schemas/Money"
+        receiptRef:
+          type: string
+    HistoryEntry:
+      type: object
+      required: [id, action, fromStatus, toStatus, actor, comment, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        action:
+          $ref: "#/components/schemas/ClaimAction"
+        fromStatus:
+          allOf:
+            - $ref: "#/components/schemas/ClaimStatus"
+          nullable: true
+        toStatus:
+          $ref: "#/components/schemas/ClaimStatus"
+        actor:
+          $ref: "#/components/schemas/MemberSummary"
+        comment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    Claim:
+      type: object
+      required:
+        [
+          id,
+          claimNo,
+          status,
+          title,
+          purpose,
+          total,
+          returnCount,
+          version,
+          requester,
+          assignedReviewer,
+          firstSubmittedAt,
+          submittedAt,
+          decidedAt,
+          createdAt,
+          updatedAt,
+          items,
+          history,
+          allowedActions,
+        ]
+      properties:
+        id:
+          type: string
+        claimNo:
+          type: string
+          example: CLM-2026-000123
+        status:
+          $ref: "#/components/schemas/ClaimStatus"
+        title:
+          type: string
+        purpose:
+          type: string
+        total:
+          $ref: "#/components/schemas/Money"
+        returnCount:
+          type: integer
+        version:
+          type: integer
+        requester:
+          $ref: "#/components/schemas/MemberSummary"
+        assignedReviewer:
+          allOf:
+            - $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+        firstSubmittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryEntry"
+        allowedActions:
+          type: array
+          description: The actions this actor may take on this claim now (SDS §5.2). Empty until F-03 and F-04.
+          items:
+            type: string
+    ClaimEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Claim"
     ProblemCode:
       type: string
       description: A stable error code for the client (SDS §4.2).

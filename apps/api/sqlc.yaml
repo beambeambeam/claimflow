@@ -7,6 +7,7 @@ sql:
     queries:
       - internal/system/queries.sql
       - internal/auth/queries.sql
+      - internal/claim/queries.sql
     gen:
       go:
         package: db
@@ -19,6 +20,10 @@ sql:
         overrides:
           - db_type: uuid
             go_type: github.com/google/uuid.UUID
+          - column: claims.total_satang
+            go_type: github.com/beambeambeam/claimflow/apps/api/internal/money.Satang
+          - column: line_items.amount_satang
+            go_type: github.com/beambeambeam/claimflow/apps/api/internal/money.Satang
           - db_type: uuid
             nullable: true
             go_type:

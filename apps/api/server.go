@@ -16,6 +16,7 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/env"
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
 	"github.com/beambeambeam/claimflow/apps/api/internal/auth"
+	"github.com/beambeambeam/claimflow/apps/api/internal/claim"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 	"github.com/beambeambeam/claimflow/apps/api/internal/system"
@@ -83,24 +84,28 @@ func serve(ctx context.Context, listener net.Listener, handler http.Handler, log
 	return nil
 }
 
-// authHandler names auth.Handler here, because both feature handlers are called Handler and
+// authHandler and claimHandler name the feature handlers here, because both are called Handler and
 // embedding them under that name would clash.
-type authHandler = auth.Handler
+type (
+	authHandler  = auth.Handler
+	claimHandler = claim.Handler
+)
 
 // server composes the feature handlers into the generated strict server interface.
 type server struct {
 	system.Handler
 	authHandler
+	claimHandler
 }
 
 // newRouter builds the router: request ID and log, problem responses, cross-origin guard, session user,
 // the session check for every route but the public operations, then the contract's operations with their route permissions.
-func newRouter(logger *slog.Logger, cfg *env.Env, pool db.DBTX) *gin.Engine {
+func newRouter(logger *slog.Logger, cfg *env.Env, pool claim.Pool) *gin.Engine {
 	return newRouterAt(logger, cfg, pool, time.Now)
 }
 
-// newRouterAt is newRouter with the clock that the auth rules read. Tests pass a fixed clock.
-func newRouterAt(logger *slog.Logger, cfg *env.Env, pool db.DBTX, now func() time.Time) *gin.Engine {
+// newRouterAt is newRouter with the clock that the auth and claim rules read. Tests pass a fixed clock.
+func newRouterAt(logger *slog.Logger, cfg *env.Env, pool claim.Pool, now func() time.Time) *gin.Engine {
 	queries := db.New(pool)
 	authService := auth.NewService(queries, int(cfg.BcryptCost), now)
 
@@ -112,8 +117,9 @@ func newRouterAt(logger *slog.Logger, cfg *env.Env, pool db.DBTX, now func() tim
 	router.NoRoute(httperr.NotFound)
 
 	handler := api.NewStrictHandlerWithOptions(server{
-		Handler:     system.NewHandler(cfg.AppVersion, queries),
-		authHandler: auth.NewHandler(authService, cfg.CookieSecure),
+		Handler:      system.NewHandler(cfg.AppVersion, queries),
+		authHandler:  auth.NewHandler(authService, cfg.CookieSecure),
+		claimHandler: claim.NewHandler(claim.NewService(pool, now)),
 	}, []api.StrictMiddlewareFunc{auth.OperationPermissions(operationPermissions)}, api.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  httperr.ReportInvalid,
 		HandlerErrorFunc:         httperr.Report,

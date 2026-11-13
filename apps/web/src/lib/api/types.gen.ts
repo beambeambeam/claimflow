@@ -42,6 +42,87 @@ export type CurrentUserEnvelope = {
 };
 
 /**
+ * An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+ */
+export type Money = string;
+
+export type ExpenseCategory = 'TRAVEL' | 'ACCOMMODATION' | 'MEALS' | 'SUPPLIES' | 'TRAINING' | 'OTHER';
+
+export type ClaimStatus = 'DRAFT' | 'SUBMITTED' | 'RETURNED' | 'PENDING_FINANCE' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+
+export type ClaimAction = 'SUBMIT' | 'APPROVE' | 'REJECT' | 'RETURN' | 'RESUBMIT' | 'WITHDRAW' | 'FINAL_APPROVE' | 'FINAL_REJECT';
+
+export type LineItemInput = {
+  category: ExpenseCategory;
+  description: string;
+  expenseDate: string;
+  amount: Money;
+  receiptRef: string;
+};
+
+/**
+ * The line-item count and every business limit are checked by the claim module (422), not by this schema. Unknown fields, including `total`, are ignored (BR-08).
+ */
+export type ClaimInput = {
+  title: string;
+  purpose: string;
+  items: Array<LineItemInput>;
+};
+
+export type MemberSummary = {
+  id: string;
+  name: string;
+  position: string;
+};
+
+export type LineItem = {
+  lineNo: number;
+  category: ExpenseCategory;
+  description: string;
+  expenseDate: string;
+  amount: Money;
+  receiptRef: string;
+};
+
+export type HistoryEntry = {
+  id: number;
+  action: ClaimAction;
+  fromStatus: ClaimStatus | null;
+  toStatus: ClaimStatus;
+  actor: MemberSummary;
+  comment: string | null;
+  createdAt: string;
+};
+
+export type Claim = {
+  id: string;
+  claimNo: string;
+  status: ClaimStatus;
+  title: string;
+  purpose: string;
+  total: Money;
+  returnCount: number;
+  version: number;
+  requester: MemberSummary;
+  assignedReviewer: MemberSummary | null;
+  firstSubmittedAt: string | null;
+  submittedAt: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: Array<LineItem>;
+  history: Array<HistoryEntry>;
+  /**
+   * The actions this actor may take on this claim now (SDS §5.2). Empty until F-03 and F-04.
+   */
+  allowedActions: Array<string>;
+};
+
+export type ClaimEnvelope = {
+  data: Claim;
+};
+
+/**
  * A stable error code for the client (SDS §4.2).
  */
 export type ProblemCode = 'BAD_REQUEST' | 'UNAUTHENTICATED' | 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID_TRANSITION' | 'CONFLICT' | 'VALIDATION_FAILED' | 'PRECONDITION_REQUIRED' | 'INTERNAL' | 'UNAVAILABLE';
@@ -226,3 +307,44 @@ export type GetMeResponses = {
 };
 
 export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
+
+export type CreateClaimData = {
+  body: ClaimInput;
+  path?: never;
+  query?: never;
+  url: '/claims';
+};
+
+export type CreateClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  422: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type CreateClaimError = CreateClaimErrors[keyof CreateClaimErrors];
+
+export type CreateClaimResponses = {
+  /**
+   * The claim is stored with status `SUBMITTED`.
+   */
+  201: ClaimEnvelope;
+};
+
+export type CreateClaimResponse = CreateClaimResponses[keyof CreateClaimResponses];
