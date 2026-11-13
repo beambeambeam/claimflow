@@ -4,7 +4,7 @@
 - **Baseline:** `docs/srs.md` v0.2 · Features: `docs/features.md` v1.0 · Design: `docs/system-sds.md` v0.8
 - **Issue:** #5 · **Version:** 0.1 (draft) · **Last updated:** 2026-11-05
 
-This plan orders the features in `docs/features.md` into three sprints. It shows the dependencies, fits the work around the labs and the exam period, and explains the Sprint 1 scope. Feature IDs and requirement IDs are unchanged from those documents. Work items for each feature are in `.scratch/<feature>/issues/` (see `docs/agents/issue-tracker.md`).
+This plan orders the features in `docs/features.md` into three sprints. It shows the dependencies, fits the work around the labs and the exam period, and explains the Sprint 1 scope. Feature IDs and requirement IDs are unchanged from those documents. Work items for each feature are GitHub Issues titled `F-NN/NN` (see `docs/agents/issue-tracker.md`).
 
 ---
 
