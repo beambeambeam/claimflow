@@ -128,7 +128,8 @@ components:
           maxLength: 50
         password:
           type: string
-          description: At most 72 bytes, the bcrypt input limit.
+          description: >-
+            1–72 bytes of UTF-8, the bcrypt input limit. maxLength counts characters, so it is only an upper bound; the server and the web client also check the byte length.
           minLength: 1
           maxLength: 72
     CurrentUser:

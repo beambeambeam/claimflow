@@ -84,6 +84,19 @@ describe("login form", () => {
     expect(loginBodies).toEqual([]);
   });
 
+  it("F01-TEST-21 extra: counts the password limit in bytes and sends no login request", async () => {
+    const { user } = renderLoginForm();
+
+    // 30 Thai characters are 90 bytes of UTF-8: within 72 characters, over 72 bytes.
+    await user.type(screen.getByLabelText("Username"), "req.anan");
+    await user.type(screen.getByLabelText("Password"), "ก".repeat(30));
+    await user.click(getLogInButton());
+
+    // Astryx shows the message under the field and repeats it in a live region.
+    await screen.findAllByText("Password must be 1–72 bytes.");
+    expect(loginBodies).toEqual([]);
+  });
+
   it("F01-TEST-21: keeps the username and clears the password after a 401", async () => {
     const { user } = renderLoginForm();
 

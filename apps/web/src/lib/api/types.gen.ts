@@ -19,7 +19,7 @@ export type Ready = {
 export type LoginRequest = {
   username: string;
   /**
-   * At most 72 bytes, the bcrypt input limit.
+   * 1–72 bytes of UTF-8, the bcrypt input limit. maxLength counts characters, so it is only an upper bound; the server and the web client also check the byte length.
    */
   password: string;
 };

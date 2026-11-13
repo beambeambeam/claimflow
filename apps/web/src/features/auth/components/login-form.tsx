@@ -10,7 +10,11 @@ import { zLoginRequest } from "#/lib/api/zod.gen";
 import { useAppForm } from "#/lib/form";
 import { isProblem } from "#/lib/problem";
 
-// Contract limits from the generated schema, with field messages for empty input.
+// bcrypt reads at most 72 bytes, and the generated maxLength counts characters (F-01 §1.5).
+const maxPasswordBytes = 72;
+const byteLength = (value: string) => new TextEncoder().encode(value).length;
+
+// Contract limits from the generated schema, with field messages for empty input and the byte limit.
 const loginSchema = z.object({
   username: z
     .string()
@@ -19,6 +23,10 @@ const loginSchema = z.object({
   password: z
     .string()
     .min(1, "Enter your password.")
+    .refine(
+      (value) => byteLength(value) <= maxPasswordBytes,
+      "Password must be 1–72 bytes."
+    )
     .pipe(zLoginRequest.shape.password),
 });
 
