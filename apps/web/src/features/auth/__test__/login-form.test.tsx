@@ -30,6 +30,15 @@ const invalidCredentials = {
   requestId: "req-login-401",
 };
 
+const badRequest = {
+  type: "about:blank",
+  title: "Bad Request",
+  status: 400,
+  code: "BAD_REQUEST",
+  instance: "/api/v1/auth/login",
+  requestId: "req-login-400",
+};
+
 let loginBodies: LoginRequest[] = [];
 
 const server = setupServer(
@@ -200,6 +209,69 @@ describe("login form", () => {
       { username: "req.anan", password: "wrong-password" },
       { username: "req.anan", password: "wrong-password" },
     ]);
+  });
+
+  it("F01-TEST-21 extra: shows 400 field errors under the matching inputs", async () => {
+    server.use(
+      http.post(loginUrl, () =>
+        HttpResponse.json(
+          {
+            ...badRequest,
+            errors: [
+              {
+                field: "username",
+                rule: "length",
+                message: "Username from the server.",
+              },
+              {
+                field: "username",
+                rule: "format",
+                message: "Second username error.",
+              },
+              {
+                field: "password",
+                rule: "length",
+                message: "Password from the server.",
+              },
+              {
+                field: "unknown",
+                rule: "length",
+                message: "Unknown field error.",
+              },
+            ],
+          },
+          { status: 400 }
+        )
+      )
+    );
+    const { user } = renderLoginForm();
+
+    await user.type(screen.getByLabelText("Username"), "req.anan");
+    await user.type(screen.getByLabelText("Password"), "wrong-password");
+    await user.click(getLogInButton());
+
+    // Astryx shows each message under its field and repeats it in a live region.
+    await screen.findAllByText("Username from the server.");
+    expect(screen.getAllByText("Password from the server.")).not.toHaveLength(
+      0
+    );
+    expect(screen.queryByText("Second username error.")).toBeNull();
+    expect(screen.queryByText("Unknown field error.")).toBeNull();
+    expect(screen.queryByText("Something went wrong.")).toBeNull();
+  });
+
+  it("F01-TEST-21 extra: shows Something went wrong for a 400 without field errors", async () => {
+    server.use(
+      http.post(loginUrl, () => HttpResponse.json(badRequest, { status: 400 }))
+    );
+    const { user } = renderLoginForm();
+
+    await user.type(screen.getByLabelText("Username"), "req.anan");
+    await user.type(screen.getByLabelText("Password"), "wrong-password");
+    await user.click(getLogInButton());
+
+    await screen.findByText("Something went wrong.");
+    screen.getByText("Request ID: req-login-400");
   });
 
   it("F01-TEST-21 extra: shows a Try again action without a request ID when the request fails", async () => {

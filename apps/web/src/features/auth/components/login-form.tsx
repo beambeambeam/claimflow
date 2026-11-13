@@ -8,7 +8,7 @@ import { loginMutation } from "#/lib/api/@tanstack/react-query.gen";
 import type { CurrentUserEnvelope } from "#/lib/api/types.gen";
 import { zLoginRequest } from "#/lib/api/zod.gen";
 import { useAppForm } from "#/lib/form";
-import { isProblem } from "#/lib/problem";
+import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 // bcrypt reads at most 72 bytes, and the generated maxLength counts characters (F-01 §1.5).
 const maxPasswordBytes = 72;
@@ -50,9 +50,18 @@ export const LoginForm = ({
         { body: value },
         {
           onError: (error) => {
-            if (isProblem(error) && error.status === 401) {
+            if (!isProblem(error)) {
+              return;
+            }
+
+            if (error.status === 401) {
               form.setFieldValue("password", "");
             }
+
+            // A 400 puts each field error under its input; unknown fields are ignored.
+            form.setErrorMap({
+              onSubmit: { fields: problemFieldErrors(error) },
+            });
           },
         }
       );
@@ -64,6 +73,9 @@ export const LoginForm = ({
   };
 
   const problem = isProblem(login.error) ? login.error : null;
+
+  const hasFieldErrors =
+    problem !== null && Object.keys(problemFieldErrors(problem)).length > 0;
 
   return (
     <VStack
@@ -102,7 +114,7 @@ export const LoginForm = ({
         <Banner status="error" title="Invalid username or password." />
       ) : null}
 
-      {login.isError && problem?.status !== 401 ? (
+      {login.isError && problem?.status !== 401 && !hasFieldErrors ? (
         <Banner
           description={
             problem?.requestId === undefined
