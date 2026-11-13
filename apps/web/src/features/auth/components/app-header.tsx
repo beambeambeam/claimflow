@@ -4,20 +4,8 @@ import { Text } from "@astryxdesign/core/Text";
 import { TopNav, TopNavItem } from "@astryxdesign/core/TopNav";
 import { useRouterState } from "@tanstack/react-router";
 
+import { can, roleLabels } from "#/features/auth/permissions";
 import type { CurrentUser } from "#/lib/api/types.gen";
-
-type Role = CurrentUser["role"];
-
-// Role labels from F-01 §2.2.
-const roleLabels: Record<Role, string> = {
-  requester: "Requester",
-  reviewer: "Reviewer",
-  finance: "Finance Officer",
-};
-
-// Links are gated by permission, not role name (F-01 §1.6).
-const can = (user: CurrentUser, resource: string, action: string) =>
-  user.permissions[resource]?.includes(action);
 
 export const AppHeader = ({ user }: { user: CurrentUser }) => {
   const pathname = useRouterState({

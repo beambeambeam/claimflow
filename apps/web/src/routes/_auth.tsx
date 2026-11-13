@@ -6,7 +6,7 @@ import {
   useRouteContext,
 } from "@tanstack/react-router";
 
-import { AppHeader } from "#/components/app-header";
+import { AppHeader } from "#/features/auth/components/app-header";
 import { getMeOptions } from "#/lib/api/@tanstack/react-query.gen";
 import { isProblem } from "#/lib/problem";
 

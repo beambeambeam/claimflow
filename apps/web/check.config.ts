@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+
 import ultraciteOxlintReact from "ultracite/oxlint/react";
 import ultraciteOxlintTanstack from "ultracite/oxlint/tanstack";
 import type { OxlintOverride } from "vite-plus/lint";
@@ -32,4 +34,46 @@ export const webLintOverrides: OxlintOverride[] = [
       "import/no-relative-parent-imports": "error",
     },
   },
+  // Feature boundaries (SDS §1.4.2): shared code imports no feature or route,
+  // and a feature imports only itself, `auth`, and shared code.
+  {
+    files: [`${root}/src/components/**`, `${root}/src/lib/**`],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["#/features/**", "#/routes/**"],
+              message: "Shared code must not import features or routes.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  ...readdirSync(new URL("src/features", import.meta.url)).map(
+    (feature): OxlintOverride => ({
+      files: [`${root}/src/features/${feature}/**`],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "#/routes/**",
+                  "#/features/**",
+                  "!#/features/auth/**",
+                  `!#/features/${feature}/**`,
+                ],
+                message:
+                  "A feature imports only itself, auth, and shared code.",
+              },
+            ],
+          },
+        ],
+      },
+    })
+  ),
 ];

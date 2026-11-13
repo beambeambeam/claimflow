@@ -14,7 +14,7 @@ import {
   vi,
 } from "vite-plus/test";
 
-import { LoginForm } from "#/components/login-form";
+import { LoginForm } from "#/features/auth/components/login-form";
 import { client } from "#/lib/api/client.gen";
 import type { LoginRequest } from "#/lib/api/types.gen";
 import { zLoginRequest } from "#/lib/api/zod.gen";
