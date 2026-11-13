@@ -123,4 +123,59 @@ describe("login form", () => {
     await screen.findByText("Invalid username or password.");
     expect(getLogInButton().disabled).toBe(false);
   });
+
+  it("F01-TEST-21 extra: shows the request ID and a Try again action after a server error", async () => {
+    let attempts = 0;
+    server.use(
+      http.post(loginUrl, async ({ request }) => {
+        attempts += 1;
+        loginBodies.push(zLoginRequest.parse(await request.json()));
+
+        if (attempts === 1) {
+          return HttpResponse.json(
+            {
+              type: "about:blank",
+              title: "Internal Server Error",
+              status: 500,
+              code: "INTERNAL",
+              instance: "/api/v1/auth/login",
+              requestId: "req-login-500",
+            },
+            { status: 500 }
+          );
+        }
+
+        return HttpResponse.json(invalidCredentials, { status: 401 });
+      })
+    );
+    const { user } = renderLoginForm();
+
+    await user.type(screen.getByLabelText("Username"), "req.anan");
+    await user.type(screen.getByLabelText("Password"), "wrong-password");
+    await user.click(getLogInButton());
+
+    await screen.findByText("Something went wrong.");
+    screen.getByText("Request ID: req-login-500");
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    await screen.findByText("Invalid username or password.");
+    expect(loginBodies).toEqual([
+      { username: "req.anan", password: "wrong-password" },
+      { username: "req.anan", password: "wrong-password" },
+    ]);
+  });
+
+  it("F01-TEST-21 extra: shows a Try again action without a request ID when the request fails", async () => {
+    server.use(http.post(loginUrl, () => HttpResponse.error()));
+    const { user } = renderLoginForm();
+
+    await user.type(screen.getByLabelText("Username"), "req.anan");
+    await user.type(screen.getByLabelText("Password"), "wrong-password");
+    await user.click(getLogInButton());
+
+    await screen.findByText("Something went wrong.");
+    expect(screen.queryByText(/Request ID/u)).toBeNull();
+    screen.getByRole("button", { name: "Try again" });
+  });
 });
