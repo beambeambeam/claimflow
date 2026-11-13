@@ -85,6 +85,11 @@ export const zLoginBody = zLoginRequest;
 export const zLoginResponse = zCurrentUserEnvelope;
 
 /**
+ * The session ended. The cookie is cleared with Max-Age=0 (F-01 §3.3).
+ */
+export const zLogoutResponse = z.void();
+
+/**
  * The signed-in user.
  */
 export const zGetMeResponse = zCurrentUserEnvelope;
