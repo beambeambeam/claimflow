@@ -43,6 +43,8 @@ var (
 	// ErrNotImplemented is the problem for an operation with no implementation yet.
 	// Its code is INTERNAL because SDS §4.2 defines no code for it.
 	ErrNotImplemented = &Error{Status: http.StatusNotImplemented, Code: api.ProblemCodeInternal, Title: "Not implemented."}
+	// ErrValidation is the problem for a request that does not decode or breaks a bound.
+	ErrValidation = &Error{Status: http.StatusBadRequest, Code: api.ProblemCodeValidationFailed, Title: "Invalid request."}
 
 	errInternal = &Error{Status: http.StatusInternalServerError, Code: api.ProblemCodeInternal, Title: "Something went wrong."}
 )
@@ -108,6 +110,12 @@ func NotFound(c *gin.Context) {
 // strict server's error hooks.
 func Report(c *gin.Context, err error) {
 	_ = c.Error(err)
+}
+
+// ReportInvalid reports a request that does not decode as ErrValidation. It fits the generated
+// strict server's RequestErrorHandlerFunc.
+func ReportInvalid(c *gin.Context, _ error) {
+	Report(c, ErrValidation)
 }
 
 func write(c *gin.Context, problem *Error) {

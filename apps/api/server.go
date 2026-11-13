@@ -103,6 +103,7 @@ func newRouter(logger *slog.Logger, cfg *env.Env, pool db.DBTX) *gin.Engine {
 		Handler:     system.NewHandler(cfg.AppVersion, db.New(pool)),
 		authHandler: auth.Handler{},
 	}, nil, api.StrictGinServerOptions{
+		RequestErrorHandlerFunc:  httperr.ReportInvalid,
 		HandlerErrorFunc:         httperr.Report,
 		ResponseErrorHandlerFunc: httperr.Report,
 	})
