@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { loginMutation } from "#/lib/api/@tanstack/react-query.gen";
+import type { CurrentUserEnvelope } from "#/lib/api/types.gen";
 import { readProblem } from "#/lib/problem";
 
 interface FieldErrors {
@@ -12,15 +13,19 @@ interface FieldErrors {
 const inputClassName =
   "rounded border border-gray-400 px-3 py-2 focus:outline-2 focus:outline-blue-700";
 
-export const LoginForm = ({ onLoggedIn }: { onLoggedIn: () => void }) => {
+export const LoginForm = ({
+  onLoggedIn,
+}: {
+  onLoggedIn: (envelope: CurrentUserEnvelope) => void;
+}) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const login = useMutation({
     ...loginMutation(),
-    onSuccess: () => {
-      onLoggedIn();
+    onSuccess: (envelope) => {
+      onLoggedIn(envelope);
     },
     onError: (error) => {
       if (readProblem(error)?.status === 401) {

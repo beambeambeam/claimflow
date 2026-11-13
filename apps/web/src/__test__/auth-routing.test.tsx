@@ -10,12 +10,22 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from "vite-plus/test";
 
 import { client } from "#/lib/api/client.gen";
 import type { CurrentUser } from "#/lib/api/types.gen";
 import { zLoginRequest } from "#/lib/api/zod.gen";
 import { getRouter } from "#/router";
+
+// Third-party dev UI. Its unmount throws under jsdom, which breaks cleanup for every later test.
+vi.mock("@tanstack/react-devtools", () => ({
+  TanStackDevtools: () => null,
+}));
+
+vi.mock("@tanstack/react-router-devtools", () => ({
+  TanStackRouterDevtoolsPanel: () => null,
+}));
 
 type Role = CurrentUser["role"];
 
@@ -129,7 +139,11 @@ const renderAt = (initialEntry: string) => {
 };
 
 const logIn = async (user: ReturnType<typeof userEvent.setup>, role: Role) => {
-  await user.type(screen.getByLabelText("Username"), users[role].username);
+  // Routes load asynchronously, so wait for the form instead of querying it synchronously.
+  await user.type(
+    await screen.findByLabelText("Username"),
+    users[role].username
+  );
   await user.type(screen.getByLabelText("Password"), password);
   await user.click(screen.getByRole("button", { name: "Log in" }));
 };
