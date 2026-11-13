@@ -123,7 +123,7 @@ func currentUser(user User) api.CurrentUser {
 		Name:        user.Name,
 		Username:    user.Username,
 		Role:        api.CurrentUserRole(user.Role),
-		Permissions: permissionsByRole[api.CurrentUserRole(user.Role)],
+		Permissions: PermissionsOf(user.Role),
 	}
 }
 
