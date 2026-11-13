@@ -60,3 +60,22 @@ func UserFrom(ctx context.Context) (User, bool) {
 
 	return user, ok
 }
+
+// RequireSession answers 401 UNAUTHENTICATED, without calling the handler, when a request to a route outside
+// public has no session user. public holds gin routes as "METHOD /full/path". It fails closed: a route missing
+// from public, such as one added outside the contract or one whose key drifts from c.FullPath(), needs a
+// session. A request that matches no route is left to NoRoute, so it still gets 404. It runs after Session and
+// before the request is validated (F-01 §3.4, step 3), so each operation needs no check of its own.
+func RequireSession(public map[string]bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		route := c.FullPath()
+		if _, ok := UserFrom(c.Request.Context()); !ok && route != "" && !public[c.Request.Method+" "+route] {
+			httperr.Report(c, errUnauthenticated)
+			c.Abort()
+
+			return
+		}
+
+		c.Next()
+	}
+}

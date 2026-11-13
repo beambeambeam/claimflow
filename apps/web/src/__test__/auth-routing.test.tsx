@@ -14,28 +14,32 @@ type Role = CurrentUser["role"];
 const password = "correct-password";
 const roles: Role[] = ["requester", "reviewer", "finance"];
 
-// Permissions follow the header table in F-01 §2.2.
+// Seed users with the exact permission maps that /auth/me returns (F-01 §1.6).
 const users: Record<Role, CurrentUser> = {
   requester: {
     id: "usr-requester",
     username: "req.anan",
-    name: "Anan Requester",
+    name: "Anan K.",
     role: "requester",
     permissions: { claim: ["create", "list"] },
   },
   reviewer: {
     id: "usr-reviewer",
-    username: "rev.nari",
-    name: "Nari Reviewer",
+    username: "rev.malee",
+    name: "Malee S.",
     role: "reviewer",
-    permissions: { claim: ["create", "list"], review: ["list"] },
+    permissions: {
+      claim: ["create", "list"],
+      review: ["list"],
+      report: ["read"],
+    },
   },
   finance: {
     id: "usr-finance",
-    username: "fin.somchai",
-    name: "Somchai Finance",
+    username: "fin.wanida",
+    name: "Wanida",
     role: "finance",
-    permissions: { review: ["list"] },
+    permissions: { review: ["list"], finance: ["list"], report: ["read"] },
   },
 };
 
@@ -151,7 +155,8 @@ describe("auth routing", () => {
 });
 
 describe("app header", () => {
-  // Role labels and header links follow F-01 §2.2 and AC-20.
+  // F01-TEST-22 (F01-AC-20): role labels and header links follow F-01 §2.2. Links come from `permissions`,
+  // so the finance map's extra `finance` and `report` entries add no link until F-08 and F-10.
   const roleLabels: Record<Role, string> = {
     requester: "Requester",
     reviewer: "Reviewer",
@@ -165,7 +170,7 @@ describe("app header", () => {
   };
 
   it.each(roles)(
-    "F01-AC-20: shows the %s name, role label and Log out button",
+    "F01-TEST-22: shows the %s name, role label and Log out button",
     async (role) => {
       sessionUser = users[role];
       renderAt("/claims");
@@ -181,7 +186,7 @@ describe("app header", () => {
   );
 
   it.each(roles)(
-    "F01-AC-20: shows only the header links the %s role may use",
+    "F01-TEST-22: shows only the header links the %s role may use",
     async (role) => {
       sessionUser = users[role];
       renderAt("/claims");
@@ -195,4 +200,21 @@ describe("app header", () => {
       expect(links).toEqual(expectedLinks[role]);
     }
   );
+
+  it("F01-TEST-22: shows a Finance Officer no My Claims or New Claim link (BR-15)", async () => {
+    sessionUser = users.finance;
+    renderAt("/reviews");
+
+    const header = await screen.findByRole("banner");
+
+    expect(
+      within(header).getByRole("link", { name: "Review Queue" })
+    ).toBeTruthy();
+    expect(
+      within(header).queryByRole("link", { name: "My Claims" })
+    ).toBeNull();
+    expect(
+      within(header).queryByRole("link", { name: "New Claim" })
+    ).toBeNull();
+  });
 });
