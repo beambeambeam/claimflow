@@ -42,7 +42,7 @@ bun run --cwd apps/api migrate up
 | --- | --- | --- |
 | `.env.schema` | varlock | `env/env.go` |
 | `openapi.yaml` | [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) (Gin strict server) | `internal/api/api.gen.go` |
-| `migrations/*.sql` + `internal/*/queries.sql` | [sqlc](https://sqlc.dev) (pgx/v5) | `internal/db/*.gen.go` |
+| `migrations/*.sql` + `internal/<feature>/*.sql` | [sqlc](https://sqlc.dev) (pgx/v5) | `internal/db/*.gen.go` |
 
 CI runs the root `bun run generate` and fails when the result differs from the commit. Coverage excludes the generated packages.
 
