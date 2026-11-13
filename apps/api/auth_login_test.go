@@ -46,7 +46,8 @@ func insertCredentialUser(t *testing.T, pool *pgxpool.Pool, username, password s
 	return userID
 }
 
-func postLogin(t *testing.T, handler http.Handler, username, password string) *httptest.ResponseRecorder {
+// loginBody encodes a login request body.
+func loginBody(t *testing.T, username, password string) string {
 	t.Helper()
 
 	body, err := json.Marshal(map[string]string{"username": username, "password": password})
@@ -54,12 +55,25 @@ func postLogin(t *testing.T, handler http.Handler, username, password string) *h
 		t.Fatalf("encode login body: %v", err)
 	}
 
+	return string(body)
+}
+
+// postLoginBody sends a raw body to the login operation, so a test can send one the client would not encode.
+func postLoginBody(t *testing.T, handler http.Handler, body string) *httptest.ResponseRecorder {
+	t.Helper()
+
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/login", bytes.NewReader(body))
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(recorder, request)
 
 	return recorder
+}
+
+func postLogin(t *testing.T, handler http.Handler, username, password string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return postLoginBody(t, handler, loginBody(t, username, password))
 }
 
 // sessionToken checks that the Set-Cookie header is name=<token> with the given attributes, and returns the token.
@@ -235,5 +249,31 @@ func TestF01TEST11SessionStoresHashOfCookieValue(t *testing.T) {
 	sum := sha256.Sum256([]byte(cookie))
 	if !bytes.Equal(stored, sum[:]) {
 		t.Fatalf("session.token = %x, want sha256(cookie) = %x", stored, sum)
+	}
+}
+
+// TestLoginRejectsMalformedOrOutOfRangeRequests is outside the F01-TEST list. A body that does not decode,
+// or breaks the LoginRequest bounds (username 1–50 characters, password 1–72 bytes), gets a 400 VALIDATION_FAILED problem.
+func TestLoginRejectsMalformedOrOutOfRangeRequests(t *testing.T) {
+	pool := pgtest.New(t)
+	insertCredentialUser(t, pool, "req.anan", "correct-password")
+	router := newRouter(discardLogger(), testEnv(0), pool)
+
+	cases := []struct {
+		name string
+		body string
+	}{
+		{name: "malformed JSON", body: `{"username":`},
+		{name: "empty username", body: loginBody(t, "", "correct-password")},
+		{name: "username over 50 characters", body: loginBody(t, strings.Repeat("a", 51), "correct-password")},
+		{name: "empty password", body: loginBody(t, "req.anan", "")},
+		{name: "password over 72 bytes", body: loginBody(t, "req.anan", strings.Repeat("p", 73))},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := postLoginBody(t, router, tc.body)
+			decodeProblem(t, recorder, http.StatusBadRequest, "VALIDATION_FAILED")
+		})
 	}
 }
