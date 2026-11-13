@@ -67,8 +67,21 @@ CREATE TABLE claim_history (
 
 CREATE INDEX claim_history_claim_id_idx ON claim_history (claim_id);
 
+-- +goose StatementBegin
+CREATE FUNCTION claim_history_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'claim_history is append-only (BR-11)';
+END;
+$$;
+-- +goose StatementEnd
+
+CREATE TRIGGER claim_history_append_only
+    BEFORE UPDATE OR DELETE ON claim_history
+    FOR EACH ROW EXECUTE FUNCTION claim_history_append_only();
+
 -- +goose Down
 DROP TABLE claim_history;
+DROP FUNCTION claim_history_append_only;
 DROP TABLE line_items;
 DROP TABLE claims;
 DROP SEQUENCE claim_no_seq;
