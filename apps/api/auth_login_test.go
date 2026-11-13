@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -219,27 +220,60 @@ func TestF01TEST11SessionStoresHashOfCookieValue(t *testing.T) {
 }
 
 // TestLoginRejectsMalformedOrOutOfRangeRequests is outside the F01-TEST list. A body that does not decode,
-// or breaks the LoginRequest bounds (username 1–50 characters, password 1–72 bytes), gets a 400 VALIDATION_FAILED problem.
+// or breaks the LoginRequest bounds (username 1–50 characters, password 1–72 bytes), gets a 400 BAD_REQUEST problem.
+// errors names each invalid field. A body that does not decode names no field, so it has no errors member.
 func TestLoginRejectsMalformedOrOutOfRangeRequests(t *testing.T) {
 	pool := pgtest.New(t)
 	insertCredentialUser(t, pool)
 	router := newRouter(discardLogger(), testEnv(0), pool)
 
 	cases := []struct {
-		name string
-		body string
+		name   string
+		body   string
+		fields []string
 	}{
 		{name: "malformed JSON", body: `{"username":`},
-		{name: "empty username", body: loginBody(t, "", "correct-password")},
-		{name: "username over 50 characters", body: loginBody(t, strings.Repeat("a", 51), "correct-password")},
-		{name: "empty password", body: loginBody(t, "req.anan", "")},
-		{name: "password over 72 bytes", body: loginBody(t, "req.anan", strings.Repeat("p", 73))},
+		{name: "empty username", body: loginBody(t, "", "correct-password"), fields: []string{"username"}},
+		{name: "username over 50 characters", body: loginBody(t, strings.Repeat("a", 51), "correct-password"), fields: []string{"username"}},
+		{name: "empty password", body: loginBody(t, "req.anan", ""), fields: []string{"password"}},
+		{name: "password over 72 bytes", body: loginBody(t, "req.anan", strings.Repeat("p", 73)), fields: []string{"password"}},
+		{name: "empty username and password", body: loginBody(t, "", ""), fields: []string{"username", "password"}},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			recorder := postLoginBody(t, router, tc.body)
-			decodeProblem(t, recorder, http.StatusBadRequest, "VALIDATION_FAILED")
+			decodeProblem(t, recorder, http.StatusBadRequest, "BAD_REQUEST")
+
+			var body struct {
+				Errors *[]struct {
+					Field string `json:"field"`
+				} `json:"errors"`
+			}
+			if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+				t.Fatalf("decode problem: %v", err)
+			}
+
+			if tc.fields == nil {
+				if body.Errors != nil {
+					t.Fatalf("errors = %+v, want none when no field can be named", *body.Errors)
+				}
+
+				return
+			}
+
+			if body.Errors == nil {
+				t.Fatalf("errors missing, want fields %v", tc.fields)
+			}
+
+			got := make([]string, 0, len(*body.Errors))
+			for _, fieldError := range *body.Errors {
+				got = append(got, fieldError.Field)
+			}
+
+			if !slices.Equal(got, tc.fields) {
+				t.Fatalf("errors fields = %v, want %v", got, tc.fields)
+			}
 		})
 	}
 }
