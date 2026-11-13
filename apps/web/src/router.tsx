@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 
-import { isProblem } from "#/lib/problem";
+import { endLocalSession, isUnauthorized } from "#/features/auth/session";
 
 import { routeTree } from "./routeTree.gen";
 
@@ -25,23 +25,25 @@ export const getRouter = () => {
   });
 
   // A 401 from any query means the session is gone: drop every cached answer and go to login (F01-AC-21).
-  // A failed login is a mutation, so it does not come through here.
   queryClient.getQueryCache().subscribe((event) => {
     if (
-      event.type !== "updated" ||
-      event.action.type !== "error" ||
-      !isProblem(event.action.error) ||
-      event.action.error.status !== 401
+      event.type === "updated" &&
+      event.action.type === "error" &&
+      isUnauthorized(event.action.error)
     ) {
-      return;
+      endLocalSession(queryClient, router, { keepLocation: true });
     }
+  });
 
-    queryClient.clear();
-
-    const { href, pathname } = router.latestLocation;
-
-    if (pathname !== "/login") {
-      void router.navigate({ to: "/login", search: { redirect: href } });
+  // The same holds for a mutation, except on the login page: a failed login is a 401 that the form shows inline.
+  queryClient.getMutationCache().subscribe((event) => {
+    if (
+      event.type === "updated" &&
+      event.action.type === "error" &&
+      isUnauthorized(event.action.error) &&
+      router.latestLocation.pathname !== "/login"
+    ) {
+      endLocalSession(queryClient, router, { keepLocation: true });
     }
   });
 
