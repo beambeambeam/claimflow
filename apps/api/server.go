@@ -45,7 +45,7 @@ func run(ctx context.Context, cfg *env.Env, logger *slog.Logger) error {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}
 
-	return serve(ctx, listener, newRouter(logger, cfg.AppVersion, pool), logger)
+	return serve(ctx, listener, newRouter(logger, cfg, pool), logger)
 }
 
 // serve handles requests on listener until ctx is canceled, then shuts down gracefully.
@@ -94,13 +94,13 @@ type server struct {
 }
 
 // newRouter builds the router: request ID and log, problem responses, then the contract's operations.
-func newRouter(logger *slog.Logger, version string, pool db.DBTX) *gin.Engine {
+func newRouter(logger *slog.Logger, cfg *env.Env, pool db.DBTX) *gin.Engine {
 	router := gin.New()
 	router.Use(httperr.RequestID(), requestLogger(logger), httperr.Handle(logger))
 	router.NoRoute(httperr.NotFound)
 
 	handler := api.NewStrictHandlerWithOptions(server{
-		Handler:     system.NewHandler(version, db.New(pool)),
+		Handler:     system.NewHandler(cfg.AppVersion, db.New(pool)),
 		authHandler: auth.Handler{},
 	}, nil, api.StrictGinServerOptions{
 		HandlerErrorFunc:         httperr.Report,

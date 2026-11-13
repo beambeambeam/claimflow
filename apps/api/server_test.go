@@ -86,7 +86,7 @@ func decodeProblem(t *testing.T, recorder *httptest.ResponseRecorder, status int
 func TestProblemResponses(t *testing.T) {
 	var logs bytes.Buffer
 
-	router := newRouter(slog.New(slog.NewJSONHandler(&logs, nil)), testVersion, pgtest.New(t))
+	router := newRouter(slog.New(slog.NewJSONHandler(&logs, nil)), testEnv(0), pgtest.New(t))
 	router.GET("/api/v1/test/internal-error", func(c *gin.Context) {
 		_ = c.Error(errors.New(`pq: relation "secret_table" does not exist`))
 	})
@@ -132,7 +132,7 @@ func logLineHas(logs, requestID, text string) bool {
 func TestEveryResponseHasRequestID(t *testing.T) {
 	var logs bytes.Buffer
 
-	recorder := get(t, newRouter(slog.New(slog.NewJSONHandler(&logs, nil)), testVersion, pgtest.New(t)), "/api/v1/health")
+	recorder := get(t, newRouter(slog.New(slog.NewJSONHandler(&logs, nil)), testEnv(0), pgtest.New(t)), "/api/v1/health")
 
 	requestID := recorder.Header().Get("X-Request-Id")
 	if requestID == "" {
@@ -151,7 +151,7 @@ func TestHealthAndReadyFollowTheDatabase(t *testing.T) {
 		t.Fatalf("start postgres: %v", err)
 	}
 
-	router := newRouter(discardLogger(), testVersion, server.New(t))
+	router := newRouter(discardLogger(), testEnv(0), server.New(t))
 
 	assertHealthy := func() {
 		t.Helper()
