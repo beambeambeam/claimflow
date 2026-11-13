@@ -114,7 +114,7 @@ func newRouterAt(logger *slog.Logger, cfg *env.Env, pool db.DBTX, now func() tim
 	handler := api.NewStrictHandlerWithOptions(server{
 		Handler:     system.NewHandler(cfg.AppVersion, queries),
 		authHandler: auth.NewHandler(authService, cfg.CookieSecure),
-	}, nil, api.StrictGinServerOptions{
+	}, []api.StrictMiddlewareFunc{auth.OperationPermissions(operationPermissions)}, api.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  httperr.ReportInvalid,
 		HandlerErrorFunc:         httperr.Report,
 		ResponseErrorHandlerFunc: httperr.Report,
