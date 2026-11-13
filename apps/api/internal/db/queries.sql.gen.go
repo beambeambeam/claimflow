@@ -46,6 +46,16 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 	return err
 }
 
+const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
+DELETE FROM session WHERE expires_at <= $1
+`
+
+// DeleteExpiredSessions removes every session that has ended by the given time.
+func (q *Queries) DeleteExpiredSessions(ctx context.Context, now pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, deleteExpiredSessions, now)
+	return err
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM session WHERE id = $1
 `
@@ -99,9 +109,14 @@ SELECT s.id AS session_id, u.id, u.name, u.username, u.role
 FROM session s
 JOIN "user" u ON u.id = s.user_id
 WHERE s.token = $1
-  AND s.expires_at > now()
-  AND NOT (u.banned AND (u.ban_expires IS NULL OR u.ban_expires > now()))
+  AND s.expires_at > $2::timestamptz
+  AND NOT (u.banned AND (u.ban_expires IS NULL OR u.ban_expires > $2::timestamptz))
 `
+
+type GetSessionUserParams struct {
+	Token []byte
+	Now   pgtype.Timestamptz
+}
 
 type GetSessionUserRow struct {
 	SessionID uuid.UUID
@@ -111,10 +126,10 @@ type GetSessionUserRow struct {
 	Role      string
 }
 
-// GetSessionUser returns the user of an unexpired session whose user is not banned.
-// A ban with no end, or with an end in the future, is active.
-func (q *Queries) GetSessionUser(ctx context.Context, token []byte) (GetSessionUserRow, error) {
-	row := q.db.QueryRow(ctx, getSessionUser, token)
+// GetSessionUser returns the user of a session that has not expired at the given time, if the user is not banned.
+// A session ends at its expires_at. A ban with no end, or with an end after the given time, is active.
+func (q *Queries) GetSessionUser(ctx context.Context, arg GetSessionUserParams) (GetSessionUserRow, error) {
+	row := q.db.QueryRow(ctx, getSessionUser, arg.Token, arg.Now)
 	var i GetSessionUserRow
 	err := row.Scan(
 		&i.SessionID,

@@ -80,6 +80,11 @@ func (s Service) Login(ctx context.Context, username, password string) (User, st
 		return User{}, "", ErrInvalidCredentials
 	}
 
+	// Expired rows are useless, so each login removes them.
+	if err := s.queries.DeleteExpiredSessions(ctx, pgtype.Timestamptz{Time: s.now(), Valid: true}); err != nil { // coverage-ignore
+		return User{}, "", fmt.Errorf("delete expired sessions: %w", err)
+	}
+
 	token, err := s.startSession(ctx, credential.UserID)
 	if err != nil { // coverage-ignore
 		return User{}, "", err
@@ -92,7 +97,10 @@ func (s Service) Login(ctx context.Context, username, password string) (User, st
 func (s Service) SessionUser(ctx context.Context, token string) (User, uuid.UUID, error) {
 	digest := sha256.Sum256([]byte(token))
 
-	row, err := s.queries.GetSessionUser(ctx, digest[:])
+	row, err := s.queries.GetSessionUser(ctx, db.GetSessionUserParams{
+		Token: digest[:],
+		Now:   pgtype.Timestamptz{Time: s.now(), Valid: true},
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, uuid.Nil, ErrNoSession
 	}
