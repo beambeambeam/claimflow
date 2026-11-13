@@ -45,16 +45,18 @@ type User struct {
 type Service struct {
 	queries   *db.Queries
 	dummyHash []byte
+	now       func() time.Time
 }
 
 // NewService returns a Service that keeps sessions in queries. bcryptCost is the cost of every hash.
-func NewService(queries *db.Queries, bcryptCost int) Service {
+// now is the clock for session and ban times; tests inject a fixed one.
+func NewService(queries *db.Queries, bcryptCost int, now func() time.Time) Service {
 	dummyHash, err := bcrypt.GenerateFromPassword([]byte(dummyPassword), bcryptCost)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("auth: hash dummy password: %v", err))
 	}
 
-	return Service{queries: queries, dummyHash: dummyHash}
+	return Service{queries: queries, dummyHash: dummyHash, now: now}
 }
 
 // Login checks the credential and starts a session. It returns the user and the token for the cookie.
@@ -112,7 +114,7 @@ func (s Service) startSession(ctx context.Context, userID uuid.UUID) (string, er
 		ID:        uuid.Must(uuid.NewV7()),
 		UserID:    userID,
 		Token:     digest[:],
-		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(sessionLifetime), Valid: true},
+		ExpiresAt: pgtype.Timestamptz{Time: s.now().Add(sessionLifetime), Valid: true},
 	})
 	if err != nil { // coverage-ignore
 		return "", fmt.Errorf("create session: %w", err)
