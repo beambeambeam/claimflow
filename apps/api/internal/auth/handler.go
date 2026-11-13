@@ -178,7 +178,10 @@ func loginFieldErrors(username, password string) []api.FieldError {
 // GetMe returns the user of the session in the request cookie. The strict server passes the gin context
 // as ctx, and gin exposes the request through it.
 func (h Handler) GetMe(ctx context.Context, _ api.GetMeRequestObject) (api.GetMeResponseObject, error) {
-	request := ctx.Value(gin.ContextRequestKey).(*http.Request)
+	request, ok := ctx.Value(gin.ContextRequestKey).(*http.Request)
+	if !ok { // coverage-ignore
+		return nil, errors.New("auth: request missing from context")
+	}
 
 	cookie, err := request.Cookie(h.cookieName())
 	if err != nil {
