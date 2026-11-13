@@ -105,7 +105,8 @@ func getWithSession(t *testing.T, handler http.Handler, path, token string) *htt
 	t.Helper()
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody)
-	request.AddCookie(&http.Cookie{Name: "sid", Value: token})
+	// gosec (G124) requires these attributes on every http.Cookie; a request cookie ignores them.
+	request.AddCookie(&http.Cookie{Name: "sid", Value: token, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 
