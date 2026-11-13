@@ -98,23 +98,22 @@ func cookieName(secure bool) string {
 
 // sessionCookie builds the Set-Cookie value for token. Attributes follow F-01 §1.5.
 func sessionCookie(secure bool, token string) string {
-	secureAttr := ""
-	if secure {
-		secureAttr = "Secure; "
-	}
-
-	return fmt.Sprintf("%s=%s; HttpOnly; %sSameSite=Lax; Path=/; Max-Age=%d",
-		cookieName(secure), token, secureAttr, int(sessionLifetime/time.Second))
+	return setCookie(secure, token, int(sessionLifetime/time.Second))
 }
 
 // clearedCookie builds the Set-Cookie value that removes the session cookie: same name, empty value, Max-Age=0.
 func clearedCookie(secure bool) string {
+	return setCookie(secure, "", 0)
+}
+
+// setCookie builds the Set-Cookie value of the session cookie with the given value and Max-Age in seconds.
+func setCookie(secure bool, value string, maxAge int) string {
 	secureAttr := ""
 	if secure {
 		secureAttr = "Secure; "
 	}
 
-	return fmt.Sprintf("%s=; HttpOnly; %sSameSite=Lax; Path=/; Max-Age=0", cookieName(secure), secureAttr)
+	return fmt.Sprintf("%s=%s; HttpOnly; %sSameSite=Lax; Path=/; Max-Age=%d", cookieName(secure), value, secureAttr, maxAge)
 }
 
 // currentUser builds the body that describes a user, with the permissions of their role.

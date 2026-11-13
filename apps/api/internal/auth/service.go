@@ -64,7 +64,7 @@ func NewService(queries *db.Queries, bcryptCost int, now func() time.Time) Servi
 func (s Service) Login(ctx context.Context, username, password string) (User, string, error) {
 	credential, err := s.queries.GetCredentialForLogin(ctx, db.GetCredentialForLoginParams{
 		Username: strings.ToLower(username),
-		Now:      pgtype.Timestamptz{Time: s.now(), Valid: true},
+		Now:      timestamptz(s.now()),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Spend the same bcrypt time as a wrong password, so the response time does not reveal the username.
@@ -81,7 +81,7 @@ func (s Service) Login(ctx context.Context, username, password string) (User, st
 	}
 
 	// Expired rows are useless, so each login removes them.
-	if err := s.queries.DeleteExpiredSessions(ctx, pgtype.Timestamptz{Time: s.now(), Valid: true}); err != nil { // coverage-ignore
+	if err := s.queries.DeleteExpiredSessions(ctx, timestamptz(s.now())); err != nil { // coverage-ignore
 		return User{}, "", fmt.Errorf("delete expired sessions: %w", err)
 	}
 
@@ -99,7 +99,7 @@ func (s Service) SessionUser(ctx context.Context, token string) (User, uuid.UUID
 
 	row, err := s.queries.GetSessionUser(ctx, db.GetSessionUserParams{
 		Token: digest[:],
-		Now:   pgtype.Timestamptz{Time: s.now(), Valid: true},
+		Now:   timestamptz(s.now()),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, uuid.Nil, ErrNoSession
@@ -134,11 +134,16 @@ func (s Service) startSession(ctx context.Context, userID uuid.UUID) (string, er
 		ID:        uuid.Must(uuid.NewV7()),
 		UserID:    userID,
 		Token:     digest[:],
-		ExpiresAt: pgtype.Timestamptz{Time: s.now().Add(sessionLifetime), Valid: true},
+		ExpiresAt: timestamptz(s.now().Add(sessionLifetime)),
 	})
 	if err != nil { // coverage-ignore
 		return "", fmt.Errorf("create session: %w", err)
 	}
 
 	return token, nil
+}
+
+// timestamptz wraps t as a non-null database timestamp.
+func timestamptz(t time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: t, Valid: true}
 }
