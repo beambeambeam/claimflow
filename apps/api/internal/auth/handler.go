@@ -66,7 +66,7 @@ func NewHandler(queries *db.Queries, cookieSecure bool, bcryptCost int) Handler 
 // only its SHA-256 digest.
 func (h Handler) Login(ctx context.Context, request api.LoginRequestObject) (api.LoginResponseObject, error) {
 	if fields := loginFieldErrors(request.Body.Username, request.Body.Password); len(fields) > 0 {
-		return nil, httperr.InvalidFields(fields)
+		return nil, fmt.Errorf("login fields: %w", httperr.InvalidFields(fields))
 	}
 
 	password := []byte(request.Body.Password)
