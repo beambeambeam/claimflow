@@ -149,7 +149,7 @@ func currentUser(id uuid.UUID, name, username, role string) api.CurrentUser {
 		Name:        name,
 		Username:    username,
 		Role:        api.CurrentUserRole(role),
-		Permissions: roles[api.CurrentUserRole(role)],
+		Permissions: permissionsByRole[api.CurrentUserRole(role)],
 	}
 }
 
