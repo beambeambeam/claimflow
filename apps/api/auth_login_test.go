@@ -147,3 +147,31 @@ func TestF01TEST03LoginMatchesUsernameIgnoringCase(t *testing.T) {
 		t.Fatalf("data.id = %q, want %s", body.Data.ID, userID)
 	}
 }
+
+// F01-TEST-04: a wrong password and an unknown username get the same 401 problem, and no cookie.
+func TestF01TEST04WrongPasswordAndUnknownUserLookTheSame(t *testing.T) {
+	pool := pgtest.New(t)
+	insertCredentialUser(t, pool, "req.anan", "correct-password")
+	router := newRouter(discardLogger(), testEnv(0), pool)
+
+	wrongPassword := postLogin(t, router, "req.anan", "wrong-password")
+	unknownUser := postLogin(t, router, "nobody", "correct-password")
+
+	wrong := decodeProblem(t, wrongPassword, http.StatusUnauthorized, "UNAUTHENTICATED")
+	unknown := decodeProblem(t, unknownUser, http.StatusUnauthorized, "UNAUTHENTICATED")
+
+	for _, recorder := range []*httptest.ResponseRecorder{wrongPassword, unknownUser} {
+		if recorder.Header().Get("Set-Cookie") != "" {
+			t.Fatalf("Set-Cookie = %q, want none on failed login", recorder.Header().Get("Set-Cookie"))
+		}
+	}
+
+	if wrong.Title != "Invalid username or password." {
+		t.Fatalf("title = %q, want %q", wrong.Title, "Invalid username or password.")
+	}
+
+	wrong.RequestID, unknown.RequestID = "", ""
+	if wrong != unknown {
+		t.Fatalf("wrong password = %+v, unknown user = %+v, want equal except requestId", wrong, unknown)
+	}
+}
