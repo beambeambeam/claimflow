@@ -19,9 +19,9 @@ RULES:
 - No <div> — components handle all layout and spacing.
 - Read `astryx docs layout` before changing a template's frame.
 - Dense data = rows (Table, List/Item), not Card-wrapped lists. Badge = counts only.
-- Style with component props first, then Tailwind utilities backed by tokens. No raw hex/px.
+- Style with component props first, then theme tokens. This app has no Tailwind and no authored CSS. No raw hex/px.
 - Palettes and custom colors go through the theme, never :root overrides. Run `astryx theme add <slug>` to import; `theme eject <slug>` only forks source. See `astryx docs theme`.
-- SELF-CHECK: re-read the file; replace any style={{…}}, raw <div>/<span>, imported .css/@apply, or hardcoded/arbitrary value (bg-[#fff], p-[13px]) with the component or a token-backed utility.
+- SELF-CHECK: re-read the file; replace any style={{…}}, raw <div>/<span>, imported .css/@apply, or hardcoded/arbitrary value (bg-[#fff], p-[13px]) with the component prop or a theme token.
 
 `astryx help` lists every command. Key ones beyond the workflow: search "<query>" find any component / hook / doc / template discover <words> integrations you could add docs <topic> getting-started, principles, tokens, theme … (`astryx docs` lists all) docs cli commands and API reference docs authoring build an integration package, and every field it holds upgrade --from <old version> --apply run after a dependency bump
 <!-- ASTRYX:END -->

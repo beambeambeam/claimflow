@@ -93,6 +93,7 @@ This follows the Go guide [Organizing a Go module](https://go.dev/doc/modules/la
 ```
 apps/api/
   main.go  server.go  config.go   # entry: startup, config, router; composes the feature handlers
+  migrate.go  seed.go              # `migrate` and `seed` subcommands of the one binary
   openapi.yaml                     # the API contract (Section 4)
   oapi-codegen.yaml  sqlc.yaml     # code generation config
   env/                             # varlock-generated (excluded from coverage)
@@ -119,7 +120,6 @@ apps/api/
     money/                         # shared: the money.Satang type (Section 2.3)
     pgtest/                        # shared, tests only: one PostgreSQL container per package, a fresh database per test
   migrations/                      # goose SQL migrations (one schema for all features)
-  seed/                            # seed data, run with `bun run seed`
 ```
 
 - **Inside a feature, files split by responsibility.** `handler.go` maps the generated request and response types. `service.go` is the feature's interface and owns transactions. `policy.go`, `lifecycle.go`, and `rules.go` are pure functions behind it.
