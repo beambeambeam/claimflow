@@ -165,7 +165,12 @@ describe("auth routing", () => {
     }
   );
 
-  it.each(["//evil.example/claims", "https://evil.example/claims", "claims"])(
+  it.each([
+    "//evil.example/claims",
+    "/\\evil.example/claims",
+    "https://evil.example/claims",
+    "claims",
+  ])(
     "F01-TEST-20 extra: ignores unsafe redirect %s and sends a reviewer to /reviews",
     async (redirect) => {
       const { router, user } = renderAt(
