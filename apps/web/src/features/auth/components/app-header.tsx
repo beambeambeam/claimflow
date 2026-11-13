@@ -2,14 +2,28 @@ import { Button } from "@astryxdesign/core/Button";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Text } from "@astryxdesign/core/Text";
 import { TopNav, TopNavItem } from "@astryxdesign/core/TopNav";
-import { useRouterState } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter, useRouterState } from "@tanstack/react-router";
 
 import { can, roleLabels } from "#/features/auth/permissions";
+import { logoutMutation } from "#/lib/api/@tanstack/react-query.gen";
 import type { CurrentUser } from "#/lib/api/types.gen";
 
 export const AppHeader = ({ user }: { user: CurrentUser }) => {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
+  });
+
+  const queryClient = useQueryClient();
+  const router = useRouter();
+
+  // Whatever the server answers, this browser no longer has a session: drop cached data and show login.
+  const logout = useMutation({
+    ...logoutMutation(),
+    onSettled: async () => {
+      queryClient.clear();
+      await router.navigate({ to: "/login" });
+    },
   });
 
   return (
@@ -24,7 +38,14 @@ export const AppHeader = ({ user }: { user: CurrentUser }) => {
               {roleLabels[user.role]}
             </Text>
           </VStack>
-          <Button label="Log out" variant="ghost" />
+          <Button
+            isLoading={logout.isPending}
+            label="Log out"
+            onClick={() => {
+              logout.mutate({});
+            }}
+            variant="ghost"
+          />
         </HStack>
       }
       label="Main navigation"
