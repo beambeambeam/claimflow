@@ -74,3 +74,15 @@ func TestGetMeRequiresSessionAndReturnsCurrentUser(t *testing.T) {
 		t.Fatalf("permissions = %v, want %v", body.Data.Permissions, wantPermissions)
 	}
 }
+
+// TestGetMeRejectsUnknownSession checks that a cookie matching no session gets the same 401 as no cookie.
+func TestGetMeRejectsUnknownSession(t *testing.T) {
+	router := newRouter(discardLogger(), testEnv(0), pgtest.New(t))
+
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth/me", http.NoBody)
+	request.AddCookie(&http.Cookie{Name: "sid", Value: "not-a-session"})
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	decodeProblem(t, recorder, http.StatusUnauthorized, "UNAUTHENTICATED")
+}
