@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -19,9 +18,6 @@ var publicOperations = map[string]bool{
 	"GET /health":      true,
 	"GET /ready":       true,
 }
-
-// contractPathParam matches a path parameter in a contract path, such as {id}.
-var contractPathParam = regexp.MustCompile(`\{[^}]+\}`)
 
 // F01-TEST-12: every operation in openapi.yaml except login, health, and ready answers 401 UNAUTHENTICATED
 // with no cookie and with a random token. It reads the operations from the contract, so an operation that a
@@ -59,7 +55,7 @@ func TestF01TEST12EveryOperationNeedsASession(t *testing.T) {
 			checked++
 
 			// Any value fills a path parameter: the session check runs before the request is validated.
-			url := basePath + contractPathParam.ReplaceAllString(path, "019a5e2c-7b3d-7c41-9f2e-4b8d1a6c3e70")
+			url := basePath + pathParam.ReplaceAllString(path, "019a5e2c-7b3d-7c41-9f2e-4b8d1a6c3e70")
 
 			for name, cookie := range cookies {
 				t.Run(method+" "+path+" with "+name, func(t *testing.T) {
@@ -93,6 +89,10 @@ func TestOperationPermissionsNameContractOperations(t *testing.T) {
 	names := map[string]bool{}
 	for _, item := range spec.Paths.Map() {
 		for _, operation := range item.Operations() {
+			if operation.OperationID == "" {
+				t.Fatalf("an operation in openapi.yaml has no operationId")
+			}
+
 			names[strings.ToUpper(operation.OperationID[:1])+operation.OperationID[1:]] = true
 		}
 	}

@@ -104,7 +104,7 @@ apps/api/
       handler.go                   #   implements the auth operations of the strict server interface
       service.go                   #   login, logout, session lookup, ban check
       middleware.go                #   Session: session cookie → current user in the request context
-      access.go                    #   statement, roles, RequirePermission (Section 5.1)
+      access.go                    #   statement, roles, RequirePermission, OperationPermissions (Section 5.1)
       queries.sql  *_test.go
     claim/                         # feature: claims, line items, lifecycle, review and finance actions
       handler.go                   #   implements the claim operations
@@ -489,7 +489,7 @@ Access is checked at two levels:
 
 ### 5.1 Route permissions
 
-Route permissions are defined in `internal/auth/access.go`. A **statement** lists the resources and actions, and each **role** gets a subset. Middleware `auth.RequirePermission(resource, action)` returns **403** when `user.role` does not grant the action. Code checks permissions, never role names.
+Route permissions are defined in `internal/auth/access.go`. A **statement** lists the resources and actions, and each **role** gets a subset. Middleware `auth.RequirePermission(resource, action)` returns **403** when `user.role` does not grant the action. The router applies the same check per contract operation through `auth.OperationPermissions`, after the request is validated; a feature adds its operation to `operationPermissions` in `apps/api/routes.go`. Code checks permissions, never role names.
 
 ```go
 var statement = Statement{

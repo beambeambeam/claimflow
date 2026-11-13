@@ -100,12 +100,12 @@ func TestGetMeRejectsUnknownSession(t *testing.T) {
 	decodeProblem(t, recorder, http.StatusUnauthorized, "UNAUTHENTICATED")
 }
 
-// getWithSession sends a GET to path with the plain session cookie that COOKIE_SECURE=false sets.
+// getWithSession sends a GET to path with the `sid` session cookie that COOKIE_SECURE=false uses.
 func getWithSession(t *testing.T, handler http.Handler, path, token string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody)
-	request.AddCookie(&http.Cookie{Name: "sid", Value: token, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
+	request.AddCookie(&http.Cookie{Name: "sid", Value: token})
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 

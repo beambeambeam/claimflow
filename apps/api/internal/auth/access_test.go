@@ -125,14 +125,12 @@ func operationRouter(role string, byOperation map[string]Permission, calls *int)
 		return nil, nil
 	}, "TestOperation")
 
-	routeCalls := 0
-
 	return testRouter(role, func(c *gin.Context) {
 		if _, err := strict(c, nil); err != nil {
 			httperr.Report(c, err)
 			c.Abort()
 		}
-	}, &routeCalls)
+	}, new(int))
 }
 
 // OperationPermissions checks the permission mapped to an operation, after the request decoded, and leaves
