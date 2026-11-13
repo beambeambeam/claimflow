@@ -107,3 +107,19 @@ func TestF01TEST01LoginSetsHostSessionCookie(t *testing.T) {
 
 	sessionToken(t, recorder, "__Host-sid", sessionAttributes)
 }
+
+// F01-TEST-02: with COOKIE_SECURE false, the session cookie is named sid and has no Secure attribute.
+func TestF01TEST02LoginSetsPlainSessionCookieWhenNotSecure(t *testing.T) {
+	pool := pgtest.New(t)
+	insertCredentialUser(t, pool, "req.anan", "correct-password")
+
+	cfg := testEnv(0)
+	cfg.CookieSecure = false
+
+	recorder := postLogin(t, newRouter(discardLogger(), cfg, pool), "req.anan", "correct-password")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", recorder.Code, recorder.Body)
+	}
+
+	sessionToken(t, recorder, "sid", "HttpOnly; SameSite=Lax; Path=/; Max-Age=28800")
+}
