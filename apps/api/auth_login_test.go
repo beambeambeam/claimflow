@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -207,5 +208,32 @@ func TestF01TEST05BanBlocksLoginUntilItExpires(t *testing.T) {
 				t.Fatalf("status = %d, want %d; body = %s", recorder.Code, tc.status, recorder.Body)
 			}
 		})
+	}
+}
+
+// F01-TEST-11: the session row stores the SHA-256 of the cookie value, never the cookie value itself.
+func TestF01TEST11SessionStoresHashOfCookieValue(t *testing.T) {
+	pool := pgtest.New(t)
+	insertCredentialUser(t, pool, "req.anan", "correct-password")
+
+	recorder := postLogin(t, newRouter(discardLogger(), testEnv(0), pool), "req.anan", "correct-password")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", recorder.Code, recorder.Body)
+	}
+
+	cookie := sessionToken(t, recorder, "sid", "HttpOnly; SameSite=Lax; Path=/; Max-Age=28800")
+
+	var stored []byte
+	if err := pool.QueryRow(t.Context(), `SELECT token FROM session`).Scan(&stored); err != nil {
+		t.Fatalf("read session token: %v", err)
+	}
+
+	if bytes.Equal(stored, []byte(cookie)) {
+		t.Fatal("session.token = cookie value, want only its hash")
+	}
+
+	sum := sha256.Sum256([]byte(cookie))
+	if !bytes.Equal(stored, sum[:]) {
+		t.Fatalf("session.token = %x, want sha256(cookie) = %x", stored, sum)
 	}
 }
