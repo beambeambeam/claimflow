@@ -374,7 +374,7 @@ The transition table lives once, in `internal/claim/lifecycle.go`. Who may take 
 Each call runs in one transaction (`pgx.BeginFunc`, NFR-06):
 
 1. Load the claim. If it does not exist → `ErrNotFound`. If the policy says the actor may not see it → `ErrForbidden`.
-2. If the action is not in the policy's allowed actions for this actor → `ErrForbidden` (BR-01, BR-02, BR-15) or `ErrInvalidTransition` (BR-03, BR-10, BR-14, BR-16), with the rule ID.
+2. If the action is not in the policy's allowed actions for this actor → `ErrForbidden` (BR-01, BR-02, BR-15) or `ErrInvalidTransition` (BR-03, BR-10, BR-14, BR-16), with the rule ID. One exception: when the status does not allow the action and the client's `If-Match` version is not the current one, the result is `ErrConflict` (BR-13). Another decision won since the client loaded the claim (F-04 contract revision 0.4).
 3. Run the field rules (BR-04 to BR-07, BR-12) → `ValidationError` with one entry per field.
 4. Run `UPDATE claims SET status = $to, version = version + 1, ... WHERE id = $id AND version = $expected`, where `$expected` is the version the **client** sent in `If-Match`.
 5. If 0 rows are updated, the claim changed after the client loaded it, or another request won a race → `ErrConflict` (409) and roll back. This covers both concurrent decisions (BR-13) and a decision made on an out-of-date screen.

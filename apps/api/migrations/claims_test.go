@@ -1,9 +1,11 @@
 package migrations_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
@@ -119,5 +121,32 @@ func TestF04TEST18HistoryIsAppendOnly(t *testing.T) {
 				t.Fatalf("claims = %d after %q, want 1", claims, statement)
 			}
 		})
+	}
+}
+
+// F04-TEST-10 (F04-AC-07, BR-01): a claim cannot be assigned to its own requester. The CHECK constraint refuses the
+// row, and no claim is stored.
+func TestF04TEST10ClaimCannotBeAssignedToItsRequester(t *testing.T) {
+	pool := pgtest.New(t)
+	requesterID := insertUser(t, pool, "requester")
+
+	_, err := pool.Exec(t.Context(), `
+		INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang,
+		first_submitted_at, submitted_at)
+		VALUES ($1, 'CLM-2026-000001', $2, $2, 'Travel', 'Workshop', 'SUBMITTED', 25000, now(), now())`,
+		uuid.Must(uuid.NewV7()), requesterID)
+
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23514" {
+		t.Fatalf("insert error = %v, want a check violation (23514)", err)
+	}
+
+	var claims int
+	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM claims`).Scan(&claims); err != nil {
+		t.Fatalf("count claims: %v", err)
+	}
+
+	if claims != 0 {
+		t.Fatalf("claims = %d, want 0", claims)
 	}
 }

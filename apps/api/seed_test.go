@@ -129,6 +129,118 @@ func TestSeedIsIdempotent(t *testing.T) {
 	}
 }
 
+// seededClaim is one sample claim of F-04 §4, written out here so a wrong seed fails the test.
+type seededClaim struct {
+	requester string
+	reviewer  string
+	status    string
+	total     string
+	history   []string
+	reason    string // the comment of the last history entry, or empty for none
+}
+
+var seededClaims = []seededClaim{
+	{"req.anan", "rev.malee", "SUBMITTED", "1250.00", []string{"SUBMIT"}, ""},
+	{"req.anan", "rev.malee", "APPROVED", "1250.00", []string{"SUBMIT", "APPROVE"}, ""},
+	{"req.ploy", "rev.malee", "REJECTED", "1250.00", []string{"SUBMIT", "REJECT"}, "Receipt is missing."},
+	{"req.niran", "rev.somchai", "SUBMITTED", "1250.00", []string{"SUBMIT"}, ""},
+	{"rev.malee", "rev.prasert", "SUBMITTED", "1250.00", []string{"SUBMIT"}, ""},
+	{"rev.prasert", "fin.wanida", "SUBMITTED", "40000.00", []string{"SUBMIT"}, ""},
+}
+
+// F04-TEST-22 (F04-AC-19): on an empty database, the seed adds the sample claims of F-04 §4 with their history. A second
+// run leaves the same rows.
+func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
+	pool := pgtest.New(t)
+	databaseURL := pool.Config().ConnString()
+
+	counts := func() (claims, items, history int) {
+		t.Helper()
+
+		if err := pool.QueryRow(t.Context(),
+			`SELECT (SELECT count(*) FROM claims), (SELECT count(*) FROM line_items), (SELECT count(*) FROM claim_history)`).
+			Scan(&claims, &items, &history); err != nil {
+			t.Fatalf("count rows: %v", err)
+		}
+
+		return claims, items, history
+	}
+
+	if err := seed(t.Context(), databaseURL, seedPassword, 10, io.Discard); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	claims, items, history := counts()
+	if claims != len(seededClaims) || items < claims || history != 8 {
+		t.Fatalf("after the first run: %d claims, %d items, %d history entries; want %d claims, at least as many items, 8 history entries",
+			claims, items, history, len(seededClaims))
+	}
+
+	rows, err := pool.Query(t.Context(), `
+		SELECT r.username, v.username, c.status::text, (c.total_satang / 100)::text || '.' || lpad((c.total_satang % 100)::text, 2, '0'),
+		       (SELECT sum(amount_satang) FROM line_items i WHERE i.claim_id = c.id) = c.total_satang,
+		       c.version,
+		       array(SELECT h.action::text FROM claim_history h WHERE h.claim_id = c.id ORDER BY h.id),
+		       coalesce((SELECT h.comment FROM claim_history h WHERE h.claim_id = c.id ORDER BY h.id DESC LIMIT 1), ''),
+		       c.submitted_at IS NOT NULL, c.decided_at IS NOT NULL
+		FROM claims c
+		JOIN "user" r ON r.id = c.requester_id
+		JOIN "user" v ON v.id = c.assigned_reviewer_id
+		ORDER BY c.claim_no`)
+	if err != nil {
+		t.Fatalf("read claims: %v", err)
+	}
+	defer rows.Close()
+
+	var got []seededClaim
+
+	for rows.Next() {
+		var (
+			claim              seededClaim
+			itemsMatch         bool
+			version            int
+			submitted, decided bool
+		)
+		if err := rows.Scan(&claim.requester, &claim.reviewer, &claim.status, &claim.total, &itemsMatch, &version, &claim.history,
+			&claim.reason, &submitted, &decided); err != nil {
+			t.Fatalf("scan claim: %v", err)
+		}
+
+		if !itemsMatch || !submitted || decided != (claim.status != "SUBMITTED") || (version == 1) != decided {
+			t.Fatalf("claim %+v: items match %t, submitted %t, decided %t, version %d; want items summing to the total, a submission, and a decision with version 1 only when decided",
+				claim, itemsMatch, submitted, decided, version)
+		}
+
+		got = append(got, claim)
+	}
+
+	if err := rows.Err(); err != nil {
+		t.Fatalf("read claims: %v", err)
+	}
+
+	if len(got) != len(seededClaims) {
+		t.Fatalf("claims = %+v, want %d", got, len(seededClaims))
+	}
+
+	for _, want := range seededClaims {
+		if !slices.ContainsFunc(got, func(claim seededClaim) bool {
+			return claim.requester == want.requester && claim.reviewer == want.reviewer && claim.status == want.status &&
+				claim.total == want.total && slices.Equal(claim.history, want.history) && claim.reason == want.reason
+		}) {
+			t.Fatalf("claims = %+v, want one like %+v", got, want)
+		}
+	}
+
+	if err := seed(t.Context(), databaseURL, seedPassword, 10, io.Discard); err != nil {
+		t.Fatalf("second seed: %v", err)
+	}
+
+	if claims2, items2, history2 := counts(); claims2 != claims || items2 != items || history2 != history {
+		t.Fatalf("after the second run: %d claims, %d items, %d history entries; want %d, %d, %d",
+			claims2, items2, history2, claims, items, history)
+	}
+}
+
 // TestSeedCommandRefusesEmptyPassword: `api seed` fails before it writes anything when SEED_USER_PASSWORD is unset.
 func TestSeedCommandRefusesEmptyPassword(t *testing.T) {
 	pool := pgtest.New(t)
@@ -162,7 +274,7 @@ func TestSeedCommandSeedsWithPassword(t *testing.T) {
 	if err := seedCommand(t.Context(), pool.Config().ConnString(), seedPassword, 10, &out); err != nil {
 		t.Fatalf("seedCommand: %v", err)
 	}
-	if got, want := out.String(), "seeded 7 users\n"; got != want {
+	if got, want := out.String(), "seeded 7 users and 6 claims\n"; got != want {
 		t.Fatalf("output = %q, want %q", got, want)
 	}
 }

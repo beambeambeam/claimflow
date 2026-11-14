@@ -65,3 +65,38 @@ LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 SELECT count(*)::int AS total
 FROM claims
 WHERE requester_id = sqlc.arg(requester_id);
+
+-- name: ListReviewClaims :many
+-- ListReviewClaims returns one page of the SUBMITTED claims assigned to a reviewer, oldest submission first (F-04 §3).
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE c.assigned_reviewer_id = sqlc.arg(reviewer_id) AND c.status = 'SUBMITTED'
+ORDER BY c.submitted_at, c.id
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: CountReviewClaims :one
+SELECT count(*)::int AS total
+FROM claims
+WHERE assigned_reviewer_id = sqlc.arg(reviewer_id) AND status = 'SUBMITTED';
+
+-- name: DecideClaim :execrows
+-- DecideClaim moves a claim to its decided status and adds one to the version, but only while the version is still the
+-- one the caller read (BR-13). It returns the rows changed: 0 means the claim changed since.
+UPDATE claims
+SET status = sqlc.arg(status), version = version + 1, decided_at = sqlc.arg(now), updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: InsertSeedClaim :execrows
+-- InsertSeedClaim adds a demo claim with the status it should have after its history, unless a claim with the same
+-- claim_no exists. It returns the rows added: 0 means the claim was seeded before, so its children must not be added again.
+INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
+                    first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+SELECT sqlc.arg(id), sqlc.arg(claim_no), u.id, u.reviewer_id, sqlc.arg(title), sqlc.arg(purpose), sqlc.arg(status),
+       sqlc.arg(total_satang), sqlc.arg(version), sqlc.arg(submitted_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz,
+       sqlc.narg(decided_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz,
+       coalesce(sqlc.narg(decided_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz)
+FROM "user" u
+WHERE u.username = sqlc.arg(requester)
+ON CONFLICT (claim_no) DO NOTHING;

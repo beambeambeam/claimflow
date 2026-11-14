@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -34,8 +35,54 @@ var seedUsers = []seedUser{
 	{username: "req.niran", name: "Niran", role: "requester", position: "Staff, Section B", reviewer: "rev.somchai"},
 }
 
-// seed upserts the SDS §2.5 demo users. Each credential account stores a bcrypt hash of password, made at
-// cost. A second run updates the same rows. The password never reaches the output or an error message.
+// seedUserRows upserts the SDS §2.5 demo users with a credential account each. The account stores a bcrypt hash of
+// password, made at cost. It returns the user IDs and each user's reviewer by username.
+func seedUserRows(ctx context.Context, queries *db.Queries, password string, cost int) (ids map[string]uuid.UUID, reviewers map[string]string, err error) {
+	ids = make(map[string]uuid.UUID, len(seedUsers))
+	reviewers = make(map[string]string, len(seedUsers))
+
+	for _, user := range seedUsers {
+		reviewerID := uuid.NullUUID{}
+		if user.reviewer != "" {
+			reviewerID = uuid.NullUUID{UUID: ids[user.reviewer], Valid: true}
+		}
+
+		id, err := queries.UpsertSeedUser(ctx, db.UpsertSeedUserParams{
+			ID:         uuid.Must(uuid.NewV7()),
+			Name:       user.name,
+			Email:      user.username + "@claimflow.test",
+			Username:   user.username,
+			Role:       user.role,
+			Position:   user.position,
+			ReviewerID: reviewerID,
+		})
+		if err != nil { // coverage-ignore
+			return nil, nil, fmt.Errorf("upsert user %s: %w", user.username, err)
+		}
+		ids[user.username] = id
+		reviewers[user.username] = user.reviewer
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), cost)
+		if err != nil { // coverage-ignore
+			return nil, nil, fmt.Errorf("hash password for %s: %w", user.username, err)
+		}
+
+		err = queries.UpsertSeedAccount(ctx, db.UpsertSeedAccountParams{
+			ID:        uuid.Must(uuid.NewV7()),
+			UserID:    id,
+			AccountID: id.String(),
+			Password:  pgtype.Text{String: string(hash), Valid: true},
+		})
+		if err != nil { // coverage-ignore
+			return nil, nil, fmt.Errorf("upsert account %s: %w", user.username, err)
+		}
+	}
+
+	return ids, reviewers, nil
+}
+
+// seed upserts the SDS §2.5 demo users and adds the sample claims of F-04 §4 that do not exist yet. A second run
+// updates the same rows and adds no claim twice. The password never reaches the output or an error message.
 func seed(ctx context.Context, databaseURL, password string, cost int, out io.Writer) error {
 	conn, err := pgx.Connect(ctx, databaseURL)
 	if err != nil { // coverage-ignore
@@ -45,51 +92,19 @@ func seed(ctx context.Context, databaseURL, password string, cost int, out io.Wr
 
 	err = pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
 		queries := db.New(tx)
-		ids := make(map[string]uuid.UUID, len(seedUsers))
 
-		for _, user := range seedUsers {
-			reviewerID := uuid.NullUUID{}
-			if user.reviewer != "" {
-				reviewerID = uuid.NullUUID{UUID: ids[user.reviewer], Valid: true}
-			}
-
-			id, err := queries.UpsertSeedUser(ctx, db.UpsertSeedUserParams{
-				ID:         uuid.Must(uuid.NewV7()),
-				Name:       user.name,
-				Email:      user.username + "@claimflow.test",
-				Username:   user.username,
-				Role:       user.role,
-				Position:   user.position,
-				ReviewerID: reviewerID,
-			})
-			if err != nil { // coverage-ignore
-				return fmt.Errorf("upsert user %s: %w", user.username, err)
-			}
-			ids[user.username] = id
-
-			hash, err := bcrypt.GenerateFromPassword([]byte(password), cost)
-			if err != nil { // coverage-ignore
-				return fmt.Errorf("hash password for %s: %w", user.username, err)
-			}
-
-			err = queries.UpsertSeedAccount(ctx, db.UpsertSeedAccountParams{
-				ID:        uuid.Must(uuid.NewV7()),
-				UserID:    id,
-				AccountID: id.String(),
-				Password:  pgtype.Text{String: string(hash), Valid: true},
-			})
-			if err != nil { // coverage-ignore
-				return fmt.Errorf("upsert account %s: %w", user.username, err)
-			}
+		ids, reviewers, err := seedUserRows(ctx, queries, password, cost)
+		if err != nil { // coverage-ignore
+			return err
 		}
 
-		return nil
+		return seedClaimRows(ctx, queries, ids, reviewers, time.Now())
 	})
 	if err != nil { // coverage-ignore
 		return fmt.Errorf("seed: %w", err)
 	}
 
-	if _, err := fmt.Fprintf(out, "seeded %d users\n", len(seedUsers)); err != nil { // coverage-ignore
+	if _, err := fmt.Fprintf(out, "seeded %d users and %d claims\n", len(seedUsers), len(seedClaims)); err != nil { // coverage-ignore
 		return fmt.Errorf("write summary: %w", err)
 	}
 

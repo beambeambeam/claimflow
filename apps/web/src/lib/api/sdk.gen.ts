@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateClaimData, CreateClaimErrors, CreateClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses } from './types.gen';
-import { zCreateClaimBody, zCreateClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse } from './zod.gen';
+import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses } from './types.gen';
+import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -96,9 +96,9 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
 });
 
 /**
- * List claims in a scope, newest first (F-03).
+ * List claims in a scope (F-03, F-04).
  *
- * `scope=mine` lists the session user's own claims in every status and needs the `claim:list` route permission. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+ * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
  */
 export const listClaims = <ThrowOnError extends boolean = false>(options: Options<ListClaimsData, ThrowOnError>): RequestResult<ListClaimsResponses, ListClaimsErrors, ThrowOnError> => (options.client ?? client).get<ListClaimsResponses, ListClaimsErrors, ThrowOnError>({
   requestValidator: async (data) => await z.object({
@@ -145,4 +145,46 @@ export const getClaim = <ThrowOnError extends boolean = false>(options: Options<
   responseValidator: async (data) => await zGetClaimResponse.parseAsync(data),
   url: '/claims/{id}',
   ...options
+});
+
+/**
+ * Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
+ *
+ * Needs a session; the claim policy decides the rest. The checks run in this order (F-04 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it or is not its assigned reviewer, or is its requester (403); the claim is not `SUBMITTED` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional.
+ */
+export const approveClaim = <ThrowOnError extends boolean = false>(options: Options<ApproveClaimData, ThrowOnError>): RequestResult<ApproveClaimResponses, ApproveClaimErrors, ThrowOnError> => (options.client ?? client).post<ApproveClaimResponses, ApproveClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zApproveClaimBody.optional(),
+    headers: zApproveClaimHeaders.optional(),
+    path: zApproveClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zApproveClaimResponse.parseAsync(data),
+  url: '/claims/{id}/approve',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Reject a submitted claim with a reason (F-04).
+ *
+ * Same checks and order as approve. The reason is the `comment`: required, 5–500 characters after trimming (BR-04). A missing, blank, short, or long reason is a 422 with `field = "comment"`, not a 400, so the schema sets no length.
+ */
+export const rejectClaim = <ThrowOnError extends boolean = false>(options: Options<RejectClaimData, ThrowOnError>): RequestResult<RejectClaimResponses, RejectClaimErrors, ThrowOnError> => (options.client ?? client).post<RejectClaimResponses, RejectClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zRejectClaimBody.optional(),
+    headers: zRejectClaimHeaders.optional(),
+    path: zRejectClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zRejectClaimResponse.parseAsync(data),
+  url: '/claims/{id}/reject',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
 });
