@@ -91,6 +91,7 @@ type claimResponse struct {
 		Version          int    `json:"version"`
 		FirstSubmittedAt string `json:"firstSubmittedAt"`
 		SubmittedAt      string `json:"submittedAt"`
+		DecidedAt        string `json:"decidedAt"`
 		Requester        struct {
 			Name     string `json:"name"`
 			Position string `json:"position"`
@@ -109,6 +110,7 @@ type claimResponse struct {
 			Action     string  `json:"action"`
 			FromStatus *string `json:"fromStatus"`
 			ToStatus   string  `json:"toStatus"`
+			Comment    *string `json:"comment"`
 			Actor      struct {
 				Name string `json:"name"`
 			} `json:"actor"`
