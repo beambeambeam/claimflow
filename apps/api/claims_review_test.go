@@ -492,7 +492,7 @@ func TestF04TEST07CommentRuleIs422WithTheFieldError(t *testing.T) {
 	}
 }
 
-// F04-TEST-14 (F04-AC-10, BR-03): approving or rejecting a claim that is no longer SUBMITTED, with its current
+// F04-TEST-14 (F04-AC-11, BR-03): approving or rejecting a claim that is no longer SUBMITTED, with its current
 // version, is 409 INVALID_TRANSITION with the status error. The claim is unchanged.
 func TestF04TEST14DecidedClaimCannotBeDecidedAgain(t *testing.T) {
 	const message = "Only a submitted claim can be approved or rejected."
