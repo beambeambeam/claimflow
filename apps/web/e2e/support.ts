@@ -18,12 +18,22 @@ const yesterday = () => {
   return bangkokNow.toISOString().slice(0, 10);
 };
 
-export const logIn = async (page: Page, username: string) => {
+// Logs in and waits for the landing page of the role: My Claims for a requester, Review Queue for a reviewer.
+export const logIn = async (
+  page: Page,
+  username: string,
+  landing = /\/claims$/u
+) => {
   await page.goto("/login");
   await page.getByLabel("Username").fill(username);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await expect(page).toHaveURL(/\/claims$/u);
+  await expect(page).toHaveURL(landing);
+};
+
+// Ends the session, so the same page can log in as someone else.
+export const logOut = async (page: Page) => {
+  await page.context().clearCookies();
 };
 
 // Fills the `index`-th line item row with a Travel item.
@@ -50,4 +60,35 @@ export const openNewClaim = async (page: Page) => {
     .getByRole("link", { name: "New Claim" })
     .click();
   await expect(page).toHaveURL(/\/claims\/new$/u);
+};
+
+// Submits a claim with one Travel item as the logged-in requester and returns its claim number.
+export const submitClaim = async (page: Page, title: string) => {
+  await openNewClaim(page);
+  await page.getByLabel("Title").fill(title);
+  await page.getByLabel("Purpose").fill("Train fare for the workshop");
+  await fillItem(page, 0, { amount: "250.00", description: "Train return" });
+  await page.getByRole("button", { name: "Submit" }).click();
+
+  const confirmation = page.getByRole("heading", {
+    name: /^Claim CLM-\d{4}-\d{6} submitted$/u,
+  });
+
+  await expect(confirmation).toBeVisible();
+
+  const claimNo = /CLM-\d{4}-\d{6}/u.exec(
+    (await confirmation.textContent()) ?? ""
+  )?.[0];
+
+  if (claimNo === undefined) {
+    throw new Error("The confirmation heading has no claim number");
+  }
+
+  return claimNo;
+};
+
+// Opens the claim from the Review Queue of the logged-in reviewer.
+export const openFromReviewQueue = async (page: Page, claimNo: string) => {
+  await page.getByRole("link", { name: claimNo }).first().click();
+  await expect(page).toHaveURL(/\/claims\/[0-9a-f-]{36}$/u);
 };
