@@ -21,14 +21,19 @@ var operationPermissions = map[string]auth.Permission{
 // pathParam matches a path parameter in a contract path, such as {id}.
 var pathParam = regexp.MustCompile(`\{([^}]+)\}`)
 
-// contractPublicRoutes returns publicRoutes of the embedded openapi.yaml.
-func contractPublicRoutes() map[string]bool {
+// contractSpec returns the embedded openapi.yaml.
+func contractSpec() *openapi3.T {
 	spec, err := api.GetSpec()
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("load embedded openapi.yaml: %v", err))
 	}
 
-	return publicRoutes(spec)
+	return spec
+}
+
+// contractPublicRoutes returns publicRoutes of the embedded openapi.yaml.
+func contractPublicRoutes() map[string]bool {
+	return publicRoutes(contractSpec())
 }
 
 // publicRoutes returns the gin route ("METHOD /api/v1/path") of every contract operation that opts out of the

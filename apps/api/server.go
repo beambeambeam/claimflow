@@ -113,7 +113,7 @@ func newRouterAt(logger *slog.Logger, cfg *env.Env, pool claim.Pool, now func() 
 	// Handlers get the gin context; the fallback lets them read values that middleware put in the request context.
 	router.ContextWithFallback = true
 	router.Use(httperr.RequestID(), requestLogger(logger), httperr.Handle(logger), crossOriginGuard(),
-		auth.Session(authService, cfg.CookieSecure), auth.RequireSession(contractPublicRoutes()))
+		auth.Session(authService, cfg.CookieSecure), auth.RequireSession(contractPublicRoutes()), requestValidation(contractSpec(), validatedOperations))
 	router.NoRoute(httperr.NotFound)
 
 	handler := api.NewStrictHandlerWithOptions(server{

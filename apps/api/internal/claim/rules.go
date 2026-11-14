@@ -48,6 +48,21 @@ const (
 	ruleMeals      = "BR-12"
 )
 
+// ShapeMessages are the messages of the 400 errors that name a field of ClaimInput (contract §1.4), keyed by the field
+// path with every array index written as []. The schema checks shape only: types, required fields, string lengths,
+// the money format, the category enum, and the date format.
+var ShapeMessages = map[string]string{
+	"title":               "Enter a title (up to 120 characters).",
+	"purpose":             "Enter a purpose (up to 1,000 characters).",
+	"items":               "A claim needs 1 to 20 line items.",
+	"items[]":             "Enter the line item.",
+	"items[].category":    "Choose a category.",
+	"items[].description": "Enter a description (up to 200 characters).",
+	"items[].expenseDate": "Enter a date as YYYY-MM-DD.",
+	"items[].amount":      "Enter an amount with 2 decimals, e.g. 1250.00.",
+	"items[].receiptRef":  "Enter the receipt reference (up to 50 characters).",
+}
+
 // checkRules runs the field rules BR-05, BR-06, BR-07, and BR-12 (SDS §3.3, step 3) and returns a ValidationError with
 // one entry per broken field, or nil. Create calls it after the BR-15 check and before the first write. Dates are
 // calendar dates in Asia/Bangkok: an expense date may not be after today and may not be more than 90 days before it,
