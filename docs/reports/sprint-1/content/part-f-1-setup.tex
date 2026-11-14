@@ -1,0 +1,57 @@
+\partsection{F.1}{Setup summary}\label{F:1}
+
+This summary is taken from \texttt{README.md} and \path{apps/api/.env.example} at \texttt{sprint-1} head \texttt{a60fcf1}; the README is rechecked at the release commit (\todo{release: recheck the README and this summary at the release commit}).
+Nothing below is a secret: the demo password is not in Git or in this PDF, and each student sets it locally.
+
+\textbf{Requires.} Bun, Node.js 26 (\texttt{.node-version}), Go 1.27.4 (\path{apps/api/go.mod}), and Docker (PostgreSQL 17 through \texttt{docker compose}).
+
+\begin{shell}
+bun install
+cp apps/api/.env.example apps/api/.env      # then set SEED_USER_PASSWORD in apps/api/.env
+bun run db:up                               # docker compose: PostgreSQL 17 on localhost:5432
+bun run --cwd apps/api migrate up           # goose migrations 00001_auth, 00002_claims
+bun run --cwd apps/api seed                 # 7 demo accounts, password from SEED_USER_PASSWORD
+bun run dev                                 # web http://localhost:3000, API http://localhost:8080
+\end{shell}
+
+\textbf{Environment variables} (\path{apps/api/.env.example}; \texttt{.env.schema} documents each one; \texttt{.env} is never committed).
+
+\begin{center}\small
+\begin{tabular}{@{}p{3.7cm}p{6.2cm}p{6.1cm}@{}}
+\toprule \textbf{Variable} & \textbf{Example value} & \textbf{Purpose} \\ \midrule
+\texttt{GIN\_MODE} & \texttt{debug} & Gin run mode \\
+\texttt{PORT} & \texttt{8080} & API port \\
+\texttt{DATABASE\_URL} & \path{postgres://claimflow:claimflow@localhost:5432/claimflow} & local database (compose values) \\
+\texttt{COOKIE\_SECURE} & \texttt{false} & \texttt{false}: cookie \texttt{sid}; \texttt{true}: \texttt{\_\_Host-sid} with \texttt{Secure} \\
+\texttt{BCRYPT\_COST} & \texttt{12} & must be at least 10, or the API refuses to start \\
+\texttt{LOG\_LEVEL}, \texttt{APP\_VERSION} & \texttt{info}, \texttt{dev} & logging, reported by \path{/health} \\
+\texttt{SEED\_USER\_PASSWORD} & (empty; set locally) & sensitive; password given to every seeded account \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Seeded demo accounts} (\path{apps/api/seed.go}, SDS \S2.5; the seed is idempotent and a re-run updates the hash).
+
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule \textbf{Username} & \textbf{Role, position} & \textbf{Assigned reviewer} \\ \midrule
+\texttt{fin.wanida} & Finance Officer & none \\
+\texttt{rev.prasert} & Reviewer, Department Head & \texttt{fin.wanida} \\
+\texttt{rev.malee}, \texttt{rev.somchai} & Reviewer, Section Head A and B & \texttt{rev.prasert} \\
+\texttt{req.anan}, \texttt{req.ploy} & Requester, Staff Section A & \texttt{rev.malee} \\
+\texttt{req.niran} & Requester, Staff Section B & \texttt{rev.somchai} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Build and test commands} (root \texttt{package.json}, \path{apps/api/package.json}).
+
+\begin{shell}
+bun run build                               # vp run -r build: web build, API go build
+bun run test                                # every app
+bun run --cwd apps/api test:coverage        # go test -race -coverpkg=./... + go-test-coverage (100% required)
+bun run --cwd apps/web test:coverage        # vp test run --coverage (Vitest)
+bun run check                               # format, lint, type-check
+\end{shell}
+
+\textbf{Gap found while writing this summary.} The Product Definition of Done and the F-01 contract ask the README to explain how to run the seed and set \texttt{SEED\_USER\_PASSWORD}; at \texttt{a60fcf1} the README does not mention the seed command or the variable, so the two lines above come from \path{apps/api/package.json}, \texttt{.env.example}, and PR \#56. \todo{release: README seed instructions added before the release, or the gap listed in F.5}

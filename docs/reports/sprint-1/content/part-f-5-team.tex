@@ -1,0 +1,45 @@
+\partsection{F.5}{Contributions, AI use, and known limitations}\label{F:5}
+
+\subsubsection*{Contribution table}
+
+From the merged pull requests and closed issues of \path{beambeambeam/claimflow} on GitHub, collected by \path{scripts/collect_team.py} on 14 November 2026 (\todo{release: recollect at the release; the report PR and the remaining Sprint 1 tickets \#30 to \#34 are not merged yet}).
+An equal number of commits is not required; the two students split the work as follows.
+Dependabot pull requests (\#10, \#22) are not counted.
+
+\input{content/data/team}
+
+\begin{center}\small
+\begin{tabular}{@{}>{\bfseries}p{2.7cm}p{13.6cm}@{}}
+\toprule
+Kiatisakk (1005) & Requirements and design documents: SRS (\#18, issue \#1), feature inventory and traceability matrix (\#20, issue \#2), system-level SDS (\#21, issue \#3). Implementation: route permissions and the route inventory test, F-01/04 (\#59, issue \#27); submit a claim, F-02/01 and F-02/02, with the claim rules, the schema and the New Claim form (\#60, issues \#28, \#29). Reviews of Beam's PRs \#23, \#35, \#36, \#56, \#57, \#58, including the changes requested on \#56. This report (issue \#4). \\
+beambeambeam (1045) & Repository, CI and tooling setup (\#8, \#9, \#11 to \#15, \#17, \#19, issue \#7), the sprint plan and the Sprint 1 contracts (\#23, issues \#5, \#6), the sprint workflow rules (\#35), moving issue tracking to GitHub Issues (\#57). Implementation: walking skeleton with contract, database and health checks, F-01/01 (\#36, issue \#24); log in and the current user, F-01/02 (\#56, issue \#25); log out, session expiry and bans, F-01/03 (\#58, issue \#26). Reviews of Kiatisak's PRs \#18, \#20, \#21, \#59, \#60. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Pair work: none declared in any Sprint 1 pull request (the ``Pair work'' section of PR \#60 says ``None'').
+\todo{1045: confirm the split above and the roles of the second student}
+
+\subsubsection*{AI-use declaration}
+
+\textbf{Student 67070501005 (Kiatisak Markmeeshap).} Claude Code (Anthropic) was used throughout Sprint 1 with Claude Fable 5.2 and Claude Opus 5.5 as orchestrator, and Claude Sonnet 5.5 subagents as implementers and reviewers.
+Tasks: implementation of tickets under test-driven development (the failing test is committed first, see F.3), drafting of code-review comments on the teammate's pull requests, and tooling for this report (the capture, cut and check scripts under \path{docs/reports/sprint-1/scripts/}).
+Every result is gated by the repository checks (formatting, lint, tests, coverage) and reviewed by a person before it is committed, pushed or posted; the review comments in F.4 were read and posted by the student.
+
+\textbf{Student 1045 (Supawit Marayat).} \todo{1045: AI tools used and the tasks they were used for}
+
+\subsubsection*{Known limitations, failed and skipped tests}
+
+Written from the contracts, the pull request descriptions and the open issues at \texttt{a60fcf1}; the list is updated at the release.
+
+\begin{itemize}\setlength\itemsep{2pt}
+\item \textbf{F-03 My Claims and F-04 Review decision are not implemented yet.} All 12 planned F-03 tests and 22 of the 24 planned F-04 tests have no actual test (tickets \#30, \#31, \#32, \#33, \#34, open); F04-TEST-18 passes, and F04-TEST-19 is a manual check not yet run. Demo 1 depends on this work. \todo{release: replace with the final state when \#30 to \#34 merge, or list what is cut}
+\item \textbf{E2E is not in CI until \#34.} F02-TEST-21 and F01-TEST-24 pass on a local seeded stack, but CI has no Playwright job; it comes with the Sprint 1 journey ticket \#34 (F-02 contract \S7, revision 0.3).
+\item \textbf{Web tests that fail on the author's Windows machine.} PR \#60 reports 60 of 65 web tests passing locally; the failures are in \texttt{auth-routing.test.tsx} and \texttt{session-end.test.tsx} and pass in CI. \todo{release: CI result of the web job on the release commit, or the failures listed as failed}
+\item \textbf{Layout shift in error rows.} In a New Claim line item that shows errors, the columns shift right (PR \#60, known gaps).
+\item \textbf{F-02 E2E covers the happy path only;} rule errors are covered by the API and component tests, not by the E2E test (PR \#60).
+\item \textbf{Receipt files are not part of Sprint 1.} Issue \#61 (open) adds receipt uploads; the \texttt{Receipt reference} text field is what Sprint 1 ships.
+\item \textbf{README does not yet explain the seed} (F.1); the Definition of Done asks for it. \todo{release: fixed in the README, or kept here}
+\item \textbf{Manual checks.} F01-TEST-18 (secret scan, \texttt{.env.example} against the schema), F01-TEST-19 (CI checks on a PR) and F04-TEST-19 (restart check) are manual or CI-recorded; the first two are recorded in the F-01/01 PR (\#24), the third is ticket \#34. \todo{release: record each manual check with the release commit}
+\item \textbf{Failed or skipped tests in the interim run:} none (0 failed, 0 skipped of 83 top-level Go tests, F.3); no test was disabled or weakened to obtain this.
+\end{itemize}

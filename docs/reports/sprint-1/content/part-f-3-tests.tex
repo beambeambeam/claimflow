@@ -1,0 +1,72 @@
+\partsection{F.3}{Build and test results}\label{F:3}
+
+\subsubsection*{Commands, tested commit, and counts}
+
+\textbf{Interim run (draft).} Go suite on \texttt{sprint-1} head \texttt{a60fcf1}, on the author's Windows machine with Docker Desktop (PostgreSQL 17 test containers through \path{internal/pgtest}), 14 November 2026:
+
+\begin{shell}
+$ cd apps/api && go test -json -count=1 ./...
+packages with tests: 5   (apps/api, internal/auth, internal/claim, internal/money, migrations)
+top-level tests: 83 passed, 0 failed, 0 skipped
+subtests:        63 passed, 0 failed, 0 skipped      (146 pass events in all)
+exit status 0, 1 m 43 s
+\end{shell}
+
+Per package, top-level tests that passed: \path{apps/api} 52, \path{internal/claim} 16, \path{internal/auth} 10, \path{internal/money} 3, \texttt{migrations} 2.
+The run did not use \texttt{-race} or coverage, so it does not replace the release commands.
+The web suite (Vitest) and the E2E tests were not run for this draft.
+Known: on the author's machine three web tests in \texttt{auth-routing.test.tsx} and \texttt{session-end.test.tsx} fail and pass in CI (PR \#60 reports 60 of 65 web tests passing locally); they are listed again in F.5.
+
+\textbf{Release run.} The commands of F.1, run on the release commit:
+
+\pending{Build and test output with passed, failed, and skipped counts (Go with \texttt{-race} and the 100\% coverage gate, web, E2E)}{release: the release commit on \texttt{main}; run \texttt{bun run build}, \path{bun run --cwd apps/api test:coverage}, \path{bun run --cwd apps/web test:coverage}, \texttt{bun run check}, and paste the output here as text}
+
+\input{content/data/ac-table}
+
+\noindent The Result column of the automated table is \textbf{pass (n run)} where this draft ran the Go test, and \textbf{recorded pass} where \path{docs/traceability.md} records a result that this draft did not rerun (web component tests and E2E).
+The release run replaces both with one result per test on the release commit \todo{release: rerun every row on the release commit; the web and E2E rows are only recorded until then}.
+
+\subsubsection*{Test excerpts}
+
+\textbf{Domain rule: BR-12, a Meals item is at most 1,500.00 THB} (F02-TEST-09, F02-AC-06).
+\path{apps/api/internal/claim/rules_test.go}, commit \texttt{a60fcf1}, lines 133--140 and 72--90.
+The setup is the seeded requester and the real \texttt{claim.Service} on PostgreSQL; each case states the violations it expects, and the assertion compares them with what the service returned (1,500.00 is accepted, 1,500.01 on Meals is rejected with BR-12, 1,500.01 on Travel is accepted).
+
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/excerpt-domain.go}
+
+\textbf{Role rule: BR-15, a Finance Officer cannot create claims} (F02-TEST-14, F02-AC-09).
+\path{apps/api/claims_create_test.go}, commit \texttt{a60fcf1}, lines 215--226.
+The setup logs in as the seeded \texttt{fin.wanida} through the real router; the assertions are the 403 \texttt{FORBIDDEN} problem and that no row was stored.
+
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/excerpt-role.go}
+
+\textbf{Execution results of the two excerpts} (run on \texttt{a60fcf1}):
+
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/excerpt-results.txt}
+
+\subsubsection*{TDD: the failing test first, then the code (PR \#60, F-02/02)}
+
+Rules BR-05, BR-06, BR-07 and BR-12 (F02-TEST-04, 06, 08, 09, 11) were written as tests first.
+Both commits are on branch \path{feat/submit-claim} of PR \#60 and stay reachable under the PR's Commits tab (\path{refs/pull/60/head}); \texttt{sprint-1} holds only the squash commit \texttt{a60fcf1}.
+
+\begin{center}\small
+\begin{tabular}{@{}lllp{8.2cm}@{}}
+\toprule \textbf{Step} & \textbf{Commit} & \textbf{Author date (UTC+7)} & \textbf{Subject} \\ \midrule
+Red & \texttt{ca3a703} & 2026-11-14 11:40:50 & \path{test: claim rules BR-05, BR-06, BR-07, and BR-12 fail before they are checked} \\
+Green & \texttt{7b4787d} & 2026-11-14 11:42:57 & \path{feat: check claim rules BR-05, BR-06, BR-07, and BR-12 with every violation reported} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Why the red test failed.} At \texttt{ca3a703} \texttt{checkRules} was still a stub that returns \texttt{nil} (the commit adds only the \texttt{ValidationError} types to \texttt{rules.go}, plus \texttt{rules\_test.go}), so no rule was applied. An out-of-range count, amount or total therefore reached PostgreSQL and was refused by a \texttt{CHECK} constraint, so the service returned a database error where the test expects a \texttt{ValidationError}; a future expense date and a Meals item over the limit returned no error at all.
+Output, both runs of the same command on a clean checkout of each commit (Docker Desktop running):
+
+\textbf{Red, \texttt{ca3a703}:}
+
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/tdd-red.txt}
+
+\textbf{Green, \texttt{7b4787d}:}
+
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/tdd-green.txt}
+
+\textbf{Other test-first pairs.} The PR descriptions of \#56, \#58, \#59 and \#60 list a red and a green commit for each other test they add. Where a test could not go red first, the PR says so: F01-TEST-07 and F01-TEST-22 in PR \#59 (the behaviour shipped in \#56), F02-TEST-05 and F02-TEST-21 in PR \#60 (the decode rule existed; the E2E test was written after the code), and F01-TEST-06 (the ban trigger from \#25 already deleted the sessions).
