@@ -94,6 +94,7 @@ This follows the Go guide [Organizing a Go module](https://go.dev/doc/modules/la
 apps/api/
   main.go  server.go  config.go   # entry: startup, config, router; composes the feature handlers
   migrate.go  seed.go              # `migrate` and `seed` subcommands of the one binary
+  validate.go                      # request validation middleware: JSON body checked against the contract schema (400 with field errors)
   openapi.yaml                     # the API contract (Section 4)
   oapi-codegen.yaml  sqlc.yaml     # code generation config
   env/                             # varlock-generated (excluded from coverage)

@@ -5,7 +5,7 @@
 - **Requirements:** FR-02, FR-03, FR-07, BR-05, BR-06, BR-07, BR-08, BR-12, BR-15, BR-17, NFR-06, NFR-08
 - **Depends on:** F-01
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claims`, `line_items`, `claim_history`; §2.3 money; §2.4 time; §3; §4.3 `POST /claims`; §5.2; §7.1 New Claim
-- **Version:** 0.2 (draft) · **Last updated:** 2026-11-06
+- **Version:** 0.3 (draft) · **Last updated:** 2026-11-14
 
 ---
 
@@ -67,6 +67,7 @@ Limits are named constants in `internal/claim/rules.go`. Business limits are not
 | `items[i].category` | BR-12 enum | 400 / client | "Choose a category." |
 | `items[i].expenseDate` | BR-07 future | 422 | "Expense date cannot be in the future." |
 | `items[i].expenseDate` | BR-07 window | 422 | "Expense date cannot be more than 90 days before the claim was first submitted." |
+| `items[i].expenseDate` | date format, including a calendar-impossible date such as 2026-02-31 | 400 / client | "Enter a date as YYYY-MM-DD." |
 | `title` | shape | 400 / client | "Enter a title (up to 120 characters)." |
 | `purpose` | shape | 400 / client | "Enter a purpose (up to 1,000 characters)." |
 | `items[i].description` | shape | 400 / client | "Enter a description (up to 200 characters)." |
@@ -293,6 +294,7 @@ Levels as in F-01 §6. Module tests call `claim.Service` against `pgtest` Postgr
 The Product DoD applies. For F-02 the evidence is:
 
 - [ ] All F02-TEST rows pass in CI on the merge commit.
+  - Known gap: F02-TEST-21 (E2E) passes on a local seeded stack, but CI has no Playwright job yet. It runs in CI once F-04/03 (#34) sets up Playwright for the Sprint 1 journey.
 - [ ] TDD evidence for at least one rule (BR-05, BR-07, or BR-12): commit IDs of the failing test and the passing implementation, for #4.
 - [ ] Migration `00002_claims.sql` runs up and down on an empty database.
 - [ ] `docs/traceability.md` lists the actual test names and results for F-02 rows.
@@ -303,3 +305,4 @@ The Product DoD applies. For F-02 the evidence is:
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
 | 0.2 | 2026-11-06 | Review fix (PR #23): workflow shows session, then contract validation, then route permission (SDS §1.3) | 1005, 1045 |
+| 0.3 | 2026-11-14 | §1.4 adds the message for a bad or calendar-impossible expense date (400, shape); §7 records the known gap that F02-TEST-21 runs in CI only after F-04/03 (#34) sets up Playwright | 1005 |
