@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses } from './types.gen';
-import { zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zLoginBody, zLoginResponse, zLogoutResponse } from './zod.gen';
+import type { CreateClaimData, CreateClaimErrors, CreateClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses } from './types.gen';
+import { zCreateClaimBody, zCreateClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zLoginBody, zLoginResponse, zLogoutResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -93,4 +93,24 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
   responseValidator: async (data) => await zGetMeResponse.parseAsync(data),
   url: '/auth/me',
   ...options
+});
+
+/**
+ * Create a claim and submit it for review (F-02). Sprint 1 always submits.
+ *
+ * Needs the `claim:create` route permission, and an assigned reviewer (BR-15). The server calculates the total and ignores any `total` in the request (BR-08).
+ */
+export const createClaim = <ThrowOnError extends boolean = false>(options: Options<CreateClaimData, ThrowOnError>): RequestResult<CreateClaimResponses, CreateClaimErrors, ThrowOnError> => (options.client ?? client).post<CreateClaimResponses, CreateClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zCreateClaimBody,
+    path: z.never().optional(),
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zCreateClaimResponse.parseAsync(data),
+  url: '/claims',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
 });

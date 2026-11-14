@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 
+	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -64,6 +65,86 @@ DELETE FROM session WHERE id = $1
 func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteSession, id)
 	return err
+}
+
+const getClaim = `-- name: GetClaim :one
+SELECT c.id, c.claim_no, c.status, c.title, c.purpose, c.total_satang, c.return_count, c.version,
+       c.first_submitted_at, c.submitted_at, c.decided_at, c.created_at, c.updated_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position,
+       a.id AS reviewer_id, a.name AS reviewer_name, a.position AS reviewer_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+LEFT JOIN "user" a ON a.id = c.assigned_reviewer_id
+WHERE c.id = $1
+`
+
+type GetClaimRow struct {
+	ID                uuid.UUID
+	ClaimNo           string
+	Status            ClaimStatus
+	Title             string
+	Purpose           string
+	TotalSatang       money.Satang
+	ReturnCount       int16
+	Version           int32
+	FirstSubmittedAt  pgtype.Timestamptz
+	SubmittedAt       pgtype.Timestamptz
+	DecidedAt         pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	RequesterID       uuid.UUID
+	RequesterName     string
+	RequesterPosition string
+	ReviewerID        uuid.NullUUID
+	ReviewerName      pgtype.Text
+	ReviewerPosition  pgtype.Text
+}
+
+// GetClaim returns a claim with its requester and, when it has one, its assigned reviewer.
+func (q *Queries) GetClaim(ctx context.Context, id uuid.UUID) (GetClaimRow, error) {
+	row := q.db.QueryRow(ctx, getClaim, id)
+	var i GetClaimRow
+	err := row.Scan(
+		&i.ID,
+		&i.ClaimNo,
+		&i.Status,
+		&i.Title,
+		&i.Purpose,
+		&i.TotalSatang,
+		&i.ReturnCount,
+		&i.Version,
+		&i.FirstSubmittedAt,
+		&i.SubmittedAt,
+		&i.DecidedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RequesterID,
+		&i.RequesterName,
+		&i.RequesterPosition,
+		&i.ReviewerID,
+		&i.ReviewerName,
+		&i.ReviewerPosition,
+	)
+	return i, err
+}
+
+const getClaimMember = `-- name: GetClaimMember :one
+SELECT id, reviewer_id
+FROM "user"
+WHERE id = $1
+`
+
+type GetClaimMemberRow struct {
+	ID         uuid.UUID
+	ReviewerID uuid.NullUUID
+}
+
+// GetClaimMember returns a member's reviewer, which BR-15 requires and BR-17 copies onto a claim at first submission.
+func (q *Queries) GetClaimMember(ctx context.Context, id uuid.UUID) (GetClaimMemberRow, error) {
+	row := q.db.QueryRow(ctx, getClaimMember, id)
+	var i GetClaimMemberRow
+	err := row.Scan(&i.ID, &i.ReviewerID)
+	return i, err
 }
 
 const getCredentialForLogin = `-- name: GetCredentialForLogin :one
@@ -139,6 +220,212 @@ func (q *Queries) GetSessionUser(ctx context.Context, arg GetSessionUserParams) 
 		&i.Role,
 	)
 	return i, err
+}
+
+const insertClaim = `-- name: InsertClaim :exec
+INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang,
+                    first_submitted_at, submitted_at, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5,
+        $6, $7, $8, $9,
+        $10, $11, $11)
+`
+
+type InsertClaimParams struct {
+	ID                 uuid.UUID
+	ClaimNo            string
+	RequesterID        uuid.UUID
+	AssignedReviewerID uuid.NullUUID
+	Title              string
+	Purpose            string
+	Status             ClaimStatus
+	TotalSatang        money.Satang
+	FirstSubmittedAt   pgtype.Timestamptz
+	SubmittedAt        pgtype.Timestamptz
+	Now                pgtype.Timestamptz
+}
+
+func (q *Queries) InsertClaim(ctx context.Context, arg InsertClaimParams) error {
+	_, err := q.db.Exec(ctx, insertClaim,
+		arg.ID,
+		arg.ClaimNo,
+		arg.RequesterID,
+		arg.AssignedReviewerID,
+		arg.Title,
+		arg.Purpose,
+		arg.Status,
+		arg.TotalSatang,
+		arg.FirstSubmittedAt,
+		arg.SubmittedAt,
+		arg.Now,
+	)
+	return err
+}
+
+const insertClaimHistory = `-- name: InsertClaimHistory :exec
+INSERT INTO claim_history (claim_id, actor_id, action, from_status, to_status, comment, created_at)
+VALUES ($1, $2, $3, $4, $5,
+        $6, $7)
+`
+
+type InsertClaimHistoryParams struct {
+	ClaimID    uuid.UUID
+	ActorID    uuid.UUID
+	Action     ClaimAction
+	FromStatus NullClaimStatus
+	ToStatus   ClaimStatus
+	Comment    pgtype.Text
+	Now        pgtype.Timestamptz
+}
+
+func (q *Queries) InsertClaimHistory(ctx context.Context, arg InsertClaimHistoryParams) error {
+	_, err := q.db.Exec(ctx, insertClaimHistory,
+		arg.ClaimID,
+		arg.ActorID,
+		arg.Action,
+		arg.FromStatus,
+		arg.ToStatus,
+		arg.Comment,
+		arg.Now,
+	)
+	return err
+}
+
+const insertLineItem = `-- name: InsertLineItem :exec
+INSERT INTO line_items (id, claim_id, line_no, category, description, expense_date, amount_satang, receipt_ref)
+VALUES ($1, $2, $3, $4, $5,
+        $6, $7, $8)
+`
+
+type InsertLineItemParams struct {
+	ID           uuid.UUID
+	ClaimID      uuid.UUID
+	LineNo       int16
+	Category     ExpenseCategory
+	Description  string
+	ExpenseDate  pgtype.Date
+	AmountSatang money.Satang
+	ReceiptRef   string
+}
+
+func (q *Queries) InsertLineItem(ctx context.Context, arg InsertLineItemParams) error {
+	_, err := q.db.Exec(ctx, insertLineItem,
+		arg.ID,
+		arg.ClaimID,
+		arg.LineNo,
+		arg.Category,
+		arg.Description,
+		arg.ExpenseDate,
+		arg.AmountSatang,
+		arg.ReceiptRef,
+	)
+	return err
+}
+
+const listClaimHistory = `-- name: ListClaimHistory :many
+SELECT h.id, h.action, h.from_status, h.to_status, h.comment, h.created_at,
+       u.id AS actor_id, u.name AS actor_name, u.position AS actor_position
+FROM claim_history h
+JOIN "user" u ON u.id = h.actor_id
+WHERE h.claim_id = $1
+ORDER BY h.id
+`
+
+type ListClaimHistoryRow struct {
+	ID            int64
+	Action        ClaimAction
+	FromStatus    NullClaimStatus
+	ToStatus      ClaimStatus
+	Comment       pgtype.Text
+	CreatedAt     pgtype.Timestamptz
+	ActorID       uuid.UUID
+	ActorName     string
+	ActorPosition string
+}
+
+func (q *Queries) ListClaimHistory(ctx context.Context, claimID uuid.UUID) ([]ListClaimHistoryRow, error) {
+	rows, err := q.db.Query(ctx, listClaimHistory, claimID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClaimHistoryRow
+	for rows.Next() {
+		var i ListClaimHistoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Action,
+			&i.FromStatus,
+			&i.ToStatus,
+			&i.Comment,
+			&i.CreatedAt,
+			&i.ActorID,
+			&i.ActorName,
+			&i.ActorPosition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClaimLineItems = `-- name: ListClaimLineItems :many
+SELECT line_no, category, description, expense_date, amount_satang, receipt_ref
+FROM line_items
+WHERE claim_id = $1
+ORDER BY line_no
+`
+
+type ListClaimLineItemsRow struct {
+	LineNo       int16
+	Category     ExpenseCategory
+	Description  string
+	ExpenseDate  pgtype.Date
+	AmountSatang money.Satang
+	ReceiptRef   string
+}
+
+func (q *Queries) ListClaimLineItems(ctx context.Context, claimID uuid.UUID) ([]ListClaimLineItemsRow, error) {
+	rows, err := q.db.Query(ctx, listClaimLineItems, claimID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClaimLineItemsRow
+	for rows.Next() {
+		var i ListClaimLineItemsRow
+		if err := rows.Scan(
+			&i.LineNo,
+			&i.Category,
+			&i.Description,
+			&i.ExpenseDate,
+			&i.AmountSatang,
+			&i.ReceiptRef,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const nextClaimSequence = `-- name: NextClaimSequence :one
+SELECT nextval('claim_no_seq')::bigint AS seq
+`
+
+// NextClaimSequence takes the next number of claim_no_seq. The sequence never resets and never gives a number twice,
+// so a rolled-back claim leaves a gap in the numbers.
+func (q *Queries) NextClaimSequence(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, nextClaimSequence)
+	var seq int64
+	err := row.Scan(&seq)
+	return seq, err
 }
 
 const upsertSeedAccount = `-- name: UpsertSeedAccount :exec

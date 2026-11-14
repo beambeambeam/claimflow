@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getHealth, getMe, getReady, login, logout, type Options } from '../sdk.gen';
-import type { GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse } from '../types.gen';
+import { createClaim, getHealth, getMe, getReady, login, logout, type Options } from '../sdk.gen';
+import type { CreateClaimData, CreateClaimError, CreateClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -126,3 +126,22 @@ export const getMeOptions = (options?: Options<GetMeData>) => queryOptions<GetMe
   },
   queryKey: getMeQueryKey(options)
 });
+
+/**
+ * Create a claim and submit it for review (F-02). Sprint 1 always submits.
+ *
+ * Needs the `claim:create` route permission, and an assigned reviewer (BR-15). The server calculates the total and ignores any `total` in the request (BR-08).
+ */
+export const createClaimMutation = (options?: Partial<Options<CreateClaimData>>): UseMutationOptions<CreateClaimResponse, CreateClaimError, Options<CreateClaimData>> => {
+  const mutationOptions: UseMutationOptions<CreateClaimResponse, CreateClaimError, Options<CreateClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await createClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};

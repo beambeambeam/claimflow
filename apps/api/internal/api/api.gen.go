@@ -14,12 +14,84 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
+	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for ClaimAction.
+const (
+	ClaimActionApprove      ClaimAction = "APPROVE"
+	ClaimActionFinalApprove ClaimAction = "FINAL_APPROVE"
+	ClaimActionFinalReject  ClaimAction = "FINAL_REJECT"
+	ClaimActionReject       ClaimAction = "REJECT"
+	ClaimActionResubmit     ClaimAction = "RESUBMIT"
+	ClaimActionReturn       ClaimAction = "RETURN"
+	ClaimActionSubmit       ClaimAction = "SUBMIT"
+	ClaimActionWithdraw     ClaimAction = "WITHDRAW"
+)
+
+// Valid indicates whether the value is a known member of the ClaimAction enum.
+func (e ClaimAction) Valid() bool {
+	switch e {
+	case ClaimActionApprove:
+		return true
+	case ClaimActionFinalApprove:
+		return true
+	case ClaimActionFinalReject:
+		return true
+	case ClaimActionReject:
+		return true
+	case ClaimActionResubmit:
+		return true
+	case ClaimActionReturn:
+		return true
+	case ClaimActionSubmit:
+		return true
+	case ClaimActionWithdraw:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClaimStatus.
+const (
+	ClaimStatusApproved       ClaimStatus = "APPROVED"
+	ClaimStatusDraft          ClaimStatus = "DRAFT"
+	ClaimStatusPendingFinance ClaimStatus = "PENDING_FINANCE"
+	ClaimStatusRejected       ClaimStatus = "REJECTED"
+	ClaimStatusReturned       ClaimStatus = "RETURNED"
+	ClaimStatusSubmitted      ClaimStatus = "SUBMITTED"
+	ClaimStatusWithdrawn      ClaimStatus = "WITHDRAWN"
+)
+
+// Valid indicates whether the value is a known member of the ClaimStatus enum.
+func (e ClaimStatus) Valid() bool {
+	switch e {
+	case ClaimStatusApproved:
+		return true
+	case ClaimStatusDraft:
+		return true
+	case ClaimStatusPendingFinance:
+		return true
+	case ClaimStatusRejected:
+		return true
+	case ClaimStatusReturned:
+		return true
+	case ClaimStatusSubmitted:
+		return true
+	case ClaimStatusWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for CurrentUserRole.
 const (
@@ -36,6 +108,36 @@ func (e CurrentUserRole) Valid() bool {
 	case RoleRequester:
 		return true
 	case RoleReviewer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExpenseCategory.
+const (
+	ExpenseCategoryAccommodation ExpenseCategory = "ACCOMMODATION"
+	ExpenseCategoryMeals         ExpenseCategory = "MEALS"
+	ExpenseCategoryOther         ExpenseCategory = "OTHER"
+	ExpenseCategorySupplies      ExpenseCategory = "SUPPLIES"
+	ExpenseCategoryTraining      ExpenseCategory = "TRAINING"
+	ExpenseCategoryTravel        ExpenseCategory = "TRAVEL"
+)
+
+// Valid indicates whether the value is a known member of the ExpenseCategory enum.
+func (e ExpenseCategory) Valid() bool {
+	switch e {
+	case ExpenseCategoryAccommodation:
+		return true
+	case ExpenseCategoryMeals:
+		return true
+	case ExpenseCategoryOther:
+		return true
+	case ExpenseCategorySupplies:
+		return true
+	case ExpenseCategoryTraining:
+		return true
+	case ExpenseCategoryTravel:
 		return true
 	default:
 		return false
@@ -129,6 +231,53 @@ func (e ReadyStatus) Valid() bool {
 	}
 }
 
+// Claim defines model for Claim.
+type Claim struct {
+	// AllowedActions The actions this actor may take on this claim now (SDS §5.2). Empty until F-03 and F-04.
+	AllowedActions   []string       `json:"allowedActions"`
+	AssignedReviewer *MemberSummary `json:"assignedReviewer"`
+
+	// ClaimNo Example: CLM-2026-000123
+	ClaimNo          string         `json:"claimNo"`
+	CreatedAt        time.Time      `json:"createdAt"`
+	DecidedAt        *time.Time     `json:"decidedAt"`
+	FirstSubmittedAt *time.Time     `json:"firstSubmittedAt"`
+	History          []HistoryEntry `json:"history"`
+	Id               string         `json:"id"`
+	Items            []LineItem     `json:"items"`
+	Purpose          string         `json:"purpose"`
+	Requester        MemberSummary  `json:"requester"`
+	ReturnCount      int            `json:"returnCount"`
+	Status           ClaimStatus    `json:"status"`
+	SubmittedAt      *time.Time     `json:"submittedAt"`
+	Title            string         `json:"title"`
+
+	// Total An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+	//
+	// Example: 1250.00
+	Total     Money     `json:"total"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Version   int       `json:"version"`
+}
+
+// ClaimAction defines model for ClaimAction.
+type ClaimAction string
+
+// ClaimEnvelope defines model for ClaimEnvelope.
+type ClaimEnvelope struct {
+	Data Claim `json:"data"`
+}
+
+// ClaimInput The line-item count and every business limit are checked by the claim module (422), not by this schema. Unknown fields, including `total`, are ignored (BR-08).
+type ClaimInput struct {
+	Items   []LineItemInput `json:"items"`
+	Purpose string          `json:"purpose"`
+	Title   string          `json:"title"`
+}
+
+// ClaimStatus defines model for ClaimStatus.
+type ClaimStatus string
+
 // CurrentUser defines model for CurrentUser.
 type CurrentUser struct {
 	// Id Example: 0192f1c4-7b2e-7c3a-9d41-3f0a6b8e2c11
@@ -155,6 +304,9 @@ type CurrentUserEnvelope struct {
 	Data CurrentUser `json:"data"`
 }
 
+// ExpenseCategory defines model for ExpenseCategory.
+type ExpenseCategory string
+
 // FieldError defines model for FieldError.
 type FieldError struct {
 	// Field Example: username
@@ -178,12 +330,64 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// HistoryEntry defines model for HistoryEntry.
+type HistoryEntry struct {
+	Action     ClaimAction   `json:"action"`
+	Actor      MemberSummary `json:"actor"`
+	Comment    *string       `json:"comment"`
+	CreatedAt  time.Time     `json:"createdAt"`
+	FromStatus *ClaimStatus  `json:"fromStatus"`
+	Id         int64         `json:"id"`
+	ToStatus   ClaimStatus   `json:"toStatus"`
+}
+
+// LineItem defines model for LineItem.
+type LineItem struct {
+	// Amount An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+	//
+	// Example: 1250.00
+	Amount      Money              `json:"amount"`
+	Category    ExpenseCategory    `json:"category"`
+	Description string             `json:"description"`
+	ExpenseDate openapi_types.Date `json:"expenseDate"`
+	LineNo      int                `json:"lineNo"`
+	ReceiptRef  string             `json:"receiptRef"`
+}
+
+// LineItemInput defines model for LineItemInput.
+type LineItemInput struct {
+	// Amount An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+	//
+	// Example: 1250.00
+	Amount      Money              `json:"amount"`
+	Category    ExpenseCategory    `json:"category"`
+	Description string             `json:"description"`
+	ExpenseDate openapi_types.Date `json:"expenseDate"`
+	ReceiptRef  string             `json:"receiptRef"`
+}
+
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
 	// Password 1–72 bytes of UTF-8, the bcrypt input limit. maxLength counts characters, so it is only an upper bound; the server and the web client also check the byte length.
 	Password string `json:"password"`
 	Username string `json:"username"`
 }
+
+// MemberSummary defines model for MemberSummary.
+type MemberSummary struct {
+	Id string `json:"id"`
+
+	// Name Example: Anan K.
+	Name string `json:"name"`
+
+	// Position Example: Staff, Section A
+	Position string `json:"position"`
+}
+
+// Money An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+//
+// Example: 1250.00
+type Money = money.Satang
 
 // Problem RFC 9457 problem details with the `code`, `requestId`, and `errors` extensions.
 type Problem struct {
@@ -228,6 +432,9 @@ type ReadyStatus string
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
+// CreateClaimJSONRequestBody defines body for CreateClaim for application/json ContentType.
+type CreateClaimJSONRequestBody = ClaimInput
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Login Check the username and password, then start a session.
@@ -239,6 +446,9 @@ type ServerInterface interface {
 	// GetMe The user of the current session. Requires a session cookie.
 	// (GET /auth/me)
 	GetMe(c *gin.Context)
+	// CreateClaim Create a claim and submit it for review (F-02). Sprint 1 always submits.
+	// (POST /claims)
+	CreateClaim(c *gin.Context)
 	// GetHealth Liveness. Does not use the database.
 	// (GET /health)
 	GetHealth(c *gin.Context)
@@ -293,6 +503,19 @@ func (siw *ServerInterfaceWrapper) GetMe(c *gin.Context) {
 	}
 
 	siw.Handler.GetMe(c)
+}
+
+// CreateClaim operation middleware
+func (siw *ServerInterfaceWrapper) CreateClaim(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateClaim(c)
 }
 
 // GetHealth operation middleware
@@ -353,6 +576,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/auth/login", wrapper.Login)
 	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout)
 	router.GET(options.BaseURL+"/auth/me", wrapper.GetMe)
+	router.POST(options.BaseURL+"/claims", wrapper.CreateClaim)
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
@@ -574,6 +798,113 @@ func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeRespons
 	return err
 }
 
+type CreateClaimRequestObject struct {
+	Body *CreateClaimJSONRequestBody
+}
+
+type CreateClaimResponseObject interface {
+	VisitCreateClaimResponse(w http.ResponseWriter) error
+}
+
+type CreateClaim201ResponseHeaders struct {
+	ETag     string
+	Location string
+}
+
+type CreateClaim201JSONResponse struct {
+	Body    ClaimEnvelope
+	Headers CreateClaim201ResponseHeaders
+}
+
+func (response CreateClaim201JSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", fmt.Sprint(response.Headers.ETag))
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaim400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateClaim400ApplicationProblemPlusJSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaim401ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateClaim401ApplicationProblemPlusJSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaim403ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateClaim403ApplicationProblemPlusJSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaim422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateClaim422ApplicationProblemPlusJSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaimdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateClaimdefaultApplicationProblemPlusJSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthRequestObject struct {
 }
 
@@ -677,6 +1008,9 @@ type StrictServerInterface interface {
 	// GetMe The user of the current session. Requires a session cookie.
 	// (GET /auth/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// CreateClaim Create a claim and submit it for review (F-02). Sprint 1 always submits.
+	// (POST /claims)
+	CreateClaim(ctx context.Context, request CreateClaimRequestObject) (CreateClaimResponseObject, error)
 	// GetHealth Liveness. Does not use the database.
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -832,6 +1166,48 @@ func (sh *strictHandler) GetMe(ctx *gin.Context) {
 	}
 }
 
+// CreateClaim operation middleware
+func (sh *strictHandler) CreateClaim(ctx *gin.Context) {
+	var request CreateClaimRequestObject
+
+	var body CreateClaimJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateClaim(ctx, request.(CreateClaimRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateClaim")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(CreateClaimResponseObject); ok {
+		if err := validResponse.VisitCreateClaimResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealth operation middleware
 func (sh *strictHandler) GetHealth(ctx *gin.Context) {
 	var request GetHealthRequestObject
@@ -885,38 +1261,60 @@ func (sh *strictHandler) GetReady(ctx *gin.Context) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"bre7etvcbf47AA==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

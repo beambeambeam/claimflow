@@ -6,6 +6,6 @@ const ClaimsPage = () => (
   <PlaceholderPage note="Placeholder until F-03." title="My Claims" />
 );
 
-export const Route = createFileRoute("/_auth/claims")({
+export const Route = createFileRoute("/_auth/claims/")({
   component: ClaimsPage,
 });
