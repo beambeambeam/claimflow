@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
@@ -18,6 +20,18 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/internal/claim"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
+
+func init() {
+	// The built-in date format is a pattern, so it accepts 2026-02-31. The contract's date is a real calendar date.
+	openapi3.DefineStringFormatValidator("date", openapi3.NewCallbackValidator(func(value string) error {
+		_, err := time.Parse(time.DateOnly, value)
+		if err != nil {
+			return fmt.Errorf("not a calendar date: %w", err)
+		}
+
+		return nil
+	}))
+}
 
 // maxRequestBody caps the JSON body that requestValidation reads. A claim is at most 20 items of a few hundred bytes.
 const maxRequestBody = 1 << 20
