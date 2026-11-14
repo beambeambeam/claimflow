@@ -36,6 +36,11 @@ func contractPublicRoutes() map[string]bool {
 	return publicRoutes(contractSpec())
 }
 
+// ginRoute returns the gin route ("METHOD /api/v1/path/:param") of a contract operation.
+func ginRoute(method, path string) string {
+	return method + " " + basePath + pathParam.ReplaceAllString(path, ":$1")
+}
+
 // publicRoutes returns the gin route ("METHOD /api/v1/path") of every contract operation that opts out of the
 // session (F-01 §1.6, NFR-02). auth.RequireSession asks for a session on every other route, so an operation
 // added to openapi.yaml, or a gin route added outside it, needs a session unless it opts out.
@@ -45,7 +50,7 @@ func publicRoutes(spec *openapi3.T) map[string]bool {
 	for path, item := range spec.Paths.Map() {
 		for method, operation := range item.Operations() {
 			if isPublic(spec, operation) {
-				routes[method+" "+basePath+pathParam.ReplaceAllString(path, ":$1")] = true
+				routes[ginRoute(method, path)] = true
 			}
 		}
 	}

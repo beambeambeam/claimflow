@@ -71,7 +71,7 @@ func requestValidation(spec *openapi3.T, validated map[string]map[string]string)
 			}
 
 			schema := operation.RequestBody.Value.Content.Get("application/json").Schema.Value
-			checks[method+" "+basePath+pathParam.ReplaceAllString(path, ":$1")] = check{schema: schema, messages: messages}
+			checks[ginRoute(method, path)] = check{schema: schema, messages: messages}
 		}
 	}
 
