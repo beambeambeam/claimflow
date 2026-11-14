@@ -153,9 +153,9 @@ func TestF02TEST16AssignedReviewerStaysAfterReviewerChange(t *testing.T) {
 		t.Fatalf("change reviewer: %v", err)
 	}
 
-	got, err := service.Get(t.Context(), created.ID)
+	got, err := load(t.Context(), db.New(pool), created.ID)
 	if err != nil {
-		t.Fatalf("Get: %v", err)
+		t.Fatalf("load: %v", err)
 	}
 
 	if got.AssignedReviewer == nil || got.AssignedReviewer.ID != malee {
@@ -222,7 +222,7 @@ func TestCreateDraftIsNotSupportedYet(t *testing.T) {
 func TestGetUnknownClaimIsNotFound(t *testing.T) {
 	pool := pgtest.New(t)
 
-	if _, err := newService(pool).Get(t.Context(), uuid.Must(uuid.NewV7())); !errors.Is(err, ErrNotFound) {
+	if _, err := load(t.Context(), db.New(pool), uuid.Must(uuid.NewV7())); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Get error = %v, want ErrNotFound", err)
 	}
 }
@@ -245,9 +245,9 @@ func TestGetReadsNullableClaimFields(t *testing.T) {
 		}
 	}
 
-	got, err := newService(pool).Get(t.Context(), id)
+	got, err := load(t.Context(), db.New(pool), id)
 	if err != nil {
-		t.Fatalf("Get: %v", err)
+		t.Fatalf("load: %v", err)
 	}
 
 	if got.AssignedReviewer != nil || got.FirstSubmittedAt != nil || got.SubmittedAt != nil || got.DecidedAt == nil {

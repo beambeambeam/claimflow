@@ -88,11 +88,6 @@ func (s Service) Create(ctx context.Context, actor Actor, in Input, submit bool)
 	return created, nil
 }
 
-// Get returns a claim with its line items and history. F-03 adds the actor and the visibility check.
-func (s Service) Get(ctx context.Context, id uuid.UUID) (Claim, error) {
-	return load(ctx, db.New(s.pool), id)
-}
-
 // insertSubmitted writes the claim, its line items in request order, and the SUBMIT history entry, and returns the claim id.
 func insertSubmitted(ctx context.Context, queries *db.Queries, actor Actor, reviewerID uuid.NullUUID, in Input, now time.Time) (uuid.UUID, error) {
 	seq, err := queries.NextClaimSequence(ctx)
