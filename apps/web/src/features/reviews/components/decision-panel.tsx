@@ -22,12 +22,13 @@ import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 type Decision = "approve" | "reject";
 
-// The text of each decision (F-04 §2.2). A reject needs a reason; an approve may have a comment.
+// The text and button variants of each decision (F-04 §2.2): `trigger` opens the dialog, `variant` confirms it. A reject needs a reason; an approve may have a comment.
 const decisions = {
   approve: {
     title: (claimNo: string) => `Approve claim ${claimNo}?`,
     label: "Comment (optional)",
     confirm: "Approve",
+    trigger: "primary",
     variant: "primary",
     done: "Claim approved.",
     mutation: approveClaimMutation,
@@ -36,6 +37,7 @@ const decisions = {
     title: (claimNo: string) => `Reject claim ${claimNo}?`,
     label: "Reason",
     confirm: "Reject",
+    trigger: "secondary",
     variant: "destructive",
     done: "Claim rejected.",
     mutation: rejectClaimMutation,
@@ -192,7 +194,7 @@ export const DecisionPanel = ({ claim }: { claim: Claim }) => {
             onClick={() => {
               setOpen(decision);
             }}
-            variant={decision === "approve" ? "primary" : "secondary"}
+            variant={decisions[decision].trigger}
           />
         ))}
       </HStack>
