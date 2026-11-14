@@ -226,7 +226,7 @@ func (h Handler) decide(ctx context.Context, rawID string, ifMatch *string, acti
 	case errors.As(err, &invalid):
 		return Claim{}, fmt.Errorf("decision rules: %w", httperr.ValidationFailed(fieldErrors(invalid)))
 	case errors.Is(err, ErrInvalidTransition):
-		return Claim{}, fmt.Errorf("decision status: %w", httperr.InvalidTransition(api.FieldError{Field: "status", Rule: "BR-03", Message: "Only a submitted claim can be approved or rejected."}))
+		return Claim{}, fmt.Errorf("decision status: %w", httperr.InvalidTransition(apiFieldError(transitionError)))
 	case errors.Is(err, ErrNotFound):
 		return Claim{}, errClaimNotFound
 	case errors.Is(err, ErrForbidden):
@@ -272,10 +272,15 @@ func decidedBody(decided *Claim) api.DecidedJSONResponse {
 func fieldErrors(invalid ValidationError) []api.FieldError {
 	fields := make([]api.FieldError, 0, len(invalid.Fields))
 	for _, field := range invalid.Fields {
-		fields = append(fields, api.FieldError{Field: field.Field, Rule: field.Rule, Message: field.Message})
+		fields = append(fields, apiFieldError(field))
 	}
 
 	return fields
+}
+
+// apiFieldError maps one field error of the module to the contract's.
+func apiFieldError(field FieldError) api.FieldError {
+	return api.FieldError{Field: field.Field, Rule: field.Rule, Message: field.Message}
 }
 
 // input maps the request body to the module's input. The body has no total, and any total in the JSON is ignored.

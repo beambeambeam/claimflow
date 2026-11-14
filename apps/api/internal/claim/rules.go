@@ -49,7 +49,11 @@ const (
 	ruleDate       = "BR-07"
 	ruleMeals      = "BR-12"
 	ruleComment    = "BR-04"
+	ruleTransition = "BR-03"
 )
+
+// transitionError is the field error of ErrInvalidTransition: the claim's status does not allow the decision (BR-03).
+var transitionError = FieldError{Field: "status", Rule: ruleTransition, Message: "Only a submitted claim can be approved or rejected."}
 
 // Limits of the decision comment (BR-04), counted in characters after trimming.
 const (
