@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -263,5 +264,74 @@ func TestCreateClaimFailureIsInternalProblem(t *testing.T) {
 
 	if strings.Contains(recorder.Body.String(), "begin refused") {
 		t.Fatalf("body leaks the error text: %s", recorder.Body)
+	}
+}
+
+// fieldError is one errors[] entry of a problem response.
+type fieldError struct {
+	Field   string `json:"field"`
+	Rule    string `json:"rule"`
+	Message string `json:"message"`
+}
+
+// problemErrors returns the errors[] of a problem response body.
+func problemErrors(t *testing.T, recorder *httptest.ResponseRecorder) []fieldError {
+	t.Helper()
+
+	var body struct {
+		Errors []fieldError `json:"errors"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode problem: %v", err)
+	}
+
+	return body.Errors
+}
+
+// claimBodyWith returns a request with the given items JSON and a valid title and purpose.
+func claimBodyWith(items string) string {
+	return `{"title": "Bangkok workshop travel", "purpose": "Train fares and hotel", "items": [` + items + `]}`
+}
+
+// itemJSON returns a line item JSON with a valid description and receipt reference.
+func itemJSON(category, date, amount string) string {
+	return `{"category": "` + category + `", "description": "Expense", "expenseDate": "` + date + `", "amount": "` + amount + `", "receiptRef": "REF-1"}`
+}
+
+// F02-TEST-12 (F02-AC-07, BR-07): a future expense date is a 422 on that field with the contract message, and nothing is stored.
+func TestF02TEST12FutureExpenseDateIs422(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	token := loginAs(t, router, "req.anan")
+
+	recorder := postClaim(t, router, token, claimBodyWith(itemJSON("TRAVEL", "2026-11-06", "250.00")))
+	decodeProblem(t, recorder, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+
+	want := []fieldError{{Field: "items[0].expenseDate", Rule: "BR-07", Message: "Expense date cannot be in the future."}}
+	if got := problemErrors(t, recorder); !slices.Equal(got, want) {
+		t.Fatalf("errors = %+v, want %+v", got, want)
+	}
+
+	if got := rowCount(t, pool, "SELECT count(*) FROM claims"); got != 0 {
+		t.Fatalf("claims = %d, want 0", got)
+	}
+}
+
+// F02-TEST-17 (F02-AC-11, NFR-08): two broken rules on two fields come back in one 422 with two entries.
+func TestF02TEST17EveryViolationInOneResponse(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	token := loginAs(t, router, "req.anan")
+
+	items := itemJSON("TRAVEL", "2026-11-06", "250.00") + "," + itemJSON("MEALS", "2026-11-05", "1600.00")
+	recorder := postClaim(t, router, token, claimBodyWith(items))
+	decodeProblem(t, recorder, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+
+	want := []fieldError{
+		{Field: "items[0].expenseDate", Rule: "BR-07", Message: "Expense date cannot be in the future."},
+		{Field: "items[1].amount", Rule: "BR-12", Message: "A Meals item cannot be more than 1,500.00 THB."},
+	}
+	if got := problemErrors(t, recorder); !slices.Equal(got, want) {
+		t.Fatalf("errors = %+v, want %+v", got, want)
 	}
 }
