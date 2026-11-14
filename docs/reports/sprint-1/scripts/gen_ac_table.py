@@ -169,11 +169,11 @@ def main():
     def cell_actual(actual):
         by_file = {}
         for f, n, k in actual:
-            by_file.setdefault(f.replace("apps/", ""), []).append(n)
+            by_file.setdefault(f.replace("apps/", ""), []).append("\\seqsplit{" + tex(n) + "}" if k == "go" else tex(n))
         NL = "\\newline "
         blocks = []
         for f, names in by_file.items():
-            body = NL.join(r"\hspace*{1em}" + tex(n) for n in names)
+            body = NL.join(r"\hspace*{1em}" + n for n in names)
             blocks.append(r"\path{" + f + "}" + NL + body)
         return NL.join(blocks)
 
