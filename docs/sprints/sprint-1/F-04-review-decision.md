@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-03 (NFR-05, local restart), SR-04 (BR-03, BR-11, BR-13, NFR-06)
 - **Depends on:** F-01, F-02, F-03 (claim policy and Claim Detail)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claim_history`; §3.2 `APPROVE`, `REJECT`; §3.3; §4.1 versions; §4.3 `approve`, `reject`; §5.2; §5.3 `scope=review` and access tests; §7.2 decisions; ADR-0001
-- **Version:** 0.2 (draft) · **Last updated:** 2026-11-06
+- **Version:** 0.4 (draft) · **Last updated:** 2026-11-14
 
 ---
 
@@ -261,3 +261,4 @@ The Product DoD applies. For F-04 the evidence is:
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
 | 0.2 | 2026-11-06 | Review fix (PR #23): reject `comment` is optional in the contract so BR-04 returns 422; F04-TEST-07 sends missing and blank reasons; `If-Match` is optional in `openapi.yaml`; the handler returns 428 when it is missing and 400 when it is malformed; F04-TEST-16 uses `If-Match: "v+1"`, because `"v-1"` is `"-1"` for a new claim | 1005, 1045 |
 | 0.3 | 2026-11-07 | Problem example uses `type: about:blank` and a UUIDv7 `requestId`, matching SDS §4.2 v0.10 | 1005, 1045 |
+| 0.4 | 2026-11-14 | Clarify check 5 and BR-13: a decision with a stale `If-Match` version on a claim that is no longer `SUBMITTED` returns 409 `CONFLICT`, not `INVALID_TRANSITION`. This makes the losing request of two concurrent decisions always `CONFLICT` (F04-AC-12). `INVALID_TRANSITION` stays for a current version on a decided claim (F04-AC-11) | beambeambeam |
