@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthReviewsRouteImport } from './routes/_auth/reviews'
 import { Route as AuthClaimsIndexRouteImport } from './routes/_auth/claims/index'
+import { Route as AuthClaimsClaimIdRouteImport } from './routes/_auth/claims/$claimId'
 import { Route as AuthClaimsNewRouteImport } from './routes/_auth/claims/new'
 
 const IndexRoute = IndexRouteImport.update({
@@ -40,6 +41,11 @@ const AuthClaimsIndexRoute = AuthClaimsIndexRouteImport.update({
   path: '/claims/',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthClaimsClaimIdRoute = AuthClaimsClaimIdRouteImport.update({
+  id: '/claims/$claimId',
+  path: '/claims/$claimId',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthClaimsNewRoute = AuthClaimsNewRouteImport.update({
   id: '/claims/new',
   path: '/claims/new',
@@ -50,6 +56,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/reviews': typeof AuthReviewsRoute
+  '/claims/$claimId': typeof AuthClaimsClaimIdRoute
   '/claims/new': typeof AuthClaimsNewRoute
   '/claims/': typeof AuthClaimsIndexRoute
 }
@@ -57,6 +64,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/reviews': typeof AuthReviewsRoute
+  '/claims/$claimId': typeof AuthClaimsClaimIdRoute
   '/claims/new': typeof AuthClaimsNewRoute
   '/claims': typeof AuthClaimsIndexRoute
 }
@@ -66,20 +74,29 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/login': typeof LoginRoute
   '/_auth/reviews': typeof AuthReviewsRoute
+  '/_auth/claims/$claimId': typeof AuthClaimsClaimIdRoute
   '/_auth/claims/new': typeof AuthClaimsNewRoute
   '/_auth/claims/': typeof AuthClaimsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/reviews' | '/claims/new' | '/claims/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/reviews'
+    | '/claims/$claimId'
+    | '/claims/new'
+    | '/claims/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/reviews' | '/claims/new' | '/claims'
+  to:
+    '/' | '/login' | '/reviews' | '/claims/$claimId' | '/claims/new' | '/claims'
   id:
     | '__root__'
     | '/'
     | '/_auth'
     | '/login'
     | '/_auth/reviews'
+    | '/_auth/claims/$claimId'
     | '/_auth/claims/new'
     | '/_auth/claims/'
   fileRoutesById: FileRoutesById
@@ -127,6 +144,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthClaimsIndexRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/claims/$claimId': {
+      id: '/_auth/claims/$claimId'
+      path: '/claims/$claimId'
+      fullPath: '/claims/$claimId'
+      preLoaderRoute: typeof AuthClaimsClaimIdRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/claims/new': {
       id: '/_auth/claims/new'
       path: '/claims/new'
@@ -139,12 +163,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthRouteChildren {
   AuthReviewsRoute: typeof AuthReviewsRoute
+  AuthClaimsClaimIdRoute: typeof AuthClaimsClaimIdRoute
   AuthClaimsNewRoute: typeof AuthClaimsNewRoute
   AuthClaimsIndexRoute: typeof AuthClaimsIndexRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthReviewsRoute: AuthReviewsRoute,
+  AuthClaimsClaimIdRoute: AuthClaimsClaimIdRoute,
   AuthClaimsNewRoute: AuthClaimsNewRoute,
   AuthClaimsIndexRoute: AuthClaimsIndexRoute,
 }

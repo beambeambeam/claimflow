@@ -69,6 +69,10 @@ const server = setupServer(
 
     return HttpResponse.json({ data: sessionUser });
   }),
+  // My Claims loads its list when /claims renders.
+  http.get(`${apiUrl}/claims`, () =>
+    HttpResponse.json({ data: [], page: 1, pageSize: 20, total: 0 })
+  ),
   http.post(`${apiUrl}/auth/login`, async ({ request }) => {
     const body = zLoginRequest.parse(await request.json());
 

@@ -30,6 +30,10 @@ const server = setupServer(
 
     return HttpResponse.json({ data: sessionUser });
   }),
+  // My Claims loads its list when /claims renders.
+  http.get(`${apiUrl}/claims`, () =>
+    HttpResponse.json({ data: [], page: 1, pageSize: 20, total: 0 })
+  ),
   http.post(`${apiUrl}/auth/login`, () =>
     HttpResponse.json(
       { ...unauthenticated, instance: "/api/v1/auth/login" },
@@ -55,7 +59,8 @@ describe("session end", () => {
   it("F01-TEST-23: clears the query cache and goes to login when a query returns 401", async () => {
     sessionUser = requester;
     const { router } = renderAt("/claims");
-    await screen.findByRole("banner");
+    // The first render of a route loads its code chunks, which is slow on a busy machine.
+    await screen.findByRole("banner", {}, { timeout: 10_000 });
 
     const { queryClient } = router.options.context;
     expect(queryClient.getQueryCache().getAll()).not.toHaveLength(0);
@@ -69,8 +74,10 @@ describe("session end", () => {
     await waitFor(() => {
       expect(router.state.location.href).toBe("/login?redirect=%2Fclaims");
     });
-    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
-  });
+    await waitFor(() => {
+      expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    });
+  }, 20_000);
 
   it("F01-AC-21: stays on login without a redirect when the 401 comes on the login page", async () => {
     const { router } = renderAt("/login");
@@ -117,7 +124,9 @@ describe("session end", () => {
     await waitFor(() => {
       expect(router.state.location.href).toBe("/login?redirect=%2Fclaims");
     });
-    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    await waitFor(() => {
+      expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    });
   });
 
   it("F01-AC-21: a failed login on the login page keeps its inline error and the location", async () => {

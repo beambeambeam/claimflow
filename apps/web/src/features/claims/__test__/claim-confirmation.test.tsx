@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, it } from "vite-plus/test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { ClaimConfirmation } from "#/features/claims/components/claim-confirmation";
 import type { Claim } from "#/lib/api/types.gen";
@@ -45,5 +45,18 @@ describe("Claim confirmation", () => {
     );
 
     screen.getByText("Total ฿abc");
+  });
+
+  it("links to the claim detail page", () => {
+    render(
+      <ClaimConfirmation
+        claim={claimWithTotal("1250.00")}
+        onNewClaim={() => {}}
+      />
+    );
+
+    expect(
+      screen.getByRole("link", { name: "View claim" }).getAttribute("href")
+    ).toBe("/claims/0192f1c4-7b2e-7c3a-9d41-3f0a6b8e2c11");
   });
 });
