@@ -335,3 +335,75 @@ func TestF02TEST17EveryViolationInOneResponse(t *testing.T) {
 		t.Fatalf("errors = %+v, want %+v", got, want)
 	}
 }
+
+// badRequestErrors posts body as req.anan, expects a 400 BAD_REQUEST problem, and returns its errors[]. Nothing may be stored.
+func badRequestErrors(t *testing.T, body string) []fieldError {
+	t.Helper()
+
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	token := loginAs(t, router, "req.anan")
+
+	recorder := postClaim(t, router, token, body)
+	decodeProblem(t, recorder, http.StatusBadRequest, "BAD_REQUEST")
+
+	if got := rowCount(t, pool, "SELECT count(*) FROM claims"); got != 0 {
+		t.Fatalf("claims = %d, want 0", got)
+	}
+
+	return problemErrors(t, recorder)
+}
+
+// F02-TEST-07 (F02-AC-04, BR-05): an amount with 3 decimals is a 400 naming items[0].amount.
+func TestF02TEST07ThreeDecimalAmountIs400(t *testing.T) {
+	got := badRequestErrors(t, claimBodyWith(itemJSON("TRAVEL", "2026-11-03", "1.005")))
+
+	want := []fieldError{{Field: "items[0].amount", Rule: "pattern", Message: "Enter an amount with 2 decimals, e.g. 1250.00."}}
+	if !slices.Equal(got, want) {
+		t.Fatalf("errors = %+v, want %+v", got, want)
+	}
+}
+
+// F02-TEST-10 (F02-AC-06, BR-12): the category FOOD is a 400 naming items[0].category.
+func TestF02TEST10UnknownCategoryIs400(t *testing.T) {
+	got := badRequestErrors(t, claimBodyWith(itemJSON("FOOD", "2026-11-03", "250.00")))
+
+	want := []fieldError{{Field: "items[0].category", Rule: "enum", Message: "Choose a category."}}
+	if !slices.Equal(got, want) {
+		t.Fatalf("errors = %+v, want %+v", got, want)
+	}
+}
+
+// F02-TEST-18 (F02-AC-12): each shape violation is a 400 whose errors[] names the field, with the message of §1.4.
+func TestF02TEST18ShapeViolationsAre400(t *testing.T) {
+	const validItem = `{"category": "TRAVEL", "description": "Expense", "expenseDate": "2026-11-03", "amount": "250.00", "receiptRef": "REF-1"}`
+
+	body := func(title, purpose, item string) string {
+		return `{"title": ` + title + `, "purpose": ` + purpose + `, "items": [` + item + `]}`
+	}
+	quoted := func(n int) string { return `"` + strings.Repeat("x", n) + `"` }
+	itemWith := func(member, value string) string {
+		return `{"category": "TRAVEL", "description": "Expense", "expenseDate": "2026-11-03", "amount": "250.00", "receiptRef": "REF-1", "` + member + `": ` + value + `}`
+	}
+
+	cases := []struct {
+		name string
+		body string
+		want fieldError
+	}{
+		{"missing title", `{"purpose": "Purpose", "items": [` + validItem + `]}`, fieldError{"title", "required", "Enter a title (up to 120 characters)."}},
+		{"title over 120", body(quoted(121), `"Purpose"`, validItem), fieldError{"title", "maxLength", "Enter a title (up to 120 characters)."}},
+		{"purpose over 1000", body(`"Title"`, quoted(1001), validItem), fieldError{"purpose", "maxLength", "Enter a purpose (up to 1,000 characters)."}},
+		{"description over 200", body(`"Title"`, `"Purpose"`, itemWith("description", quoted(201))), fieldError{"items[0].description", "maxLength", "Enter a description (up to 200 characters)."}},
+		{"receiptRef over 50", body(`"Title"`, `"Purpose"`, itemWith("receiptRef", quoted(51))), fieldError{"items[0].receiptRef", "maxLength", "Enter the receipt reference (up to 50 characters)."}},
+		{"bad date format", body(`"Title"`, `"Purpose"`, itemWith("expenseDate", `"05/11/2026"`)), fieldError{"items[0].expenseDate", "format", "Enter a date as YYYY-MM-DD."}},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := badRequestErrors(t, test.body); !slices.Equal(got, []fieldError{test.want}) {
+				t.Fatalf("errors = %+v, want %+v", got, []fieldError{test.want})
+			}
+		})
+	}
+}
