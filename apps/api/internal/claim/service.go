@@ -68,9 +68,7 @@ func (s Service) Create(ctx context.Context, actor Actor, in Input, submit bool)
 			return ErrForbidden
 		}
 
-		// checkRules passes every input until F-02/02 fills it in, so its error branch is untestable until then.
-		// Remove the mark with that change.
-		if err := checkRules(in, now); err != nil { // coverage-ignore
+		if err := checkRules(in, now); err != nil {
 			return err
 		}
 
