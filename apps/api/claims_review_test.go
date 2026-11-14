@@ -417,3 +417,144 @@ func TestDecisionWithMalformedBodyIs400(t *testing.T) {
 
 	decodeProblem(t, decide(t, router, loginAs(t, router, "rev.malee"), id, "approve", `"0"`, `{"comment": `), http.StatusBadRequest, "BAD_REQUEST")
 }
+
+// F04-TEST-05 (F04-AC-05, FR-06, FR-07): rejecting with a reason moves the claim to REJECTED, appends one REJECT
+// history entry with the reason, and the requester sees the reason when they open the claim.
+func TestF04TEST05RejectStoresTheReasonAndTheRequesterSeesIt(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	id := submittedBy(t, router, "req.anan")
+
+	recorder := decide(t, router, loginAs(t, router, "rev.malee"), id, "reject", `"0"`, `{"comment": "Missing receipt"}`)
+	claim := decodeClaim(t, recorder).Data
+
+	if got := recorder.Header().Get("ETag"); got != `"1"` {
+		t.Fatalf("ETag = %q, want \"1\"", got)
+	}
+
+	if claim.Status != "REJECTED" || claim.Version != 1 || claim.DecidedAt != "2026-11-05T03:00:00Z" || len(claim.History) != 2 {
+		t.Fatalf("claim = %+v, want REJECTED, version 1, decided, 2 history entries", claim)
+	}
+
+	opened := openClaim(t, router, loginAs(t, router, "req.anan"), id).Data
+	if opened.Status != "REJECTED" || len(opened.History) != 2 {
+		t.Fatalf("requester sees %+v, want REJECTED with 2 history entries", opened)
+	}
+
+	last := opened.History[1]
+	if last.Action != "REJECT" || last.FromStatus == nil || *last.FromStatus != "SUBMITTED" || last.ToStatus != "REJECTED" ||
+		last.Actor.Name != "Malee S." || last.Comment == nil || *last.Comment != "Missing receipt" {
+		t.Fatalf("last history = %+v, want REJECT SUBMITTED -> REJECTED by Malee S. with the reason", last)
+	}
+
+	if opened.AllowedActions == nil || len(opened.AllowedActions) != 0 {
+		t.Fatalf("allowedActions = %v, want an empty list", opened.AllowedActions)
+	}
+}
+
+// F04-TEST-07 (F04-AC-06, BR-04): a missing, blank, short, or long reason is 422 with one comment error, and the claim
+// is unchanged. An approve comment over 500 characters is 422 too.
+func TestF04TEST07CommentRuleIs422WithTheFieldError(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	id := submittedBy(t, router, "req.anan")
+	token := loginAs(t, router, "rev.malee")
+	before := readState(t, pool, id)
+
+	cases := []struct {
+		name    string
+		action  string
+		body    string
+		message string
+	}{
+		{"reject without a body", "reject", "", "Enter a reason (5 to 500 characters)."},
+		{"reject with an empty comment", "reject", `{"comment": ""}`, "Enter a reason (5 to 500 characters)."},
+		{"reject with blanks", "reject", `{"comment": "   "}`, "Enter a reason (5 to 500 characters)."},
+		{"reject with 4 characters", "reject", `{"comment": "abcd"}`, "Reason must be at least 5 characters."},
+		{"reject with 501 characters", "reject", `{"comment": "` + strings.Repeat("a", 501) + `"}`, "Comment cannot be more than 500 characters."},
+		{"approve with 501 characters", "approve", `{"comment": "` + strings.Repeat("a", 501) + `"}`, "Comment cannot be more than 500 characters."},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := decide(t, router, token, id, tc.action, `"0"`, tc.body)
+			decodeProblem(t, recorder, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+
+			want := []fieldError{{Field: "comment", Rule: "BR-04", Message: tc.message}}
+			if got := problemErrors(t, recorder); !slices.Equal(got, want) {
+				t.Fatalf("errors = %+v, want %+v", got, want)
+			}
+
+			if after := readState(t, pool, id); after != before {
+				t.Fatalf("stored = %+v after the refused decision, want %+v", after, before)
+			}
+		})
+	}
+}
+
+// F04-TEST-14 (F04-AC-10, BR-03): approving or rejecting a claim that is no longer SUBMITTED, with its current
+// version, is 409 INVALID_TRANSITION with the status error. The claim is unchanged.
+func TestF04TEST14DecidedClaimCannotBeDecidedAgain(t *testing.T) {
+	const message = "Only a submitted claim can be approved or rejected."
+
+	for _, first := range []struct{ action, body, status string }{
+		{"approve", "", "APPROVED"},
+		{"reject", `{"comment": "Missing receipt"}`, "REJECTED"},
+	} {
+		pool := pgtest.New(t)
+		router := seededClaimRouter(t, pool)
+		id := submittedBy(t, router, "req.anan")
+		token := loginAs(t, router, "rev.malee")
+
+		decided := decodeClaim(t, decide(t, router, token, id, first.action, `"0"`, first.body)).Data
+		if decided.Status != first.status {
+			t.Fatalf("status = %s, want %s", decided.Status, first.status)
+		}
+
+		before := readState(t, pool, id)
+
+		for _, again := range []string{"approve", "reject"} {
+			recorder := decide(t, router, token, id, again, `"1"`, `{"comment": "Second decision"}`)
+			decodeProblem(t, recorder, http.StatusConflict, "INVALID_TRANSITION")
+
+			want := []fieldError{{Field: "status", Rule: "BR-03", Message: message}}
+			if got := problemErrors(t, recorder); !slices.Equal(got, want) {
+				t.Fatalf("%s after %s: errors = %+v, want %+v", again, first.action, got, want)
+			}
+		}
+
+		if after := readState(t, pool, id); after != before {
+			t.Fatalf("stored = %+v after the refused decisions, want %+v", after, before)
+		}
+	}
+}
+
+// A decision with a stale version on a claim that another reviewer decided meanwhile is 409 CONFLICT: the screen is
+// out of date (BR-13), which is what the caller must learn first.
+func TestDecisionWithStaleVersionOnDecidedClaimIsConflict(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	id := submittedBy(t, router, "req.anan")
+	token := loginAs(t, router, "rev.malee")
+
+	decodeClaim(t, decide(t, router, token, id, "approve", `"0"`, ""))
+	before := readState(t, pool, id)
+
+	decodeProblem(t, decide(t, router, token, id, "reject", `"0"`, `{"comment": "Missing receipt"}`), http.StatusConflict, "CONFLICT")
+
+	if after := readState(t, pool, id); after != before {
+		t.Fatalf("stored = %+v after the refused decision, want %+v", after, before)
+	}
+}
+
+// The status rule comes before the comment rule: a decided claim with a blank reason is INVALID_TRANSITION.
+func TestDecidedClaimWithBlankReasonIsInvalidTransition(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	id := submittedBy(t, router, "req.anan")
+	token := loginAs(t, router, "rev.malee")
+
+	decodeClaim(t, decide(t, router, token, id, "approve", `"0"`, ""))
+
+	decodeProblem(t, decide(t, router, token, id, "reject", `"1"`, ""), http.StatusConflict, "INVALID_TRANSITION")
+}
