@@ -53,7 +53,9 @@ type claimPageResponse struct {
 		Status    string `json:"status"`
 		Total     string `json:"total"`
 		CreatedAt string `json:"createdAt"`
-		Requester struct {
+		// SubmittedAt is the order of the review queue.
+		SubmittedAt string `json:"submittedAt"`
+		Requester   struct {
 			ID   string `json:"id"`
 			Name string `json:"name"`
 		} `json:"requester"`
@@ -194,7 +196,7 @@ func TestF03TEST03ListPaginationAndBounds(t *testing.T) {
 
 	for _, query := range []string{
 		"?scope=mine&pageSize=101", "?scope=mine&pageSize=0", "?scope=mine&page=0", "?scope=mine&page=-1",
-		"?scope=mine&page=abc", "?scope=mine&pageSize=abc", "", "?page=1", "?scope=bogus", "?scope=review",
+		"?scope=mine&page=abc", "?scope=mine&pageSize=abc", "", "?page=1", "?scope=bogus", "?scope=all",
 	} {
 		decodeProblem(t, getWithSession(t, router, "/api/v1/claims"+query, token), http.StatusBadRequest, "BAD_REQUEST")
 	}

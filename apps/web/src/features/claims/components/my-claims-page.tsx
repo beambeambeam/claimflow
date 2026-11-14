@@ -10,14 +10,13 @@ import { Heading, Text } from "@astryxdesign/core/Text";
 import { useQuery } from "@tanstack/react-query";
 
 import { DateText } from "#/components/date-text";
+import { LoadError } from "#/components/load-error";
 import { Money } from "#/components/money";
 import { StatusBadge } from "#/components/status-badge";
 import { can } from "#/features/auth/permissions";
 import { listClaimsOptions } from "#/lib/api/@tanstack/react-query.gen";
 import type { ClaimSummary, CurrentUser } from "#/lib/api/types.gen";
 import { isProblem } from "#/lib/problem";
-
-import { LoadError } from "./load-error";
 
 // The page size of the list (F-03 §1.4 default).
 const pageSize = 20;

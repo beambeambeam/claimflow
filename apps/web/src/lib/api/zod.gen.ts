@@ -130,6 +130,13 @@ export const zClaim = z.object({
   allowedActions: z.array(z.string())
 });
 
+/**
+ * The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+ */
+export const zClaimDecision = z.object({
+  comment: z.string().optional()
+});
+
 export const zClaimEnvelope = z.object({
   data: zClaim
 });
@@ -191,6 +198,16 @@ export const zProblem = z.object({
 });
 
 /**
+ * The claim id, a UUID.
+ */
+export const zClaimId = z.string();
+
+/**
+ * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+ */
+export const zIfMatch = z.string();
+
+/**
  * The API process is running.
  */
 export const zGetHealthResponse = zHealth;
@@ -218,13 +235,13 @@ export const zLogoutResponse = z.void();
 export const zGetMeResponse = zCurrentUserEnvelope;
 
 export const zListClaimsQuery = z.object({
-  scope: z.enum(['mine']),
+  scope: z.enum(['mine', 'review']),
   page: z.int().gte(1).optional().default(1),
   pageSize: z.int().gte(1).lte(100).optional().default(20)
 });
 
 /**
- * One page of the scope's claims, newest first (`createdAt`, then `id`, descending).
+ * One page of the scope's claims. `mine`: newest first (`createdAt`, then `id`, descending). `review`: oldest first (`submittedAt`, then `id`, ascending).
  */
 export const zListClaimsResponse = zClaimPage;
 
@@ -243,3 +260,33 @@ export const zGetClaimPath = z.object({
  * The claim.
  */
 export const zGetClaimResponse = zClaimEnvelope;
+
+export const zApproveClaimBody = zClaimDecision;
+
+export const zApproveClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zApproveClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The decided claim, with its new `ETag`.
+ */
+export const zApproveClaimResponse = zClaimEnvelope;
+
+export const zRejectClaimBody = zClaimDecision;
+
+export const zRejectClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zRejectClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The decided claim, with its new `ETag`.
+ */
+export const zRejectClaimResponse = zClaimEnvelope;

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -16,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
 )
 
@@ -34,13 +34,25 @@ func twoItemsBody(extra string) string {
 	}`
 }
 
+// seedDemoUsers adds the demo users and their accounts, without the sample claims, so a test starts with no claim.
+func seedDemoUsers(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+
+	err := pgx.BeginFunc(t.Context(), pool, func(tx pgx.Tx) error {
+		_, _, err := seedUserRows(t.Context(), db.New(tx), seedPassword, 10)
+
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed users: %v", err)
+	}
+}
+
 // seededClaimRouter seeds the demo users and returns a router on the claim clock.
 func seededClaimRouter(t *testing.T, pool *pgxpool.Pool) http.Handler {
 	t.Helper()
 
-	if err := seed(t.Context(), pool.Config().ConnString(), seedPassword, 10, io.Discard); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	seedDemoUsers(t, pool)
 
 	return newRouterAt(discardLogger(), testEnv(0), pool, func() time.Time { return claimsNow })
 }
@@ -91,6 +103,7 @@ type claimResponse struct {
 		Version          int    `json:"version"`
 		FirstSubmittedAt string `json:"firstSubmittedAt"`
 		SubmittedAt      string `json:"submittedAt"`
+		DecidedAt        string `json:"decidedAt"`
 		Requester        struct {
 			Name     string `json:"name"`
 			Position string `json:"position"`
@@ -109,6 +122,7 @@ type claimResponse struct {
 			Action     string  `json:"action"`
 			FromStatus *string `json:"fromStatus"`
 			ToStatus   string  `json:"toStatus"`
+			Comment    *string `json:"comment"`
 			Actor      struct {
 				Name string `json:"name"`
 			} `json:"actor"`

@@ -9,7 +9,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -233,13 +235,16 @@ func (e ReadyStatus) Valid() bool {
 
 // Defines values for ListClaimsParamsScope.
 const (
-	ListScopeMine ListClaimsParamsScope = "mine"
+	ListScopeMine   ListClaimsParamsScope = "mine"
+	ListScopeReview ListClaimsParamsScope = "review"
 )
 
 // Valid indicates whether the value is a known member of the ListClaimsParamsScope enum.
 func (e ListClaimsParamsScope) Valid() bool {
 	switch e {
 	case ListScopeMine:
+		return true
+	case ListScopeReview:
 		return true
 	default:
 		return false
@@ -277,6 +282,12 @@ type Claim struct {
 
 // ClaimAction defines model for ClaimAction.
 type ClaimAction string
+
+// ClaimDecision The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+type ClaimDecision struct {
+	// Comment Optional for approve (at most 500 characters). The reason for reject (5–500 characters).
+	Comment *string `json:"comment,omitempty"`
+}
 
 // ClaimEnvelope defines model for ClaimEnvelope.
 type ClaimEnvelope struct {
@@ -477,9 +488,18 @@ type Ready struct {
 // ReadyStatus defines model for Ready.Status.
 type ReadyStatus string
 
+// ClaimId defines model for ClaimId.
+type ClaimId = string
+
+// IfMatch defines model for IfMatch.
+type IfMatch = string
+
+// Decided defines model for Decided.
+type Decided = ClaimEnvelope
+
 // ListClaimsParams defines parameters for ListClaims.
 type ListClaimsParams struct {
-	// Scope The list to read. `mine` is the only scope in this version; F-04 adds `review`.
+	// Scope The list to read.
 	Scope ListClaimsParamsScope `form:"scope" json:"scope"`
 
 	// Page The 1-based page number. A page past the last one returns an empty `data`.
@@ -492,11 +512,29 @@ type ListClaimsParams struct {
 // ListClaimsParamsScope defines parameters for ListClaims.
 type ListClaimsParamsScope string
 
+// ApproveClaimParams defines parameters for ApproveClaim.
+type ApproveClaimParams struct {
+	// IfMatch The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
+// RejectClaimParams defines parameters for RejectClaim.
+type RejectClaimParams struct {
+	// IfMatch The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
 // CreateClaimJSONRequestBody defines body for CreateClaim for application/json ContentType.
 type CreateClaimJSONRequestBody = ClaimInput
+
+// ApproveClaimJSONRequestBody defines body for ApproveClaim for application/json ContentType.
+type ApproveClaimJSONRequestBody = ClaimDecision
+
+// RejectClaimJSONRequestBody defines body for RejectClaim for application/json ContentType.
+type RejectClaimJSONRequestBody = ClaimDecision
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -509,7 +547,7 @@ type ServerInterface interface {
 	// GetMe The user of the current session. Requires a session cookie.
 	// (GET /auth/me)
 	GetMe(c *gin.Context)
-	// ListClaims List claims in a scope, newest first (F-03).
+	// ListClaims List claims in a scope (F-03, F-04).
 	// (GET /claims)
 	ListClaims(c *gin.Context, params ListClaimsParams)
 	// CreateClaim Create a claim and submit it for review (F-02). Sprint 1 always submits.
@@ -518,6 +556,12 @@ type ServerInterface interface {
 	// GetClaim A visible claim with its line items, history, and the actions the session user may take (F-03).
 	// (GET /claims/{id})
 	GetClaim(c *gin.Context, id string)
+	// ApproveClaim Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
+	// (POST /claims/{id}/approve)
+	ApproveClaim(c *gin.Context, id ClaimId, params ApproveClaimParams)
+	// RejectClaim Reject a submitted claim with a reason (F-04).
+	// (POST /claims/{id}/reject)
+	RejectClaim(c *gin.Context, id ClaimId, params RejectClaimParams)
 	// GetHealth Liveness. Does not use the database.
 	// (GET /health)
 	GetHealth(c *gin.Context)
@@ -655,6 +699,104 @@ func (siw *ServerInterfaceWrapper) GetClaim(c *gin.Context) {
 	siw.Handler.GetClaim(c, id)
 }
 
+// ApproveClaim operation middleware
+func (siw *ServerInterfaceWrapper) ApproveClaim(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ClaimId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApproveClaimParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for If-Match, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter If-Match: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ApproveClaim(c, id, params)
+}
+
+// RejectClaim operation middleware
+func (siw *ServerInterfaceWrapper) RejectClaim(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ClaimId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RejectClaimParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for If-Match, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter If-Match: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RejectClaim(c, id, params)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(c *gin.Context) {
 
@@ -716,6 +858,17 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/claims", wrapper.ListClaims)
 	router.POST(options.BaseURL+"/claims", wrapper.CreateClaim)
 	router.GET(options.BaseURL+"/claims/:id", wrapper.GetClaim)
+	router.POST(options.BaseURL+"/claims/:id/approve", wrapper.ApproveClaim)
+	router.POST(options.BaseURL+"/claims/:id/reject", wrapper.RejectClaim)
+}
+
+type DecidedResponseHeaders struct {
+	ETag string
+}
+type DecidedJSONResponse struct {
+	Body ClaimEnvelope
+
+	Headers DecidedResponseHeaders
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
@@ -1232,6 +1385,290 @@ func (response GetClaimdefaultApplicationProblemPlusJSONResponse) VisitGetClaimR
 	return err
 }
 
+type ApproveClaimRequestObject struct {
+	Id     ClaimId `json:"id"`
+	Params ApproveClaimParams
+	Body   *ApproveClaimJSONRequestBody
+}
+
+type ApproveClaimResponseObject interface {
+	VisitApproveClaimResponse(w http.ResponseWriter) error
+}
+
+type ApproveClaim200JSONResponse struct{ DecidedJSONResponse }
+
+func (response ApproveClaim200JSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", fmt.Sprint(response.Headers.ETag))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ApproveClaim400ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim401ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim401ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim403ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim403ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim404ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim404ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim409ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim409ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim422ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim422ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim428ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim428ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaimdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ApproveClaimdefaultApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaimRequestObject struct {
+	Id     ClaimId `json:"id"`
+	Params RejectClaimParams
+	Body   *RejectClaimJSONRequestBody
+}
+
+type RejectClaimResponseObject interface {
+	VisitRejectClaimResponse(w http.ResponseWriter) error
+}
+
+type RejectClaim200JSONResponse struct{ DecidedJSONResponse }
+
+func (response RejectClaim200JSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", fmt.Sprint(response.Headers.ETag))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RejectClaim400ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim401ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim401ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim403ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim403ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim404ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim404ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim409ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim409ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim422ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim422ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim428ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim428ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaimdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RejectClaimdefaultApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthRequestObject struct {
 }
 
@@ -1335,7 +1772,7 @@ type StrictServerInterface interface {
 	// GetMe The user of the current session. Requires a session cookie.
 	// (GET /auth/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
-	// ListClaims List claims in a scope, newest first (F-03).
+	// ListClaims List claims in a scope (F-03, F-04).
 	// (GET /claims)
 	ListClaims(ctx context.Context, request ListClaimsRequestObject) (ListClaimsResponseObject, error)
 	// CreateClaim Create a claim and submit it for review (F-02). Sprint 1 always submits.
@@ -1344,6 +1781,12 @@ type StrictServerInterface interface {
 	// GetClaim A visible claim with its line items, history, and the actions the session user may take (F-03).
 	// (GET /claims/{id})
 	GetClaim(ctx context.Context, request GetClaimRequestObject) (GetClaimResponseObject, error)
+	// ApproveClaim Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
+	// (POST /claims/{id}/approve)
+	ApproveClaim(ctx context.Context, request ApproveClaimRequestObject) (ApproveClaimResponseObject, error)
+	// RejectClaim Reject a submitted claim with a reason (F-04).
+	// (POST /claims/{id}/reject)
+	RejectClaim(ctx context.Context, request RejectClaimRequestObject) (RejectClaimResponseObject, error)
 	// GetHealth Liveness. Does not use the database.
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -1593,6 +2036,102 @@ func (sh *strictHandler) GetClaim(ctx *gin.Context, id string) {
 	}
 }
 
+// ApproveClaim operation middleware
+func (sh *strictHandler) ApproveClaim(ctx *gin.Context, id ClaimId, params ApproveClaimParams) {
+	var request ApproveClaimRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body ApproveClaimJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(ctx, err)
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveClaim(ctx, request.(ApproveClaimRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveClaim")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ApproveClaimResponseObject); ok {
+		if err := validResponse.VisitApproveClaimResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectClaim operation middleware
+func (sh *strictHandler) RejectClaim(ctx *gin.Context, id ClaimId, params RejectClaimParams) {
+	var request RejectClaimRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body RejectClaimJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(ctx, err)
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectClaim(ctx, request.(RejectClaimRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectClaim")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(RejectClaimResponseObject); ok {
+		if err := validResponse.VisitRejectClaimResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealth operation middleware
 func (sh *strictHandler) GetHealth(ctx *gin.Context) {
 	var request GetHealthRequestObject
@@ -1646,72 +2185,84 @@ func (sh *strictHandler) GetReady(ctx *gin.Context) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"09Lnxw+P/zMA",
+	"7Dztcts4kq+C4m3V2HWULMnKJOOt+aHY8kS3/jpJzlzVJBdCZEvChgQ0AGhHl3LVvsM+xLzHPMo+yVUD",
+	"BD9ESpbzMZfb2h+uEkkADfR3N7r90QtFshIcuFbeyUdvRSVNQIM0T6cxZckowp8RqFCylWaCeyfedAkk",
+	"xI+ERT6h5PZ2dNb2fI/hxxXVS8/3OE3AO/FY5PmehF9TJiHyTrRMwfdUuISE4rp6vcJRSkvGF97Dg++N",
+	"5pdUh8sdQL9TJLgDqZjgAWGc/JoKDconKg2XhCoSvPGO33iBT+ZSJEQvgQTDKV0ERMzNU0yVJhJo1CYj",
+	"TZgiwoCgMVmCBKIE0UuqzdA7GrOIaiEJhzuQRMJfIdSKUIJHAqXJPdNLkWrC9J/NjCXlUQySUK7uQSrS",
+	"770g90vghBlQCVOK8QWhPCL9Tqf8iQtNqD1MRLLzEZ4mM5BtMrwDuSZiBZLiXu0OwyXlC8DdWGJwgEjh",
+	"agfnrU6f/P7b8WFOlSXQCGRBl9G8ZfG8ixoPSDq1ElyBYYgzCFkEhiFCwTVwjT/pahWz0Ozr6K8KafWx",
+	"tOafJMy9E+/fjgpOO7Jf1ZFhsCG/g1iswMKr0zyyQO0ZfYNwwrQiHO4zwuIh7fnMLvHdbvYxUx9hof4b",
+	"zyy8P+/i9m+kmMWQ7MDQyo7496dhyq3bgKMBJ+PzU/JD/9lzki3eNpKUzc0lGX+sJPKQZpaeNI7FPUSD",
+	"EJdSzTij9iPRS6bwQUiS0DXR9D0Qw4hMOfYT9yWZs+9WImbhmhxMzibk99+etXuHbTJMVnpN5kKaceKe",
+	"g0QaTFaScU26hmU1JKoBx757QaWka3ymSrEFh2gMdwzuQWbHup57J7/sRukloGhN0iShcu09vPU9nsYx",
+	"ncVgSf3ge+YMVwLXhA80WeEn7/TistXr9L5vdTqdbu/Y8+ubDCVQDdHAEH8uZEK1d+JFVENLswSapmRc",
+	"vmNKdXcNS8yZVHqSzhKm9eettGRKC7nGBXJK7ELlKzt+yLVcNxGJRY20zNfeC8gF4zDSkDQBWKVyJRQ0",
+	"Qsk0NcjHAGwwBM7UqeSnIuW6tDLjGhYgcYDSVKdqLy03sUNx0pegkGY6bj6uFprGjx5VcDBHTFfRUzk1",
+	"05tNGHkoq8tfrO13MpRjy22+oJrbdBXjBaQyDRskvoHzq1guS1dZOMvHd9xYML+/qR7f5sgQM3QDEBmG",
+	"tnaA0RI8TfDkk9uXl6Op53uDm5vx9euh53vj4X8MT6fmx/R2fGV+5MN+Hk1fnY0HP3u+dz66Gly8K+bZ",
+	"52z22016+N6HFgJt3VGJll0h9NKmLFK8ykYHq5UUd1B9OTaezeY7pMbmO9Ww5M9MLyNJ76tvzxmncSM0",
+	"8yUD+dahEb0Lx1l1OzQT0Ro9OGrXMx6UdcfaBL+HIkmA6+8UiYEv0EdQJFxC+B4iMluTl+NWp+8bJ2u2",
+	"tlbLCgOam6pVzFaqb+Pa+Ylou9w+DqgmiVCaPOt00COTNNQg1aHdlQSqBDcT7GbJwbN//O3vm2Prcvaw",
+	"jdlyd6lmzSOq9/O4aoJqZm5l7xFfpbqZKDHj0ELBISHKrCEKGFd1lirGQSkSs4RpQiWUqVE4CImI0hjI",
+	"Qb/XO2wkD7nl77m452TOII6UTxgP4zRCJzowaiPwzepswYWEiBwgpV8c1sn6adbGHn63yUnohwvDc95J",
+	"t9Pp+F7CeP5il/IuT+w9Nm+DZnUlas+1lYw3dLGDafZCirVkhYGs4SQDkTtLXb9mI+yoCfuf6shep2lo",
+	"bszqrGcjI9QIhpEUupDIVioUK/DRNbWMiNCQGXJIz577jxkug5TsOKX9uv1sRfEk9wecITgbD85RwVtN",
+	"Px2e5QbA/LwZXp2Nrn56h0r+6nRYGIyz3GIMz0r24eopFsDu5kzSea6t7avcUlZfW3W/+fYGOAobamwe",
+	"QvVbpttr6yBSNt86E8ELhe84qUbfQaYcKMa2MVOaqKW4z0PbYwxt290GGf8DHfYtPu2ne5v/353J3c6f",
+	"U1eFE5i7fIVrV3XaCqI0ClwqJXB9qyyqN3R9VGWBTveH3rwb9lvPZz1oPQ+PaeuHqN9tHc879PvZC+iF",
+	"3W4TkW2ypLzSgFNO/tJuGrwCadI7WShNo4hZf+Gm2Q49GttuCEUeiAORIgaykJRr5ZP3sLZWVYISqQzB",
+	"CEmX/P5bt/39YUX3ZRKC9LHY9XwP5ct7W4AvUCyFneOUWZlUsux9W9Wwn2oaixjGpYXsc74YPjpdg5tK",
+	"Fcg6FST82qaccu8xK2m4MF8jI2h2sirFHuGxz3S7ioX2d76GH1bAFZxSDYssGneUmI4Hr4cXaC5OT68v",
+	"L6/PBtPRNcYUl8PBxcTYm5ubi9EQf07Hg9HV6Oonz/eup6+G4z3ptAF9KukdoLxuvB+E6C6LyCS36p8v",
+	"gcaq/nqSYkYMGr5MJWXcbmrjy7VegjQ8cY6e4FBK0SD5xkusMkuJ/DWRS0CpTafFG3INkqxFKomb2yjw",
+	"Mo3rfGnp+hhf2m1mSxTbaGKDV0BjvayfVNWcDfHee7s7YK+7URJioAqIpgsiJFkwTSavBjaNN7i5efd6",
+	"OJ6Mrq/aj54oV+wOXONZyomi2oloHkc/agGzkBsTgJiSfLKxLcV4j5rHT3AOEH2FM7hfPrJi2ZuykSyq",
+	"bIBx/X3fa/aaJ0/3JZoUZ0aQynlKyzvkF+h8zGjnObw67ROXZtsrbxWWlOKuCZs6dNOqNlhhsFPOqIYa",
+	"wZtojTGwdTkT+oElaWKDmYRx+9AYA0kIga30GOYNe9ggRQagdOjqIapb9h0qK0B2ESOP778RipSi4t4e",
+	"0fRT6VVFfQnYsydG4F+aHGLBeOYZ1amxokrdC9lwGdv9x9/+/rxHZmsNCsPh2+l564Vv3MRZKNcrTRgS",
+	"2CZi2iQ/sE3ZqFIeyse7T3sZKXi8JpSTdLUCSWYi5ZG931Qg78z1ZmQe72FGwpgB5n5iJWyOx8Jea8hS",
+	"cWg8Snh+3nuUpmWv7zMoVLL8Of6aUF81D1uiic8MDoRijsGLCRNN53OfTMAoWjLYz591R3JLNh7JyGU9",
+	"subE8iOmS6avXtrrVPhAQx2vSc9ctiY0Ll+FdnvPOu1OJ2iTMwgF3sQyrgUJEoTQnlBNub2CLY6VTTFo",
+	"1xokQv7vN2+ij13/+4c3b9r4s/fwJ6/JEV2IVvayDKD8qcWSlZBWRijygbdgepnO2qFIjmZAE/d3ZIKd",
+	"eSzuj+hqpY7oih2hDpacxkdJHrWW7myryNq8ViURaMpiZZFmCgsQIYFPgiw0GkWYjeQRCQDdUxUQ+KCB",
+	"mwijKdEcwZ4Xv6c4FJWdWba+1RsJCoXQyK0pKqA2YUpCyskMCPJMVLla3QW15GE3XedxpU2AtsWjNKgg",
+	"SJsqWxgC3HWPaKqXRzGqu2b9nKGyefngv1qZkmyNorymw5Up2Kx7pqRisTAZavTibdysaGKKOtJqSvCT",
+	"8wMlH9yt1e80Gvw8x1IAHXFTXpLHGOh/OzXVqEPsi8LfpzOR6pNZTPn7PYO6jJum6xUMcPJLO7eWW8aV",
+	"GnI2hmFL9C8Tq0kJlZm3IcmnNPq3xPA0wbXzooDMpGRlA30sG/D8/NwvB2fvxsP/vB1OMLV6ezW4nb4a",
+	"Xk1HpwObLT2/Hr8cnZ0NMSC+up6+O7++vcL3o6vXg4vR2bvpeHA1GWUR8+n11fnFyNzMma8mkn53Phhd",
+	"2AzteHh6fXVmRhugo/HQrjUdjq8GF3YDrweji8HLi+HTyIB4eUkjZ/Mr+LrlKCXANQupzaWWPp4LOWNR",
+	"BLz6+kroc7TU1bcZm00l5Zm9qHw+FXwes3AD/Gtb+IRXdZTFm/BvJISC2/TWuAh5K0Ctmq0d6o4yG9Vg",
+	"ID8GGq0/ObJtDkDrfPhgVNZcbKkJElyj/0NmoO8BFSeaCvRrUI87u5Gz4qGrxbJc6/QO+ky0XohDDoJt",
+	"tT/BYTsXsRObDz+PxT0Z3IxKQfSJ12l32x0UJrECTlfMO/GO2532sTWuS4OmskZFbArrQeblYqhLrX9Z",
+	"iOxLYVH/RQq5Kr7rQ5UyWfRaKSTrdTpfDHZTkm5LKRlqWqSULSAgjDtzYXKAJBTiPTOkVKDzJOpx+/hw",
+	"o8JsArp1agY381R1wTYJ3r17JZRuKRYF1jqfXl//ZTR8Nxme3o6HCNHkHgjECkiAw9reY6Vm/U5nG2py",
+	"XBd1Yzi++8Txx08aH8GcprF+whw0oBCmkum1d/LLW99TzgP3TvM4IreOKI7OPJrwhqMBkZpQh28jUHRh",
+	"VCxKhDVsuXCIVO+UDvxe49P+bgoDjyByBQiOe8IYKF5FGzfxkn5oDRbwY+fLMZRx5uzqlBMw5XTGqbGu",
+	"Zw5xLyb6FpkiZ4NhFmaGVsZzQlfEVop7xHoEMWiI8tC0Ro9d7GEjuQU0cMZPoC/B+zYUmFVcLcaNWLQ/",
+	"Raw/kyK5GhXzZspk/oAqxNKpwWb029v7Evarpw7Mff6PCeMQmKvgzJHPlsatfKewiLRUBmAv/q0/4GOx",
+	"LyhNTI2YDc5snbSN33DSCa4bEClSDaS4E2qTDLi96yqDD/L7/MDBdWVpRIvaDn0i4gg3EZRuOIP6lgIL",
+	"ye7HMrmrJzeJFQu82CGhc40WzZazq2y/gU9mENJUwebwCFbAI0VEqVSidKOOxbmDvERdSJJmpTf5ugHW",
+	"QgRkBuipdH0cE7jyiICIVCsWAcGMVLfTMT4RVrkj5Te0LVP61BLerzQd/NJcZaQ0otXU7LuC9l9TMKm3",
+	"rJ7d7HBnubbzJZGV8gvMPR123O8EIVzayfnzOFvl4cFv2nm3NaMKIlOEktfyD+zjiipd9CMIDsRWP6pC",
+	"qQd4NxhsO3JWnlKcMBft7u70c32vlhbIKnm9zDaIWSVMA1ST9XYp8G7nkRw4XnF8PZWaFzw1KNJrDpYC",
+	"mQozrPNdVsWu2iQwyuakojjIQZDfbASZ9xEwzPbg2rZE5rDtBDg4cQLvJpflvjKdFrO9fxqnLrcWKCcl",
+	"xUzLKscn2KVyWDYLdqQJDZ2XViXd1abmtkSp626rVSkv1LIrWDAFgt1nh5VMUUjjMI2pztJEpjbFrGCr",
+	"ClEk167c0BWauTxXqeCwquROzd4MK36lsKtUnrlX0NX9Yzt3shYxRZQWuT9szXLZgj65feex1p3Ok1t3",
+	"8PbF4qEZMkbaTl1g81DWixS4jKZ5VkcfWfTwCU1D35rQ93u9P1JJWDnJu9hQ7Ky6RMfGVk6j6BqtgS6K",
+	"axQiNL6na5UNVo2KpPAwDXG2upnTzY4l2zGgyB1TbMZipitNTCfocRr3J9cvxosTmgSm5DNAM28XNK16",
+	"WX+fWS0G5xkdW5HgIhuK5h4nJjTGa0xMUUQ7vKifQDvt8qgP9XXaNb+6Dd9LxXwDCuSbFONO/0njP1OM",
+	"Bzl3W17LGzXNFYy5dvJJ1lzj51E6LVU1lkOmosnQOAuH+0j3UdaTUc7yNPkPeWT6Z6K3yX12qeSaS2z0",
+	"JVNurT/ekMsInYms07bb7h+ekMB11QblXt+Dfu/FIRGyJNYH/U7nsAw9EmA1BHxAl+mg3+ln34uWS/ys",
+	"AFGJi2UaBRFc83H8bAB+zIs2cdHjCtBsiXIwe9Dv/ECC+kVJ4BMsVTNtNMdmeTPQXZ5kWU3TMp11LmeL",
+	"l3MEgoODb+uFcFAs+ALw1ofyjRYa0xRSguswshsCOaju7LDSHlRu964r1KyefYtSbRKKYsiR65Z/8B8d",
+	"6nrcrf78Sn5h3k71UG/k7u2jqly39z+Baut3fviqHlC/9+IPVbWuB47kcWUm0gc2pqr5SLHJD2HZhmsw",
+	"CfbSqLZpbbtCndAk146o0q1WpMq1x1W64JgL3awsBifEGVif1LvisuSWlixJjBq1OqCUovKJufv2sTtE",
+	"aqOVUJuUwFHS7/WsJQpsOcSP5I2rVjT/I8L+14V+p+Pbf/wAWd8ZUaBRv5RKmKq6wna5/EtV/EtVfNOq",
+	"wrJpg6aw10dOVg6252JQJSzzGvRtVyRZlfpXjAcyCFsCgcHNCC/dQ1AKBV+mHLsI2l/8YvKC3QEHpdrk",
+	"zLlsLtGO0Rume8tYVGulIcmwKF25wzYk2nqIr4hDC2AHCrFaTAINlxsnevC9Z/+X98G4cWbxPs6y5M86",
+	"x4XX6XaKtE+5OQFWmTSTwsDBvJ9V1qmMi+I0o2izKZvGztE+6z3PdlS6g7AQ6un1CVtwvLSjG9eZGOgU",
+	"082lWMNkmwtxMLN0ajEte354+/C/AwA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

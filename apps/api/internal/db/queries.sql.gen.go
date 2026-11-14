@@ -38,6 +38,19 @@ func (q *Queries) CountRequesterClaims(ctx context.Context, requesterID uuid.UUI
 	return total, err
 }
 
+const countReviewClaims = `-- name: CountReviewClaims :one
+SELECT count(*)::int AS total
+FROM claims
+WHERE assigned_reviewer_id = $1 AND status = 'SUBMITTED'
+`
+
+func (q *Queries) CountReviewClaims(ctx context.Context, reviewerID uuid.NullUUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countReviewClaims, reviewerID)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const createSession = `-- name: CreateSession :exec
 INSERT INTO session (id, user_id, token, expires_at)
 VALUES ($1, $2, $3, $4)
@@ -58,6 +71,34 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.ExpiresAt,
 	)
 	return err
+}
+
+const decideClaim = `-- name: DecideClaim :execrows
+UPDATE claims
+SET status = $1, version = version + 1, decided_at = $2, updated_at = $2
+WHERE id = $3 AND version = $4
+`
+
+type DecideClaimParams struct {
+	Status  ClaimStatus
+	Now     pgtype.Timestamptz
+	ID      uuid.UUID
+	Version int32
+}
+
+// DecideClaim moves a claim to its decided status and adds one to the version, but only while the version is still the
+// one the caller read (BR-13). It returns the rows changed: 0 means the claim changed since.
+func (q *Queries) DecideClaim(ctx context.Context, arg DecideClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, decideClaim,
+		arg.Status,
+		arg.Now,
+		arg.ID,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
@@ -334,6 +375,52 @@ func (q *Queries) InsertLineItem(ctx context.Context, arg InsertLineItemParams) 
 	return err
 }
 
+const insertSeedClaim = `-- name: InsertSeedClaim :execrows
+INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
+                    first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+SELECT $1, $2, u.id, u.reviewer_id, $3, $4, $5,
+       $6, $7, $8::timestamptz, $8::timestamptz,
+       $9::timestamptz, $8::timestamptz,
+       coalesce($9::timestamptz, $8::timestamptz)
+FROM "user" u
+WHERE u.username = $10
+ON CONFLICT (claim_no) DO NOTHING
+`
+
+type InsertSeedClaimParams struct {
+	ID          uuid.UUID
+	ClaimNo     string
+	Title       string
+	Purpose     string
+	Status      ClaimStatus
+	TotalSatang money.Satang
+	Version     int32
+	SubmittedAt pgtype.Timestamptz
+	DecidedAt   pgtype.Timestamptz
+	Requester   string
+}
+
+// InsertSeedClaim adds a demo claim with the status it should have after its history, unless a claim with the same
+// claim_no exists. It returns the rows added: 0 means the claim was seeded before, so its children must not be added again.
+func (q *Queries) InsertSeedClaim(ctx context.Context, arg InsertSeedClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertSeedClaim,
+		arg.ID,
+		arg.ClaimNo,
+		arg.Title,
+		arg.Purpose,
+		arg.Status,
+		arg.TotalSatang,
+		arg.Version,
+		arg.SubmittedAt,
+		arg.DecidedAt,
+		arg.Requester,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listClaimHistory = `-- name: ListClaimHistory :many
 SELECT h.id, h.action, h.from_status, h.to_status, h.comment, h.created_at,
        u.id AS actor_id, u.name AS actor_name, u.position AS actor_position
@@ -467,6 +554,67 @@ func (q *Queries) ListRequesterClaims(ctx context.Context, arg ListRequesterClai
 	var items []ListRequesterClaimsRow
 	for rows.Next() {
 		var i ListRequesterClaimsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClaimNo,
+			&i.Status,
+			&i.Title,
+			&i.TotalSatang,
+			&i.SubmittedAt,
+			&i.CreatedAt,
+			&i.RequesterID,
+			&i.RequesterName,
+			&i.RequesterPosition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReviewClaims = `-- name: ListReviewClaims :many
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE c.assigned_reviewer_id = $1 AND c.status = 'SUBMITTED'
+ORDER BY c.submitted_at, c.id
+LIMIT $3 OFFSET $2
+`
+
+type ListReviewClaimsParams struct {
+	ReviewerID uuid.NullUUID
+	PageOffset int32
+	PageLimit  int32
+}
+
+type ListReviewClaimsRow struct {
+	ID                uuid.UUID
+	ClaimNo           string
+	Status            ClaimStatus
+	Title             string
+	TotalSatang       money.Satang
+	SubmittedAt       pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	RequesterID       uuid.UUID
+	RequesterName     string
+	RequesterPosition string
+}
+
+// ListReviewClaims returns one page of the SUBMITTED claims assigned to a reviewer, oldest submission first (F-04 §3).
+func (q *Queries) ListReviewClaims(ctx context.Context, arg ListReviewClaimsParams) ([]ListReviewClaimsRow, error) {
+	rows, err := q.db.Query(ctx, listReviewClaims, arg.ReviewerID, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReviewClaimsRow
+	for rows.Next() {
+		var i ListReviewClaimsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ClaimNo,
