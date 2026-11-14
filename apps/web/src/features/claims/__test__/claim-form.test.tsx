@@ -118,7 +118,7 @@ const addRows = async (user: User, count: number): Promise<void> => {
   await addRows(user, count - 1);
 };
 
-describe("New Claim form", () => {
+describe("F02-TEST-19 (F02-AC-13): New Claim form", () => {
   it("starts with one empty row, a ฿0.00 total, and Remove disabled", () => {
     renderForm();
 
@@ -232,6 +232,68 @@ describe("New Claim form", () => {
     });
     await screen.findByText("Claim CLM-2026-000123 submitted");
   });
+
+  it("shows each server error under its field, keeps the values, and re-enables Submit after a 422", async () => {
+    server.use(
+      http.post(
+        claimsUrl,
+        () =>
+          HttpResponse.json(
+            {
+              type: "about:blank",
+              title: "Some fields are invalid.",
+              status: 422,
+              code: "VALIDATION_FAILED",
+              instance: "/api/v1/claims",
+              requestId: "req-claim-422",
+              errors: [
+                {
+                  field: "items[0].expenseDate",
+                  rule: "BR-07",
+                  message: "Expense date cannot be in the future.",
+                },
+                {
+                  field: "items[1].amount",
+                  rule: "BR-12",
+                  message: "A Meals item cannot be more than 1,500.00 THB.",
+                },
+                {
+                  field: "total",
+                  rule: "BR-06",
+                  message: "Claim total cannot be more than 50,000.00 THB.",
+                },
+              ],
+            },
+            { status: 422 }
+          ),
+        { once: true }
+      )
+    );
+    const user = renderForm();
+
+    await user.type(screen.getByLabelText("Title"), "Bangkok workshop travel");
+    await user.type(screen.getByLabelText("Purpose"), "Train fares and hotel");
+    await fillItem(user, 0, { amount: "250.00", description: "Train" });
+    await user.click(getButton("Add line item"));
+    await fillItem(user, 1, { amount: "1600.00", description: "Lunch" });
+    await user.click(getButton("Submit"));
+
+    await screen.findByText("Expense date cannot be in the future.");
+    screen.getByText("A Meals item cannot be more than 1,500.00 THB.");
+    screen.getByText("Claim total cannot be more than 50,000.00 THB.");
+    expect(screen.queryByText("Something went wrong.")).toBeNull();
+    expect(screen.getByLabelText<HTMLInputElement>("Title").value).toBe(
+      "Bangkok workshop travel"
+    );
+    expect(screen.getAllByLabelText<HTMLInputElement>("Amount")[1].value).toBe(
+      "1600.00"
+    );
+    expect(getButton("Submit").getAttribute("aria-busy")).not.toBe("true");
+
+    // The next submit sends the same values again, and the server may accept them now.
+    await user.click(getButton("Submit"));
+    await screen.findByText("Claim CLM-2026-000123 submitted");
+  }, 30_000);
 
   it("keeps the values and offers Try again with the request ID after a server error", async () => {
     server.use(
