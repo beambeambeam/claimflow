@@ -558,3 +558,27 @@ func TestDecidedClaimWithBlankReasonIsInvalidTransition(t *testing.T) {
 
 	decodeProblem(t, decide(t, router, token, id, "reject", `"1"`, ""), http.StatusConflict, "INVALID_TRANSITION")
 }
+
+// F04-AC-14 at the HTTP seam: when the history insert fails, the decision is 500 and the claim is unchanged.
+func TestDecisionHistoryFailureIs500AndChangesNothing(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	id := submittedBy(t, router, "req.anan")
+	token := loginAs(t, router, "rev.malee")
+	before := readState(t, pool, id)
+
+	// A test-only trigger makes every history insert fail.
+	if _, err := pool.Exec(t.Context(), `
+		CREATE FUNCTION fail_history_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN RAISE EXCEPTION 'forced history failure'; END; $$;
+		CREATE TRIGGER fail_history_insert BEFORE INSERT ON claim_history
+		FOR EACH ROW EXECUTE FUNCTION fail_history_insert();`); err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+
+	decodeProblem(t, decide(t, router, token, id, "approve", `"0"`, ""), http.StatusInternalServerError, "INTERNAL")
+
+	if after := readState(t, pool, id); after != before {
+		t.Fatalf("stored = %+v after the failed decision, want %+v", after, before)
+	}
+}

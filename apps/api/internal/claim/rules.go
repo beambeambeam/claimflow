@@ -2,7 +2,9 @@ package claim
 
 import (
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/money"
@@ -46,6 +48,14 @@ const (
 	ruleTotal      = "BR-06"
 	ruleDate       = "BR-07"
 	ruleMeals      = "BR-12"
+	ruleComment    = "BR-04"
+)
+
+// Limits of the decision comment (BR-04), counted in characters after trimming.
+const (
+	// MinReasonLength and MaxCommentLength bound a reject reason. An approve comment has only the upper bound.
+	MinReasonLength  = 5
+	MaxCommentLength = 500
 )
 
 // ShapeMessages are the messages of the 400 errors that name a field of ClaimInput (contract §1.4), keyed by the field
@@ -114,4 +124,26 @@ func checkRules(in Input, now time.Time) error {
 // itemField names a field of line item i the way the problem's errors do, such as items[1].amount.
 func itemField(i int, name string) string {
 	return fmt.Sprintf("items[%d].%s", i, name)
+}
+
+// checkComment runs BR-04 on a decision comment: a reject reason is required with 5 to 500 characters, an approve comment
+// is optional with at most 500. It counts characters, not bytes, after trimming, and returns a ValidationError on the
+// comment field, or nil.
+func checkComment(action, comment string) error {
+	length := utf8.RuneCountInString(strings.TrimSpace(comment))
+
+	var message string
+
+	switch {
+	case length > MaxCommentLength:
+		message = "Comment cannot be more than 500 characters."
+	case action == ActionReject && length == 0:
+		message = "Enter a reason (5 to 500 characters)."
+	case action == ActionReject && length < MinReasonLength:
+		message = "Reason must be at least 5 characters."
+	default:
+		return nil
+	}
+
+	return ValidationError{Fields: []FieldError{{Field: "comment", Rule: ruleComment, Message: message}}}
 }

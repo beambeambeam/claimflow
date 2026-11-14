@@ -198,7 +198,8 @@ func summarize(row *db.ListRequesterClaimsRow) Summary {
 // comment is trimmed (empty is stored as no comment), the claim moves to the decided status with its version plus one
 // and its decision time set, and one history entry is added. version is the one the caller read. It checks in the order of
 // F-04 §1.4: a missing claim is ErrNotFound; a claim the actor may not decide is ErrForbidden; a status that does not
-// allow the action is ErrInvalidTransition; a changed version is ErrConflict (BR-13). It returns the decided claim.
+// allow the action is ErrInvalidTransition; a comment that breaks BR-04 is a ValidationError; a changed version is
+// ErrConflict (BR-13). It returns the decided claim.
 //
 // A claim that is no longer SUBMITTED, read with a version other than the caller's, is ErrConflict: another decision
 // has won since the caller read the claim (BR-13). The caller's screen is stale, so its action is not "invalid".
@@ -221,6 +222,10 @@ func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int
 		}
 
 		if err != nil {
+			return err
+		}
+
+		if err := checkComment(action, comment); err != nil {
 			return err
 		}
 

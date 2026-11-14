@@ -220,7 +220,13 @@ func (h Handler) decide(ctx context.Context, rawID string, ifMatch *string, acti
 
 	decided, err := h.service.Act(ctx, Actor{ID: user.ID}, id, version, action, comment)
 
+	var invalid ValidationError
+
 	switch {
+	case errors.As(err, &invalid):
+		return Claim{}, fmt.Errorf("decision rules: %w", httperr.ValidationFailed(fieldErrors(invalid)))
+	case errors.Is(err, ErrInvalidTransition):
+		return Claim{}, fmt.Errorf("decision status: %w", httperr.InvalidTransition(api.FieldError{Field: "status", Rule: "BR-03", Message: "Only a submitted claim can be approved or rejected."}))
 	case errors.Is(err, ErrNotFound):
 		return Claim{}, errClaimNotFound
 	case errors.Is(err, ErrForbidden):

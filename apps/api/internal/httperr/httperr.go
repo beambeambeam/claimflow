@@ -137,6 +137,12 @@ func ValidationFailed(fields []api.FieldError) *Error {
 	return &Error{Status: http.StatusUnprocessableEntity, Code: api.ProblemCodeValidationFailed, Title: "Some fields are invalid.", Errors: fields}
 }
 
+// InvalidTransition returns the 409 problem for an action that the claim's status does not allow (BR-03). fields names
+// the status that broke the rule.
+func InvalidTransition(fields ...api.FieldError) *Error {
+	return &Error{Status: http.StatusConflict, Code: api.ProblemCodeInvalidTransition, Title: "The claim cannot move to that status.", Errors: fields}
+}
+
 func write(c *gin.Context, problem *Error) {
 	body := api.Problem{
 		Type:      api.ProblemTypeAboutBlank,
