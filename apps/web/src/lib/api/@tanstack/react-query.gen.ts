@@ -250,7 +250,7 @@ export const getClaimOptions = (options: Options<GetClaimData>) => queryOptions<
 /**
  * Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
  *
- * Needs a session; the claim policy decides the rest. The checks run in this order (F-04 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it or is not its assigned reviewer, or is its requester (403); the claim is not `SUBMITTED` (409 `INVALID_TRANSITION`, rule BR-03); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional.
+ * Needs a session; the claim policy decides the rest. The checks run in this order (F-04 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it or is not its assigned reviewer, or is its requester (403); the claim is not `SUBMITTED` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional.
  */
 export const approveClaimMutation = (options?: Partial<Options<ApproveClaimData>>): UseMutationOptions<ApproveClaimResponse, ApproveClaimError, Options<ApproveClaimData>> => {
   const mutationOptions: UseMutationOptions<ApproveClaimResponse, ApproveClaimError, Options<ApproveClaimData>> = {
