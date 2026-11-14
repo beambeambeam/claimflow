@@ -100,7 +100,7 @@ python scripts/render_reviews.py                 # figures/github: review and co
 python scripts/collect_team.py && python scripts/gen_team_table.py     # F.5 contribution table
 (cd ../../../apps/api && go test -json -count=1 ./... > /tmp/go.json)  # needs Docker
 python scripts/gen_ac_table.py --gojson /tmp/go.json --commit <sha>    # F.3 AC-to-test table
-SEED_USER_PASSWORD=... node scripts/capture_demo.cjs                  # demos 2 and 3; local stack must be running
+SEED_USER_PASSWORD=... node scripts/capture-demo.cjs                  # demos 2 and 3; local stack must be running
 xelatex -interaction=nonstopmode main.tex && xelatex -interaction=nonstopmode main.tex
 python scripts/check_report.py                   # pending figures, \todo, blank captures, Mermaid, overfull boxes
 ```
