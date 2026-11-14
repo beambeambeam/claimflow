@@ -30,7 +30,7 @@ bun run --cwd apps/api migrate up
 
 `bun run migrate <up|down|status>` runs `api migrate`. `up` applies every pending migration, `down` rolls back the latest one, and `status` lists them. The API never migrates at startup. Migrations are SQL files in `migrations/`, embedded in the binary and applied by [goose](https://pressly.github.io/goose/) under a PostgreSQL advisory lock. Add one with `bun run migrate:new <name> sql`.
 
-`bun run seed` runs `api seed` after `migrate up`. It creates or updates the seven SDS §2.5 demo users (`fin.wanida`, `rev.prasert`, `rev.malee`, `rev.somchai`, `req.anan`, `req.ploy`, `req.niran`) and stores a bcrypt hash of `SEED_USER_PASSWORD` for each. Set `SEED_USER_PASSWORD` in `apps/api/.env` (local only, never committed) or in the environment. Without it, `seed` fails and writes nothing. A second run updates the same rows.
+`bun run seed` runs `api seed` after `migrate up`. It creates or updates the seven SDS §2.5 demo users (`fin.wanida`, `rev.prasert`, `rev.malee`, `rev.somchai`, `req.anan`, `req.ploy`, `req.niran`) and stores a bcrypt hash of `SEED_USER_PASSWORD` for each. Set `SEED_USER_PASSWORD` in `apps/api/.env` (local only, never committed) or in the environment. Without it, `seed` fails and writes nothing. It also adds the six sample claims of F-04 §4 with their line items and history. They have fixed claim numbers (`CLM-2026-900001` to `CLM-2026-900006`), so a second run updates the same users and adds no claim twice.
 
 `bun run db:down` stops the database and keeps its volume.
 
@@ -74,7 +74,7 @@ Run these in `apps/api`. Root scripts call them for you.
 | `bun run generate` | Regenerate env, server, and query code |
 | `bun run migrate <up\|down\|status>` | Run migrations against `DATABASE_URL` |
 | `bun run migrate:new <name> sql` | Add a migration file |
-| `bun run seed` | Create or update the seven demo users under `varlock run`; needs `SEED_USER_PASSWORD` |
+| `bun run seed` | Create or update the seven demo users and add the sample claims under `varlock run`; needs `SEED_USER_PASSWORD` |
 | `bun run test` | Run tests with the race detector |
 | `bun run test:coverage` | Run tests and require 100% coverage ([go-test-coverage](https://github.com/vladopajic/go-test-coverage)) |
 | `bun run lint` / `bun run lint:fix` | Lint with [golangci-lint](https://golangci-lint.run) |
