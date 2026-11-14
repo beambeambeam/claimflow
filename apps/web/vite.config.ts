@@ -25,6 +25,8 @@ const config = defineConfig({
   server: { proxy: { "/api": ENV.API_URL } },
   test: {
     environment: "jsdom",
+    // Above the 15 s wait of findBy and waitFor (src/__test__/setup.ts), so a slow render fails with its own message.
+    testTimeout: 60_000,
     coverage: {
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
