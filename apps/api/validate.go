@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -21,8 +22,10 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
 
-func init() {
-	// The built-in date format is a pattern, so it accepts 2026-02-31. The contract's date is a real calendar date.
+// defineCalendarDate makes the date format a real calendar date. The built-in format is a pattern, so it accepts
+// 2026-02-31. kin-openapi keeps formats in a process-wide table, so the definition is made once however many routers
+// are built.
+var defineCalendarDate = sync.OnceFunc(func() {
 	openapi3.DefineStringFormatValidator("date", openapi3.NewCallbackValidator(func(value string) error {
 		_, err := time.Parse(time.DateOnly, value)
 		if err != nil {
@@ -31,7 +34,7 @@ func init() {
 
 		return nil
 	}))
-}
+})
 
 // maxRequestBody caps the JSON body that requestValidation reads. A claim is at most 20 items of a few hundred bytes.
 const maxRequestBody = 1 << 20
@@ -56,6 +59,8 @@ var indexPattern = regexp.MustCompile(`\[\d+\]`)
 // or whose whole value has the wrong type, is a 400 with no field. It runs after the session check and before the
 // route permission, as the contract's workflow says.
 func requestValidation(spec *openapi3.T, validated map[string]map[string]string) gin.HandlerFunc {
+	defineCalendarDate()
+
 	type check struct {
 		schema   *openapi3.Schema
 		messages map[string]string
