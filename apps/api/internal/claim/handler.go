@@ -48,6 +48,12 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 	if errors.Is(err, ErrForbidden) {
 		return nil, httperr.ErrForbidden
 	}
+
+	var invalid ValidationError
+	if errors.As(err, &invalid) {
+		return nil, fmt.Errorf("claim rules: %w", httperr.ValidationFailed(fieldErrors(invalid)))
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +65,16 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 			Location: locationPrefix + created.ID.String(),
 		},
 	}, nil
+}
+
+// fieldErrors maps the broken rules of a ValidationError to the problem's errors[] entries.
+func fieldErrors(invalid ValidationError) []api.FieldError {
+	fields := make([]api.FieldError, 0, len(invalid.Fields))
+	for _, field := range invalid.Fields {
+		fields = append(fields, api.FieldError{Field: field.Field, Rule: field.Rule, Message: field.Message})
+	}
+
+	return fields
 }
 
 // input maps the request body to the module's input. The body has no total, and any total in the JSON is ignored.

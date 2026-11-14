@@ -24,7 +24,7 @@ const (
 	requestIDKey    = "httperr.requestID"
 )
 
-// Error is an error with a known problem response. Errors names the invalid fields of a 400, and is
+// Error is an error with a known problem response. Errors names the invalid fields of a 400 or 422, and is
 // empty when no field can be named.
 type Error struct {
 	Status int
@@ -125,6 +125,12 @@ func InvalidFields(fields []api.FieldError) *Error {
 	problem.Errors = fields
 
 	return &problem
+}
+
+// ValidationFailed returns the 422 problem for a request that breaks business rules. It lists every broken rule in
+// fields, one entry per field (NFR-08).
+func ValidationFailed(fields []api.FieldError) *Error {
+	return &Error{Status: http.StatusUnprocessableEntity, Code: api.ProblemCodeValidationFailed, Title: "Some fields are invalid.", Errors: fields}
 }
 
 func write(c *gin.Context, problem *Error) {
