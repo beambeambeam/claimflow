@@ -114,6 +114,51 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
   /claims:
+    get:
+      operationId: listClaims
+      summary: List claims in a scope, newest first (F-03).
+      description: >-
+        `scope=mine` lists the session user's own claims in every status and needs the `claim:list` route permission. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+      tags: [claims]
+      parameters:
+        - name: scope
+          in: query
+          required: true
+          description: The list to read. `mine` is the only scope in this version; F-04 adds `review`.
+          schema:
+            type: string
+            enum: [mine]
+            x-enum-varnames: [ListScopeMine]
+        - name: page
+          in: query
+          description: The 1-based page number. A page past the last one returns an empty `data`.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          description: Claims per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: One page of the scope's claims, newest first (`createdAt`, then `id`, descending).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimPage"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
     post:
       operationId: createClaim
       summary: Create a claim and submit it for review (F-02). Sprint 1 always submits.
@@ -151,6 +196,43 @@ paths:
         "403":
           $ref: "#/components/responses/Problem"
         "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /claims/{id}:
+    get:
+      operationId: getClaim
+      summary: A visible claim with its line items, history, and the actions the session user may take (F-03).
+      description: >-
+        The claim policy decides visibility (SDS §5.2): own, or assigned and not `DRAFT`. A claim that is not visible is a 403 with no claim data. A malformed id is a 400.
+      tags: [claims]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The claim id, a UUID.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The claim.
+          headers:
+            ETag:
+              description: The claim's `version` in quotes, such as `"0"`.
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimEnvelope"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
@@ -457,7 +539,7 @@ components:
             $ref: "#/components/schemas/HistoryEntry"
         allowedActions:
           type: array
-          description: The actions this actor may take on this claim now (SDS §5.2). Empty until F-03 and F-04.
+          description: The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the owner in Sprint 1.
           items:
             type: string
     ClaimEnvelope:
@@ -466,6 +548,50 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/Claim"
+    ClaimSummary:
+      type: object
+      description: A claim as a list shows it (F-03 §3.1).
+      required:
+        [id, claimNo, title, status, total, requester, submittedAt, createdAt]
+      properties:
+        id:
+          type: string
+        claimNo:
+          type: string
+          example: CLM-2026-000123
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/ClaimStatus"
+        total:
+          $ref: "#/components/schemas/Money"
+        requester:
+          $ref: "#/components/schemas/MemberSummary"
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    ClaimPage:
+      type: object
+      required: [data, page, pageSize, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClaimSummary"
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          description: The number of claims in the scope, on every page.
+          example: 57
     ProblemCode:
       type: string
       description: A stable error code for the client (SDS §4.2).

@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateClaimData, CreateClaimErrors, CreateClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses } from './types.gen';
-import { zCreateClaimBody, zCreateClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zLoginBody, zLoginResponse, zLogoutResponse } from './zod.gen';
+import type { CreateClaimData, CreateClaimErrors, CreateClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses } from './types.gen';
+import { zCreateClaimBody, zCreateClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -96,6 +96,22 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
 });
 
 /**
+ * List claims in a scope, newest first (F-03).
+ *
+ * `scope=mine` lists the session user's own claims in every status and needs the `claim:list` route permission. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+ */
+export const listClaims = <ThrowOnError extends boolean = false>(options: Options<ListClaimsData, ThrowOnError>): RequestResult<ListClaimsResponses, ListClaimsErrors, ThrowOnError> => (options.client ?? client).get<ListClaimsResponses, ListClaimsErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: zListClaimsQuery
+  }).parseAsync(data),
+  responseValidator: async (data) => await zListClaimsResponse.parseAsync(data),
+  url: '/claims',
+  ...options
+});
+
+/**
  * Create a claim and submit it for review (F-02). Sprint 1 always submits.
  *
  * Needs the `claim:create` route permission, and an assigned reviewer (BR-15). The server calculates the total and ignores any `total` in the request (BR-08).
@@ -113,4 +129,20 @@ export const createClaim = <ThrowOnError extends boolean = false>(options: Optio
     'Content-Type': 'application/json',
     ...options.headers
   }
+});
+
+/**
+ * A visible claim with its line items, history, and the actions the session user may take (F-03).
+ *
+ * The claim policy decides visibility (SDS §5.2): own, or assigned and not `DRAFT`. A claim that is not visible is a 403 with no claim data. A malformed id is a 400.
+ */
+export const getClaim = <ThrowOnError extends boolean = false>(options: Options<GetClaimData, ThrowOnError>): RequestResult<GetClaimResponses, GetClaimErrors, ThrowOnError> => (options.client ?? client).get<GetClaimResponses, GetClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    path: zGetClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zGetClaimResponse.parseAsync(data),
+  url: '/claims/{id}',
+  ...options
 });

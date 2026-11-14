@@ -50,3 +50,18 @@ FROM claim_history h
 JOIN "user" u ON u.id = h.actor_id
 WHERE h.claim_id = sqlc.arg(claim_id)
 ORDER BY h.id;
+
+-- name: ListRequesterClaims :many
+-- ListRequesterClaims returns one page of a requester's claims in every status, newest first (F-03 §1.4).
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE c.requester_id = sqlc.arg(requester_id)
+ORDER BY c.created_at DESC, c.id DESC
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: CountRequesterClaims :one
+SELECT count(*)::int AS total
+FROM claims
+WHERE requester_id = sqlc.arg(requester_id);

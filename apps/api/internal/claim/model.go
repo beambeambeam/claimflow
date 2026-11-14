@@ -61,7 +61,25 @@ type HistoryEntry struct {
 	CreatedAt  time.Time
 }
 
-// Claim is a stored claim with its line items and history. AllowedActions is empty until F-03 and F-04 add the policy.
+// Summary is a claim as a list shows it.
+type Summary struct {
+	ID          uuid.UUID
+	ClaimNo     string
+	Status      db.ClaimStatus
+	Title       string
+	Total       money.Satang
+	Requester   Member
+	SubmittedAt *time.Time
+	CreatedAt   time.Time
+}
+
+// Page is one page of a list. Total counts the claims on every page.
+type Page struct {
+	Claims []Summary
+	Total  int
+}
+
+// Claim is a stored claim with its line items and history. AllowedActions comes from the claim policy (Allowed).
 type Claim struct {
 	ID               uuid.UUID
 	ClaimNo          string
@@ -81,4 +99,14 @@ type Claim struct {
 	Items            []LineItem
 	History          []HistoryEntry
 	AllowedActions   []string
+}
+
+// subject returns what the claim policy reads about the claim.
+func (c *Claim) subject() Subject {
+	subject := Subject{RequesterID: c.Requester.ID, Status: c.Status}
+	if c.AssignedReviewer != nil {
+		subject.AssignedReviewerID = c.AssignedReviewer.ID
+	}
+
+	return subject
 }

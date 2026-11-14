@@ -45,3 +45,13 @@ func TestClaimBodyMapsOptionalFields(t *testing.T) {
 		t.Fatalf("history = %+v, want the from-status and the comment", body.History)
 	}
 }
+
+// The route requires a session before the handler runs, so a missing user is only a guard.
+func TestGetClaimWithoutSessionUserIsUnauthenticated(t *testing.T) {
+	handler := NewHandler(newService(pgtest.New(t)))
+
+	_, err := handler.GetClaim(t.Context(), api.GetClaimRequestObject{})
+	if !errors.Is(err, errUnauthenticated) {
+		t.Fatalf("GetClaim error = %v, want the 401 problem", err)
+	}
+}

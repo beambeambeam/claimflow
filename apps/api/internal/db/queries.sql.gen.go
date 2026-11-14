@@ -25,6 +25,19 @@ func (q *Queries) CheckReady(ctx context.Context) (int32, error) {
 	return ok, err
 }
 
+const countRequesterClaims = `-- name: CountRequesterClaims :one
+SELECT count(*)::int AS total
+FROM claims
+WHERE requester_id = $1
+`
+
+func (q *Queries) CountRequesterClaims(ctx context.Context, requesterID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countRequesterClaims, requesterID)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const createSession = `-- name: CreateSession :exec
 INSERT INTO session (id, user_id, token, expires_at)
 VALUES ($1, $2, $3, $4)
@@ -404,6 +417,67 @@ func (q *Queries) ListClaimLineItems(ctx context.Context, claimID uuid.UUID) ([]
 			&i.ExpenseDate,
 			&i.AmountSatang,
 			&i.ReceiptRef,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequesterClaims = `-- name: ListRequesterClaims :many
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE c.requester_id = $1
+ORDER BY c.created_at DESC, c.id DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListRequesterClaimsParams struct {
+	RequesterID uuid.UUID
+	PageOffset  int32
+	PageLimit   int32
+}
+
+type ListRequesterClaimsRow struct {
+	ID                uuid.UUID
+	ClaimNo           string
+	Status            ClaimStatus
+	Title             string
+	TotalSatang       money.Satang
+	SubmittedAt       pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	RequesterID       uuid.UUID
+	RequesterName     string
+	RequesterPosition string
+}
+
+// ListRequesterClaims returns one page of a requester's claims in every status, newest first (F-03 §1.4).
+func (q *Queries) ListRequesterClaims(ctx context.Context, arg ListRequesterClaimsParams) ([]ListRequesterClaimsRow, error) {
+	rows, err := q.db.Query(ctx, listRequesterClaims, arg.RequesterID, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRequesterClaimsRow
+	for rows.Next() {
+		var i ListRequesterClaimsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClaimNo,
+			&i.Status,
+			&i.Title,
+			&i.TotalSatang,
+			&i.SubmittedAt,
+			&i.CreatedAt,
+			&i.RequesterID,
+			&i.RequesterName,
+			&i.RequesterPosition,
 		); err != nil {
 			return nil, err
 		}

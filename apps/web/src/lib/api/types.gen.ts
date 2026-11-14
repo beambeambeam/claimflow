@@ -113,13 +113,37 @@ export type Claim = {
   items: Array<LineItem>;
   history: Array<HistoryEntry>;
   /**
-   * The actions this actor may take on this claim now (SDS §5.2). Empty until F-03 and F-04.
+   * The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the owner in Sprint 1.
    */
   allowedActions: Array<string>;
 };
 
 export type ClaimEnvelope = {
   data: Claim;
+};
+
+/**
+ * A claim as a list shows it (F-03 §3.1).
+ */
+export type ClaimSummary = {
+  id: string;
+  claimNo: string;
+  title: string;
+  status: ClaimStatus;
+  total: Money;
+  requester: MemberSummary;
+  submittedAt: string | null;
+  createdAt: string;
+};
+
+export type ClaimPage = {
+  data: Array<ClaimSummary>;
+  page: number;
+  pageSize: number;
+  /**
+   * The number of claims in the scope, on every page.
+   */
+  total: number;
 };
 
 /**
@@ -308,6 +332,56 @@ export type GetMeResponses = {
 
 export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
 
+export type ListClaimsData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * The list to read. `mine` is the only scope in this version; F-04 adds `review`.
+     */
+    scope: 'mine';
+    /**
+     * The 1-based page number. A page past the last one returns an empty `data`.
+     */
+    page?: number;
+    /**
+     * Claims per page.
+     */
+    pageSize?: number;
+  };
+  url: '/claims';
+};
+
+export type ListClaimsErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type ListClaimsError = ListClaimsErrors[keyof ListClaimsErrors];
+
+export type ListClaimsResponses = {
+  /**
+   * One page of the scope's claims, newest first (`createdAt`, then `id`, descending).
+   */
+  200: ClaimPage;
+};
+
+export type ListClaimsResponse = ListClaimsResponses[keyof ListClaimsResponses];
+
 export type CreateClaimData = {
   body: ClaimInput;
   path?: never;
@@ -348,3 +422,49 @@ export type CreateClaimResponses = {
 };
 
 export type CreateClaimResponse = CreateClaimResponses[keyof CreateClaimResponses];
+
+export type GetClaimData = {
+  body?: never;
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}';
+};
+
+export type GetClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type GetClaimError = GetClaimErrors[keyof GetClaimErrors];
+
+export type GetClaimResponses = {
+  /**
+   * The claim.
+   */
+  200: ClaimEnvelope;
+};
+
+export type GetClaimResponse = GetClaimResponses[keyof GetClaimResponses];
