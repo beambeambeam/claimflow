@@ -135,6 +135,27 @@ export const zClaimEnvelope = z.object({
 });
 
 /**
+ * A claim as a list shows it (F-03 §3.1).
+ */
+export const zClaimSummary = z.object({
+  id: z.string(),
+  claimNo: z.string(),
+  title: z.string(),
+  status: zClaimStatus,
+  total: zMoney,
+  requester: zMemberSummary,
+  submittedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime()
+});
+
+export const zClaimPage = z.object({
+  data: z.array(zClaimSummary),
+  page: z.int(),
+  pageSize: z.int(),
+  total: z.int()
+});
+
+/**
  * A stable error code for the client (SDS §4.2).
  */
 export const zProblemCode = z.enum([
@@ -196,9 +217,29 @@ export const zLogoutResponse = z.void();
  */
 export const zGetMeResponse = zCurrentUserEnvelope;
 
+export const zListClaimsQuery = z.object({
+  scope: z.enum(['mine']),
+  page: z.int().gte(1).optional().default(1),
+  pageSize: z.int().gte(1).lte(100).optional().default(20)
+});
+
+/**
+ * One page of the scope's claims, newest first (`createdAt`, then `id`, descending).
+ */
+export const zListClaimsResponse = zClaimPage;
+
 export const zCreateClaimBody = zClaimInput;
 
 /**
  * The claim is stored with status `SUBMITTED`.
  */
 export const zCreateClaimResponse = zClaimEnvelope;
+
+export const zGetClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The claim.
+ */
+export const zGetClaimResponse = zClaimEnvelope;

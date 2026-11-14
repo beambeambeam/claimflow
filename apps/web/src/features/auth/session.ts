@@ -24,8 +24,13 @@ export const endLocalSession = (
     return;
   }
 
-  void router.navigate({
-    to: "/login",
-    search: keepLocation ? { redirect: href } : {},
-  });
+  // A page that is still mounted queries again after the first clear. Once the login page has replaced it, clear again.
+  void router
+    .navigate({
+      to: "/login",
+      search: keepLocation ? { redirect: href } : {},
+    })
+    .finally(() => {
+      queryClient.clear();
+    });
 };

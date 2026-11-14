@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { z } from "zod";
 
+import { categoryLabels } from "#/features/claims/labels";
 import { createClaimMutation } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim } from "#/lib/api/types.gen";
 import { zClaimInput, zLineItemInput } from "#/lib/api/zod.gen";
@@ -18,14 +19,9 @@ import { ClaimConfirmation } from "./claim-confirmation";
 // BR-05: a claim has 1 to 20 line items (F-02 §2.1).
 const maxLineItems = 20;
 
-const categoryOptions = [
-  { value: "TRAVEL", label: "Travel" },
-  { value: "ACCOMMODATION", label: "Accommodation" },
-  { value: "MEALS", label: "Meals" },
-  { value: "SUPPLIES", label: "Supplies" },
-  { value: "TRAINING", label: "Training" },
-  { value: "OTHER", label: "Other" },
-];
+const categoryOptions = Object.entries(categoryLabels).map(
+  ([value, label]) => ({ value, label })
+);
 
 const emptyItem = {
   category: "",

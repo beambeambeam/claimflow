@@ -53,7 +53,7 @@ func RequirePermission(resource, action string) gin.HandlerFunc {
 	mustBeInStatement(Permission{Resource: resource, Action: action})
 
 	return func(c *gin.Context) {
-		if err := authorize(c.Request.Context(), resource, action); err != nil {
+		if err := Authorize(c.Request.Context(), resource, action); err != nil {
 			httperr.Report(c, err)
 			c.Abort()
 
@@ -79,7 +79,7 @@ func OperationPermissions(byOperation map[string]Permission) api.StrictMiddlewar
 		}
 
 		return func(c *gin.Context, request any) (any, error) {
-			if err := authorize(c.Request.Context(), permission.Resource, permission.Action); err != nil {
+			if err := Authorize(c.Request.Context(), permission.Resource, permission.Action); err != nil {
 				return nil, err
 			}
 
@@ -88,8 +88,9 @@ func OperationPermissions(byOperation map[string]Permission) api.StrictMiddlewar
 	}
 }
 
-// authorize returns nil when the user in ctx may take action on resource.
-func authorize(ctx context.Context, resource, action string) error {
+// Authorize returns nil when the user in ctx may take action on resource. It is the check behind RequirePermission
+// and OperationPermissions, for a handler whose permission depends on its request. The error is the 401 or 403 problem.
+func Authorize(ctx context.Context, resource, action string) error {
 	user, ok := UserFrom(ctx)
 	if !ok {
 		return errUnauthenticated

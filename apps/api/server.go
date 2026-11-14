@@ -126,7 +126,11 @@ func newRouterAt(logger *slog.Logger, cfg *env.Env, pool claim.Pool, now func() 
 		ResponseErrorHandlerFunc: httperr.Report,
 	})
 
-	api.RegisterHandlersWithOptions(router, handler, api.GinServerOptions{BaseURL: basePath})
+	api.RegisterHandlersWithOptions(router, handler, api.GinServerOptions{
+		BaseURL: basePath,
+		// A query or path parameter that does not bind, such as page=abc, is a 400 problem like any other bad request.
+		ErrorHandler: func(c *gin.Context, err error, _ int) { httperr.ReportInvalid(c, err) },
+	})
 
 	return router
 }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
@@ -19,10 +20,22 @@ import (
 // locationPrefix is the path that a claim's Location header continues with its id (SDS §4.1).
 const locationPrefix = "/api/v1/claims/"
 
+const (
+	defaultPage     = 1
+	defaultPageSize = 20
+	maxPageSize     = 100
+)
+
 var errUnauthenticated = &httperr.Error{
 	Status: http.StatusUnauthorized,
 	Code:   api.ProblemCodeUnauthenticated,
 	Title:  "Authentication required.",
+}
+
+var errClaimNotFound = &httperr.Error{
+	Status: http.StatusNotFound,
+	Code:   api.ProblemCodeNotFound,
+	Title:  "Claim not found.",
 }
 
 // Handler implements the claim operations of api.StrictServerInterface. It maps requests to Service calls and
@@ -64,6 +77,89 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 			ETag:     fmt.Sprintf("%q", strconv.Itoa(created.Version)),
 			Location: locationPrefix + created.ID.String(),
 		},
+	}, nil
+}
+
+// ListClaims returns one page of the session user's claims. A missing or unknown scope, a page below 1, and a page
+// size outside 1–100 are 400. The route permission depends on the scope, so the handler checks claim:list for
+// scope=mine after it reads the scope: a Finance Officer gets 403 (F03-AC-04).
+func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestObject) (api.ListClaimsResponseObject, error) {
+	params := request.Params
+	page, pageSize := defaultPage, defaultPageSize
+
+	if params.Page != nil {
+		page = *params.Page
+	}
+
+	if params.PageSize != nil {
+		pageSize = *params.PageSize
+	}
+
+	if params.Scope != api.ListScopeMine || page < 1 || pageSize < 1 || pageSize > maxPageSize {
+		return nil, httperr.ErrValidation
+	}
+
+	if err := auth.Authorize(ctx, "claim", "list"); err != nil {
+		return nil, fmt.Errorf("authorize: %w", err)
+	}
+
+	user, ok := auth.UserFrom(ctx)
+	if !ok { // coverage-ignore
+		return nil, errUnauthenticated
+	}
+
+	result, err := h.service.ListMine(ctx, Actor{ID: user.ID}, page, pageSize)
+	if err != nil { // coverage-ignore
+		return nil, err
+	}
+
+	body := api.ClaimPage{Data: make([]api.ClaimSummary, 0, len(result.Claims)), Page: page, PageSize: pageSize, Total: result.Total}
+	for i := range result.Claims {
+		summary := &result.Claims[i]
+		body.Data = append(body.Data, api.ClaimSummary{
+			Id:          summary.ID.String(),
+			ClaimNo:     summary.ClaimNo,
+			Status:      api.ClaimStatus(summary.Status),
+			Title:       summary.Title,
+			Total:       summary.Total,
+			Requester:   memberBody(summary.Requester),
+			SubmittedAt: utc(summary.SubmittedAt),
+			CreatedAt:   summary.CreatedAt.UTC(),
+		})
+	}
+
+	return api.ListClaims200JSONResponse(body), nil
+}
+
+// GetClaim returns a claim that the session user may see, with the actions the claim policy allows. A malformed id is
+// 400, a missing claim 404, and a claim the user may not see 403 with no claim data (F03-AC-06, F03-AC-08).
+func (h Handler) GetClaim(ctx context.Context, request api.GetClaimRequestObject) (api.GetClaimResponseObject, error) {
+	user, ok := auth.UserFrom(ctx)
+	if !ok {
+		return nil, errUnauthenticated
+	}
+
+	id, err := uuid.Parse(request.Id)
+	if err != nil {
+		return nil, httperr.ErrValidation
+	}
+
+	found, err := h.service.Get(ctx, Actor{ID: user.ID}, id)
+	if errors.Is(err, ErrNotFound) {
+		return nil, errClaimNotFound
+	}
+
+	if errors.Is(err, ErrForbidden) {
+		return nil, httperr.ErrForbidden
+	}
+
+	if err != nil { // coverage-ignore
+		return nil, err
+	}
+
+	return api.GetClaim200JSONResponse{
+		Body:    api.ClaimEnvelope{Data: claimBody(&found)},
+		Headers: api.GetClaim200ResponseHeaders{ETag: fmt.Sprintf("%q", strconv.Itoa(found.Version))},
 	}, nil
 }
 

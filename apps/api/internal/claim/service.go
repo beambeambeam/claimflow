@@ -85,7 +85,69 @@ func (s Service) Create(ctx context.Context, actor Actor, in Input, submit bool)
 		return Claim{}, fmt.Errorf("create claim: %w", err)
 	}
 
+	_, created.AllowedActions = Allowed(actor.ID, created.subject())
+
 	return created, nil
+}
+
+// Get returns the claim with the id and the actions that the claim policy allows the actor. A missing claim is
+// ErrNotFound. A claim that the actor may not see is ErrForbidden, and nothing of it is returned (F03-AC-06).
+func (s Service) Get(ctx context.Context, actor Actor, id uuid.UUID) (Claim, error) {
+	found, err := load(ctx, db.New(s.pool), id)
+	if err != nil {
+		return Claim{}, fmt.Errorf("get claim: %w", err)
+	}
+
+	visible, actions := Allowed(actor.ID, found.subject())
+	if !visible {
+		return Claim{}, ErrForbidden
+	}
+
+	found.AllowedActions = actions
+
+	return found, nil
+}
+
+// ListMine returns one page, 1-based, of the actor's own claims in every status, newest first: created time
+// descending, then id descending (F-03 §1.4). A page past the last one has no claims and the correct total.
+func (s Service) ListMine(ctx context.Context, actor Actor, page, pageSize int) (Page, error) {
+	queries := db.New(s.pool)
+
+	total, err := queries.CountRequesterClaims(ctx, actor.ID)
+	if err != nil { // coverage-ignore
+		return Page{}, fmt.Errorf("count claims: %w", err)
+	}
+
+	result := Page{Claims: []Summary{}, Total: int(total)}
+	if total == 0 || page-1 > (int(total)-1)/pageSize {
+		return result, nil
+	}
+
+	rows, err := queries.ListRequesterClaims(ctx, db.ListRequesterClaimsParams{
+		RequesterID: actor.ID,
+		PageOffset:  int32((page - 1) * pageSize), //nolint:gosec // below the total, which is an int32
+		PageLimit:   int32(pageSize),              //nolint:gosec // the handler limits it to 100
+	})
+	if err != nil { // coverage-ignore
+		return Page{}, fmt.Errorf("list claims: %w", err)
+	}
+
+	for i := range rows {
+		row := &rows[i]
+
+		result.Claims = append(result.Claims, Summary{
+			ID:          row.ID,
+			ClaimNo:     row.ClaimNo,
+			Status:      row.Status,
+			Title:       row.Title,
+			Total:       row.TotalSatang,
+			Requester:   Member{ID: row.RequesterID, Name: row.RequesterName, Position: row.RequesterPosition},
+			SubmittedAt: optionalTime(row.SubmittedAt),
+			CreatedAt:   row.CreatedAt.Time,
+		})
+	}
+
+	return result, nil
 }
 
 // insertSubmitted writes the claim, its line items in request order, and the SUBMIT history entry, and returns the claim id.
