@@ -11,7 +11,7 @@ import type { Claim } from "#/lib/api/types.gen";
 import { zClaimInput, zLineItemInput } from "#/lib/api/zod.gen";
 import { useAppForm } from "#/lib/form";
 import { formatBaht, parseSatang } from "#/lib/format";
-import { isProblem } from "#/lib/problem";
+import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 import { ClaimConfirmation } from "./claim-confirmation";
 
@@ -94,11 +94,27 @@ export const ClaimForm = () => {
     validators: { onSubmit: claimSchema },
     onSubmit: ({ value }) => {
       // The submit validator has checked the values, so this parse returns them in the API's types.
-      create.mutate({ body: claimSchema.parse(value) });
+      create.mutate(
+        { body: claimSchema.parse(value) },
+        {
+          onError: (error) => {
+            if (!isProblem(error)) {
+              return;
+            }
+
+            // Each server error goes under its input, as `items[1].expenseDate`; the values stay as typed.
+            form.setErrorMap({
+              onSubmit: { fields: problemFieldErrors(error) },
+            });
+          },
+        }
+      );
     },
   });
 
   const submit = () => {
+    // Earlier server errors would keep the form from submitting; the server answers again for these values.
+    form.setErrorMap({ onSubmit: { fields: {} } });
     void form.handleSubmit();
   };
 
@@ -116,6 +132,14 @@ export const ClaimForm = () => {
   }
 
   const problem = isProblem(create.error) ? create.error : null;
+  const fieldErrors = problem === null ? {} : problemFieldErrors(problem);
+
+  // `items` (the count) and `total` have no input of their own, so their messages show above Submit.
+  const claimErrors = ["items", "total"].flatMap((name) =>
+    name in fieldErrors ? [fieldErrors[name].message] : []
+  );
+
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
 
   return (
     <VStack
@@ -202,7 +226,11 @@ export const ClaimForm = () => {
         )}
       </form.Subscribe>
 
-      {create.isError ? (
+      {claimErrors.map((message) => (
+        <Banner key={message} status="error" title={message} />
+      ))}
+
+      {create.isError && !hasFieldErrors ? (
         <Banner
           description={
             problem === null ? undefined : `Request ID: ${problem.requestId}`

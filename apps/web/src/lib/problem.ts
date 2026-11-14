@@ -6,10 +6,13 @@ import { zProblem } from "#/lib/api/zod.gen";
 export const isProblem = (failure: unknown): failure is Problem =>
   zProblem.safeParse(failure).success;
 
-// The first message for each field in a 400 problem's `errors`, keyed by field name (SDS §7.2).
+// The first message for each field in a 400 or 422 problem's `errors`, keyed by field name (SDS §7.2).
 // Other problems return no field errors.
 export const problemFieldErrors = (problem: Problem) => {
-  const errors = problem.status === 400 ? (problem.errors ?? []) : [];
+  const errors =
+    problem.status === 400 || problem.status === 422
+      ? (problem.errors ?? [])
+      : [];
 
   const firsts = errors.filter(
     (error, index) =>
