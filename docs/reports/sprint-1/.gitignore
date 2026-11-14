@@ -1,0 +1,12 @@
+# Captures and build output are rebuilt by the scripts; only text sources are committed.
+figures/
+*.pdf
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv
+__pycache__/
