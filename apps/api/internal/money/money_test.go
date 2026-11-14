@@ -8,8 +8,9 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 )
 
-// F02-TEST-05 covers the decode half of this table at the module level; this file tests the type itself.
-func TestSatangDecodesOnlyTwoDecimalStrings(t *testing.T) {
+// F02-TEST-05 (F02-AC-04): only strings of 2 decimals decode. 0.00, 0.01, 20000.00, and 20000.01 decode (the range is BR-05,
+// checked by the claim rules); 1.005, 1.5, -1.00, and abc fail.
+func TestF02TEST05SatangDecodesOnlyTwoDecimalStrings(t *testing.T) {
 	tests := []struct {
 		input string
 		want  money.Satang
