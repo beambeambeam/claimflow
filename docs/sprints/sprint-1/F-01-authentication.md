@@ -5,7 +5,7 @@
 - **Requirements:** FR-01, NFR-01, NFR-03
 - **Responsibilities established here:** SR-01 (NFR-02), SR-02 (NFR-04, local), SR-06 (NFR-09)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `user`, `account`, `session`; §4.1–4.2; §5.1; §6; §7.1 Login; §8
-- **Version:** 0.5 (draft) · **Last updated:** 2026-11-13
+- **Version:** 0.6 · **Last updated:** 2026-11-15
 
 This feature also lays the foundation that every other feature uses: the OpenAPI contract file, the problem error format, the database and migrations, code generation, and the health checks. Those parts have their own acceptance criteria below because later features depend on them.
 
@@ -289,11 +289,18 @@ Integration tests use the seed users and a fixed clock.
 
 The Product DoD (`definition-of-done.md`) applies. For F-01 the evidence is:
 
-- [ ] All F01-TEST rows run; automated ones pass in CI on the merge commit; manual ones are recorded with the commit.
-- [ ] The route inventory test (F01-TEST-12) is in the suite, so later features are covered without new tests.
-- [ ] `openapi.yaml`, the generated server, and the generated web client are committed, and the generate check is green.
-- [ ] `apps/api/.env.example` exists, and the README explains database setup, migration, seed, and how to set `SEED_USER_PASSWORD`.
-- [ ] `docs/traceability.md` lists the actual test names and results for F-01 rows.
+- [x] All F01-TEST rows run; automated ones pass in CI on the merge commit; manual ones are recorded with the commit.
+  - Automated: CI on PRs #36, #56, #58, and #59; the whole suite ran again in CI on PR #65, whose head has the same tree as `29fd6fb` on `sprint-1`.
+  - F01-TEST-18 (manual) on `29fd6fb`: no `.env` file is tracked; a gitleaks scan of the 25 commits on `sprint-1` reports 11 hits, all Go module checksums in `apps/api/*.sum`; every variable in `.env.schema` is in `.env.example` (`apps/api` and `apps/web`).
+  - F01-TEST-19 (manual) on PR #65: `code_quality`, `test`, `api`, and `build` passed; the `api` job runs the generate check and the 100% coverage check.
+  - F01-TEST-24 (E2E): passes on a local seeded stack on `29fd6fb`. Known gap: CI has no Playwright job (#66).
+- [x] The route inventory test (F01-TEST-12) is in the suite, so later features are covered without new tests.
+  - `apps/api/auth_routes_test.go › TestF01TEST12EveryOperationNeedsASession`.
+- [x] `openapi.yaml`, the generated server, and the generated web client are committed, and the generate check is green.
+  - CI `api` job, step "Check generated code is current", on PR #65.
+- [x] `apps/api/.env.example` exists, and the README explains database setup, migration, seed, and how to set `SEED_USER_PASSWORD`.
+  - `README.md`, sections "Getting started" and "Demo data" (PR #65).
+- [x] `docs/traceability.md` lists the actual test names and results for F-01 rows.
 
 ## 8. Revision history
 
@@ -304,3 +311,4 @@ The Product DoD (`definition-of-done.md`) applies. For F-01 the evidence is:
 | 0.3 | 2026-11-07 | Ticket 01 (#24): problem `type` is `about:blank`, `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (SDS §4.2); migration `00001_auth.sql` (4.1) ships in ticket 01, because goose needs at least one migration; UI components are HeroUI v3 (SDS §1.2); PRs target `sprint-1` | 1005, 1045 |
 | 0.4 | 2026-11-11 | Review fix (PR #36): migration `00001_auth.sql` adds a trigger that deletes a user's sessions when a ban starts (4.1); F01-TEST-06 bans with a direct SQL `UPDATE` | 1005, 1045 |
 | 0.5 | 2026-11-13 | Ticket 02 (#25, PR #56): UI components are Astryx with the Neutral theme, replacing HeroUI v3 and Tailwind (SDS 0.11 §1.2); forms use TanStack Form through `#/lib/form`; the password limit is 72 bytes, not characters, in §1.5, §2.3, the endpoint table, and `openapi.yaml` (the client checks bytes too) | 1005, 1045 |
+| 0.6 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence; F01-TEST-18 and 19 recorded on `29fd6fb` and PR #65; the E2E gap (no Playwright job in CI) is tracked in #66. No AC or test changed | 1005 |

@@ -5,7 +5,7 @@
 - **Requirements:** FR-02, FR-03, FR-07, BR-05, BR-06, BR-07, BR-08, BR-12, BR-15, BR-17, NFR-06, NFR-08
 - **Depends on:** F-01
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claims`, `line_items`, `claim_history`; §2.3 money; §2.4 time; §3; §4.3 `POST /claims`; §5.2; §7.1 New Claim
-- **Version:** 0.3 (draft) · **Last updated:** 2026-11-14
+- **Version:** 0.4 · **Last updated:** 2026-11-15
 
 ---
 
@@ -32,8 +32,8 @@ sequenceDiagram
     W->>H: POST /claims
     H->>H: session, contract validation, route permission claim:create
     H->>C: Create(actor, input, submit = true)
-    C->>C: BR-15, then BR-05, BR-06, BR-07, BR-12; total = Σ items
-    C->>D: BEGIN; insert claim (SUBMITTED), line items, SUBMIT history; COMMIT
+    C->>C: BR-15, then BR-05, BR-06, BR-07, BR-12, then total = Σ items
+    C->>D: BEGIN, then insert claim (SUBMITTED), line items, SUBMIT history, then COMMIT
     C-->>H: Claim
     H-->>W: 201 Claim + ETag + Location
     W->>R: confirmation with claim number and status
@@ -293,11 +293,14 @@ Levels as in F-01 §6. Module tests call `claim.Service` against `pgtest` Postgr
 
 The Product DoD applies. For F-02 the evidence is:
 
-- [ ] All F02-TEST rows pass in CI on the merge commit.
-  - Known gap: F02-TEST-21 (E2E) passes on a local seeded stack, but CI has no Playwright job yet. It runs in CI once F-04/03 (#34) sets up Playwright for the Sprint 1 journey.
-- [ ] TDD evidence for at least one rule (BR-05, BR-07, or BR-12): commit IDs of the failing test and the passing implementation, for #4.
-- [ ] Migration `00002_claims.sql` runs up and down on an empty database.
-- [ ] `docs/traceability.md` lists the actual test names and results for F-02 rows.
+- [x] All F02-TEST rows pass in CI on the merge commit.
+  - F02-TEST-01 to 20: CI on PR #60; the whole suite ran again in CI on PR #65, whose head has the same tree as `29fd6fb` on `sprint-1`.
+  - Known gap: F02-TEST-21 (E2E) passes on a local seeded stack, last on `29fd6fb`, but CI has no Playwright job. F-04/03 (#34) set up Playwright for local runs only; #66 adds the CI job.
+- [x] TDD evidence for at least one rule (BR-05, BR-07, or BR-12): commit IDs of the failing test and the passing implementation, for #4.
+  - F02-TEST-04, 06, 08, 09, 11 (BR-05, BR-06, BR-07, BR-12): red `ca3a703`, green `7b4787d` (PR #60). `docs/traceability.md` has the other pairs.
+- [x] Migration `00002_claims.sql` runs up and down on an empty database.
+  - `apps/api/migrate_test.go › TestMigrateDownStatusUp`.
+- [x] `docs/traceability.md` lists the actual test names and results for F-02 rows.
 
 ## 8. Revision history
 
@@ -306,3 +309,4 @@ The Product DoD applies. For F-02 the evidence is:
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
 | 0.2 | 2026-11-06 | Review fix (PR #23): workflow shows session, then contract validation, then route permission (SDS §1.3) | 1005, 1045 |
 | 0.3 | 2026-11-14 | §1.4 adds the message for a bad or calendar-impossible expense date (400, shape); §7 records the known gap that F02-TEST-21 runs in CI only after F-04/03 (#34) sets up Playwright | 1005 |
+| 0.4 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The known gap now says that #34 set up Playwright for local runs only and #66 adds the CI job. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |
