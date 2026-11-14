@@ -20,8 +20,6 @@ import {
 import type { Claim } from "#/lib/api/types.gen";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
-type Decision = "approve" | "reject";
-
 // The text and button variants of each decision (F-04 §2.2): `trigger` opens the dialog, `variant` confirms it. A reject needs a reason; an approve may have a comment.
 const decisions = {
   approve: {
@@ -43,6 +41,11 @@ const decisions = {
     mutation: rejectClaimMutation,
   },
 } as const;
+
+type Decision = keyof typeof decisions;
+
+const isDecision = (name: string): name is Decision =>
+  Object.hasOwn(decisions, name);
 
 // The limit of BR-04. The server checks it; the counter only shows it.
 const commentLimit = 500;
@@ -176,9 +179,9 @@ const DecisionDialog = ({
 export const DecisionPanel = ({ claim }: { claim: Claim }) => {
   const [open, setOpen] = useState<Decision | null>(null);
 
-  const allowed = (["approve", "reject"] as const).filter((decision) =>
-    claim.allowedActions.includes(decision)
-  );
+  const allowed = Object.keys(decisions)
+    .filter(isDecision)
+    .filter((decision) => claim.allowedActions.includes(decision));
 
   if (allowed.length === 0) {
     return null;
