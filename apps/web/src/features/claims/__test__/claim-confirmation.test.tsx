@@ -39,11 +39,11 @@ describe("Claim confirmation", () => {
     screen.getByText("Total ฿1,250.00");
   });
 
-  it("shows ฿0.00 for a total that is not an amount", () => {
+  it("shows a total that is not an amount as received, not as ฿0.00", () => {
     render(
       <ClaimConfirmation claim={claimWithTotal("abc")} onNewClaim={() => {}} />
     );
 
-    screen.getByText("Total ฿0.00");
+    screen.getByText("Total ฿abc");
   });
 });
