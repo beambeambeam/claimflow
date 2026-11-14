@@ -10,7 +10,7 @@ import { createClaimMutation } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim } from "#/lib/api/types.gen";
 import { zClaimInput, zLineItemInput } from "#/lib/api/zod.gen";
 import { useAppForm } from "#/lib/form";
-import { formatBaht, parseSatang } from "#/lib/format";
+import { amountPattern, formatBaht, parseSatang } from "#/lib/format";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 import { ClaimConfirmation } from "./claim-confirmation";
@@ -62,10 +62,7 @@ const claimSchema = z.object({
         .pipe(zLineItemInput.shape.expenseDate),
       amount: z
         .string()
-        .regex(
-          /^\d{1,6}\.\d{2}$/u,
-          "Enter an amount with 2 decimals, e.g. 1250.00."
-        )
+        .regex(amountPattern, "Enter an amount with 2 decimals, e.g. 1250.00.")
         .pipe(zLineItemInput.shape.amount),
       receiptRef: z
         .string()
