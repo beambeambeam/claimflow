@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -145,9 +144,7 @@ func jsonKeys(t *testing.T, document []byte) []string {
 // F01-TEST-07: /auth/me returns each seeded role's exact permission map from F-01 §1.6, and no secret key.
 func TestF01TEST07GetMeReturnsThePermissionsOfEachRole(t *testing.T) {
 	pool := pgtest.New(t)
-	if err := seed(t.Context(), pool.Config().ConnString(), seedPassword, 10, io.Discard); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	seedDemoUsers(t, pool)
 	router := newRouter(discardLogger(), testEnv(0), pool)
 
 	tests := []struct {
