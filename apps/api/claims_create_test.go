@@ -396,6 +396,7 @@ func TestF02TEST18ShapeViolationsAre400(t *testing.T) {
 		{"purpose over 1000", body(`"Title"`, quoted(1001), validItem), fieldError{"purpose", "maxLength", "Enter a purpose (up to 1,000 characters)."}},
 		{"description over 200", body(`"Title"`, `"Purpose"`, itemWith("description", quoted(201))), fieldError{"items[0].description", "maxLength", "Enter a description (up to 200 characters)."}},
 		{"receiptRef over 50", body(`"Title"`, `"Purpose"`, itemWith("receiptRef", quoted(51))), fieldError{"items[0].receiptRef", "maxLength", "Enter the receipt reference (up to 50 characters)."}},
+		{"impossible date", body(`"Title"`, `"Purpose"`, itemWith("expenseDate", `"2026-02-31"`)), fieldError{"items[0].expenseDate", "format", "Enter a date as YYYY-MM-DD."}},
 		{"bad date format", body(`"Title"`, `"Purpose"`, itemWith("expenseDate", `"05/11/2026"`)), fieldError{"items[0].expenseDate", "format", "Enter a date as YYYY-MM-DD."}},
 	}
 
