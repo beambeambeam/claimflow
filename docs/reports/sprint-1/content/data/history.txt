@@ -1,0 +1,10 @@
+$ git log -1 --format="%h  %ad  %an  %s" --date=format:"%Y-%m-%d %H:%M %z" <commit>   (one per line)
+b640042  2026-11-05 18:32 +0700  beambeambeam  docs: add feature specs and tickets
+9471905  2026-11-05 19:02 +0700  beambeambeam  docs: add sprint 1 engineering contracts
+6e9865d  2026-11-05 19:07 +0700  beambeambeam  docs: add three-sprint plan
+e3d6afa  2026-11-07 01:05 +0700  bbb  docs: add sprint plan, feature specs, tickets, and sprint 1 contracts (#23)
+5d1efaa  2026-11-13 00:21 +0700  bbb  feat: add walking skeleton with contract, database, and health checks
+90b11fa  2026-11-13 21:35 +0700  bbb  feat: log in and show the current user
+fc91021  2026-11-14 01:19 +0700  bbb  feat: log out, session expiry, and bans
+201546d  2026-11-14 01:56 +0700  Kiatisakk  feat: add route permissions and the route inventory test (#59)
+a60fcf1  2026-11-14 16:16 +0700  Kiatisakk  feat: submit a claim with its rules and field errors (#60)

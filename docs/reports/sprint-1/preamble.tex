@@ -1,0 +1,160 @@
+% ---------------------------------------------------------------------------
+% Preamble of the ClaimFlow Sprint 1 report (CPE 334 Deliverable 1).
+% Build with XeLaTeX. Ported from the solo-lab report preamble.
+%
+% Fonts: Cambria (text) and Consolas (code) both carry the baht sign, which
+% the documents and test names contain. Latin Modern does not set it well in
+% every weight.
+% ---------------------------------------------------------------------------
+\usepackage{fontspec}
+\setmainfont{Cambria}
+\setmonofont{Consolas}[Scale=MatchLowercase]
+\usepackage{newunicodechar}
+\newfontfamily\symbolfont{Segoe UI Symbol}
+\newunicodechar{→}{{\symbolfont →}}
+\newunicodechar{≥}{{\symbolfont ≥}}
+\newunicodechar{≤}{{\symbolfont ≤}}
+\newunicodechar{✓}{{\symbolfont ✓}}
+
+\usepackage[a4paper, margin=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{fvextra}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{etoolbox}
+\usepackage{refcount}
+\usepackage{seqsplit}
+\usepackage{fancyhdr}
+
+% Colours before hyperref, which reads linkcolor as it loads.
+\definecolor{brand}{HTML}{1B5E3F}
+\definecolor{todored}{HTML}{C62828}
+\usepackage[colorlinks=true, urlcolor=blue!55!black, linkcolor=brand,
+            pdftitle={ClaimFlow Sprint 1 report},
+            pdfauthor={Kiatisak Markmeeshap; Supawit Marayat}]{hyperref}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\setlength{\emergencystretch}{3em}
+\hfuzz=3pt % ignore overfull boxes under 3 pt, which no reader can see
+\captionsetup{font=small}
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{0}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[L]{\footnotesize ClaimFlow, Sprint 1 report}
+\fancyfoot[R]{\footnotesize page \thepage}
+\renewcommand{\headrulewidth}{0pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[R]{\footnotesize page \thepage}%
+  \renewcommand{\headrulewidth}{0pt}}
+
+% ---- Evidence that is not there yet ---------------------------------------
+
+% Red inline text. check_report.py counts every \todo and \pending.
+\newcommand{\todo}[1]{\textcolor{todored}{\textbf{[TODO: #1]}}}
+
+% A red box where a capture or section is still waiting for something.
+% \pending{what it shows}{what it waits for}
+\newcommand{\pending}[2]{%
+  \par\medskip\noindent\fcolorbox{todored}{white}{\parbox{0.97\linewidth}{%
+    \textcolor{todored}{\textbf{[PENDING: #1]}}\\
+    \small\itshape Waits for: #2}}\par\medskip}
+
+% ---- Parts -----------------------------------------------------------------
+
+% \reportpart{A}{Title}: starts a page, adds the contents entry, and sets
+% part:A:start. \reportpartend{A} sets part:A:end on the last page, so the
+% navigation table can print real page ranges with \pageref.
+\newcommand{\reportpart}[2]{%
+  \clearpage
+  \phantomsection
+  \addcontentsline{toc}{section}{Part #1: #2}%
+  \label{part:#1:start}%
+  {\noindent\bfseries\Large\color{brand} Part #1: #2\par}%
+  \vspace{2pt}\noindent\textcolor{brand}{\rule{\linewidth}{1.2pt}}\par
+  \vspace{6pt}}
+\newcommand{\reportpartend}[1]{\par\label{part:#1:end}}
+% \pages{A} prints "pp. 5--12" or "p. 5"
+\newcommand{\pages}[1]{%
+  \ifnumequal{\getpagerefnumber{part:#1:start}}{\getpagerefnumber{part:#1:end}}%
+    {p.\ \pageref{part:#1:start}}%
+    {pp.\ \pageref{part:#1:start}--\pageref{part:#1:end}}}
+
+% Sub-headings inside a part.
+\newcommand{\partsection}[2]{%
+  \phantomsection\addcontentsline{toc}{subsection}{#1\ \ #2}%
+  \par\bigskip{\noindent\bfseries\large\color{brand} #1\ \ #2\par}\smallskip}
+
+% ---- Evidence figures --------------------------------------------------------
+
+\newcommand{\evidencemaxheight}{22cm}
+
+% The red box drawn when a figure file does not exist, so the build never
+% fails on a missing capture.
+\newcommand{\figmissing}[2]{%
+  \fbox{\parbox[c][3cm][c]{0.94\linewidth}{\centering
+    \textcolor{todored}{\textbf{[PENDING FIGURE: \detokenize{#1}]}}\\[4pt]
+    \small\itshape #2}}}
+
+% \evidence{figures/x.png}{Caption}: one full-width numbered figure.
+\newcommand{\evidence}[2]{%
+  \IfFileExists{#1}%
+    {\begin{figure}[H]\centering
+       \fbox{\includegraphics[width=0.96\linewidth,height=\evidencemaxheight,keepaspectratio]{#1}}%
+       \caption{#2}\end{figure}}%
+    {\begin{figure}[H]\centering\figmissing{#1}{#2}\caption{#2}\end{figure}}}
+
+% \evidencepart{figures/x-p2.png}{Caption}: one unnumbered piece of a sliced capture.
+\newcommand{\evidencepart}[2]{%
+  \IfFileExists{#1}%
+    {\begin{figure}[H]\centering
+       \fbox{\includegraphics[width=0.96\linewidth,height=\evidencemaxheight,keepaspectratio]{#1}}%
+       \caption*{\small\itshape #2}\end{figure}}%
+    {\begin{figure}[H]\centering\figmissing{#1}{#2}\caption*{\small\itshape #2}\end{figure}}}
+
+% \evidencehalf{file}{caption}: wide capture, at most 11.5 cm tall, two to a page.
+\newcommand{\evidencehalf}[2]{%
+  \IfFileExists{#1}%
+    {\begin{figure}[H]\centering
+       \fbox{\includegraphics[width=0.96\linewidth,height=11.5cm,keepaspectratio]{#1}}%
+       \caption{#2}\end{figure}}%
+    {\begin{figure}[H]\centering\figmissing{#1}{#2}\caption{#2}\end{figure}}}
+
+% \evidencesmall{file}{caption}{width fraction}: a capture that is small to begin with.
+\newcommand{\evidencesmall}[3]{%
+  \IfFileExists{#1}%
+    {\begin{figure}[H]\centering
+       \fbox{\includegraphics[width=#3\linewidth,keepaspectratio]{#1}}%
+       \caption{#2}\end{figure}}%
+    {\begin{figure}[H]\centering\figmissing{#1}{#2}\caption{#2}\end{figure}}}
+
+% \docsource{docs/srs.md}{sprint-1}{abc1234}: the line above each captured document.
+\newcommand{\docsource}[3]{%
+  \par\noindent{\small\textbf{Source:} \texttt{\detokenize{#1}} as GitHub renders it,
+  captured from \texttt{\detokenize{#2}} at commit \texttt{\detokenize{#3}}.}\par\smallskip}
+
+% ---- Code and terminal output ------------------------------------------------
+
+\DefineVerbatimEnvironment{shell}{Verbatim}
+  {fontsize=\footnotesize, frame=single, framesep=5pt, rulecolor=\color{black!25},
+   breaklines=true, breaksymbolleft={}}
+\DefineVerbatimEnvironment{codeblock}{Verbatim}
+  {fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25},
+   breaklines=true, breaksymbolleft={}}
+
+% ---- Title block --------------------------------------------------------------
+
+\newcommand{\reporttitle}{%
+  \begin{center}
+    {\Large\bfseries CPE 334 --- Introduction to Software Engineering\par}
+    \vspace{3pt}
+    {\large Project Deliverable 1: Sprint 1 report\par}
+    \vspace{10pt}
+    {\Huge\bfseries\color{brand} ClaimFlow\par}
+    {\large Theme 5, Department Expense Reimbursement System\par}
+  \end{center}}

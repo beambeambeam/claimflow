@@ -32,8 +32,8 @@ sequenceDiagram
     W->>H: POST /claims
     H->>H: session, contract validation, route permission claim:create
     H->>C: Create(actor, input, submit = true)
-    C->>C: BR-15, then BR-05, BR-06, BR-07, BR-12; total = Σ items
-    C->>D: BEGIN; insert claim (SUBMITTED), line items, SUBMIT history; COMMIT
+    C->>C: BR-15, then BR-05, BR-06, BR-07, BR-12, then total = Σ items
+    C->>D: BEGIN, then insert claim (SUBMITTED), line items, SUBMIT history, then COMMIT
     C-->>H: Claim
     H-->>W: 201 Claim + ETag + Location
     W->>R: confirmation with claim number and status

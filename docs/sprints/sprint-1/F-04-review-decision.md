@@ -33,14 +33,14 @@ sequenceDiagram
     W->>H: POST /claims/{id}/approve, If-Match: "3"
     H->>H: If-Match present? (else 428)
     H->>C: Act(actor, id, version 3, APPROVE, comment)
-    C->>D: BEGIN; load claim
+    C->>D: BEGIN, then load claim
     C->>C: policy: visible? (403) allowed action? (403 / 409 BR-03)
     C->>C: BR-04 comment rule (422)
     C->>D: UPDATE claims SET status, version+1, decided_at WHERE id AND version = 3
     alt 0 rows
         C->>D: ROLLBACK → 409 CONFLICT
     else 1 row
-        C->>D: INSERT claim_history; COMMIT
+        C->>D: INSERT claim_history, then COMMIT
         C-->>H: Claim (version 4)
         H-->>W: 200 + ETag "4"
     end

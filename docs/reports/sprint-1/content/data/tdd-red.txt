@@ -1,0 +1,21 @@
+$ cd apps/api && go test ./internal/claim/ -run 'F02TEST04|F02TEST06|F02TEST08|F02TEST09|F02TEST11|CheckRulesReportsEveryViolation' -v -count=1
+# commit ca3a703
+    com.docker.desktop.address=npipe://\\.\pipe\docker_cli
+    rules_test.go:85: error = create claim: insert claim: ERROR: new row for relation "claims" violates check constraint "claims_total_satang_check" (SQLSTATE 23514), want a ValidationError
+    rules_test.go:85: error = create claim: insert line item 21: ERROR: new row for relation "line_items" violates check constraint "line_items_line_no_check" (SQLSTATE 23514), want a ValidationError
+--- FAIL: TestF02TEST04ItemCount (0.31s)
+    rules_test.go:85: error = create claim: insert claim: ERROR: new row for relation "claims" violates check constraint "claims_total_satang_check" (SQLSTATE 23514), want a ValidationError
+    rules_test.go:85: error = create claim: insert line item 1: ERROR: new row for relation "line_items" violates check constraint "line_items_amount_satang_check" (SQLSTATE 23514), want a ValidationError
+--- FAIL: TestF02TEST06AmountRange (0.22s)
+    rules_test.go:85: error = create claim: insert claim: ERROR: new row for relation "claims" violates check constraint "claims_total_satang_check" (SQLSTATE 23514), want a ValidationError
+--- FAIL: TestF02TEST08Total (0.18s)
+    rules_test.go:85: error = create claim: insert line item 1: ERROR: new row for relation "line_items" violates check constraint "line_items_check" (SQLSTATE 23514), want a ValidationError
+--- FAIL: TestF02TEST09MealsLimit (0.19s)
+    rules_test.go:182: checkRules = <nil>, want one ValidationError entry
+    rules_test.go:182: checkRules = <nil>, want one ValidationError entry
+--- FAIL: TestF02TEST11ExpenseDateWindow (0.00s)
+    rules_test.go:200: violations = [], want [{items[0].expenseDate BR-07} {items[1].amount BR-12}]
+--- FAIL: TestCheckRulesReportsEveryViolation (0.00s)
+FAIL
+FAIL	github.com/beambeambeam/claimflow/apps/api/internal/claim	7.450s
+FAIL

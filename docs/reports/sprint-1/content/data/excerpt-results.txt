@@ -1,0 +1,12 @@
+$ cd apps/api
+$ go test ./internal/claim -run 'F02TEST09' -v -count=1
+--- PASS: TestF02TEST09MealsLimit (0.27s)
+    --- PASS: TestF02TEST09MealsLimit/MEALS_1500.00 (0.03s)
+    --- PASS: TestF02TEST09MealsLimit/MEALS_1500.01 (0.00s)
+    --- PASS: TestF02TEST09MealsLimit/TRAVEL_1500.01 (0.01s)
+PASS
+ok  	github.com/beambeambeam/claimflow/apps/api/internal/claim	12.393s
+$ go test . -run 'F02TEST14' -v -count=1
+--- PASS: TestF02TEST14FinanceOfficerCannotCreateClaim (0.94s)
+PASS
+ok  	github.com/beambeambeam/claimflow/apps/api	16.369s

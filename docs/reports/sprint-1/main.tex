@@ -1,0 +1,38 @@
+% ClaimFlow Sprint 1 report (CPE 334 Deliverable 1). Build twice with XeLaTeX:
+%   xelatex -interaction=nonstopmode main.tex   (and again, for the page numbers)
+\documentclass[11pt]{article}
+\input{preamble}
+
+\begin{document}
+
+\input{content/00-front}
+
+\reportpart{A}{Complete SRS}
+\input{content/part-a-srs}
+\reportpartend{A}
+
+\reportpart{B}{Feature inventory and traceability}
+\input{content/part-b-features}
+\reportpartend{B}
+
+\reportpart{C}{System-level SDS and ADRs}
+\input{content/part-c-sds}
+\reportpartend{C}
+
+\reportpart{D}{Three-sprint plan}
+\input{content/part-d-plan}
+\reportpartend{D}
+
+\reportpart{E}{Sprint 1 engineering contracts and Definition of Done}
+\input{content/part-e-contracts}
+\reportpartend{E}
+
+\reportpart{F}{Execution evidence}
+\input{content/part-f-1-setup}
+\input{content/part-f-2-demos}
+\input{content/part-f-3-tests}
+\input{content/part-f-4-workflow}
+\input{content/part-f-5-team}
+\reportpartend{F}
+
+\end{document}
