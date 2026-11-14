@@ -1,0 +1,93 @@
+\partsection{F.4}{Engineering workflow and history}\label{F:4}
+
+Two completed Issue to Pull Request chains, both into the Sprint 1 staging branch \texttt{sprint-1}.
+Times are UTC as GitHub records them. Both PRs were squash-merged into \texttt{sprint-1}; the merge of \texttt{sprint-1} into \texttt{main} has not happened yet (\todo{release: release PR \texttt{sprint-1} into \texttt{main}, its merge commit, and the tag, for both chains}).
+
+\subsubsection*{Chain 1: route permissions (author 1005, reviewer 1045)}
+
+\begin{center}\small
+\begin{tabular}{@{}>{\bfseries}p{3.1cm}p{13.2cm}@{}}
+\toprule
+Issue & \#27 ``F-01/04: Route permissions and the route inventory test'', assignee Kiatisakk; opened 2026-11-07, closed 2026-11-13 \\
+Feature, contract IDs & F-01; F01-AC-06, 11, 12, 20; tests F01-TEST-07, 12, 13, 22 (\path{docs/sprints/sprint-1/F-01-authentication.md}) \\
+Branch & \path{feat/route-permissions}, from \texttt{sprint-1} \\
+Pull request & \#59 into \texttt{sprint-1}, opened 2026-11-13 18:32 by Kiatisakk; PR body: ``Closes \#27'' \\
+Reviewer, verdicts & beambeambeam: review comments 18:41 (two inline findings), approved 18:56 \\
+Integration into \texttt{sprint-1} & squash commit \texttt{201546d}, merged 2026-11-13 18:56 by beambeambeam \\
+Integration into \texttt{main} & \todo{release: release PR and merge commit} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Substantive review comment} (beambeambeam, on \path{apps/api/internal/auth/middleware.go}): ``This is an allowlist of \emph{protected} routes, so it fails open: a gin route not in \path{contractProtectedRoutes()} (a non-contract route, or a contract route whose \path{METHOD /api/v1/path/:param} key drifts from \texttt{c.FullPath()}) passes with no session.'' The suggestion was to invert it into a set of \emph{public} routes built from \texttt{security: []}, so a key mismatch fails closed.
+\textbf{Author's answer} (Kiatisakk, 18:52): fixed in \texttt{c5655a3}; \texttt{RequireSession} now takes the public set and answers 401 for any matched route outside it; a new unit test written first, \texttt{e0d0ea1}, covers a matched non-public route without a session.
+\textbf{Approval} (18:56): ``Both comments are fixed: \texttt{RequireSession} now fails closed on a public set (c5655a3, red test e0d0ea1), and F01-TEST-07 checks the body values (6923296). CI is green.''
+
+\evidence{figures/github/pr59-header.png}{PR \#59, \texttt{feat/route-permissions} into \texttt{sprint-1}: title, state, and branch pair.}
+\evidence{figures/github/pr59-thread-fails-open.png}{PR \#59: beambeambeam's finding that the session check fails open, and the author's reply with the fix.}
+\evidence{figures/github/pr59-approved.png}{PR \#59: approval naming the fixes and the red test.}
+
+\subsubsection*{Chain 2: log in and show the current user (author 1045, reviewer 1005)}
+
+\begin{center}\small
+\begin{tabular}{@{}>{\bfseries}p{3.1cm}p{13.2cm}@{}}
+\toprule
+Issue & \#25 ``F-01/02: Log in and see who I am'', assignee beambeambeam; opened 2026-11-07, closed 2026-11-13 \\
+Feature, contract IDs & F-01; F01-AC-01, 02, 03, 09, 10, 13, 18, 19 (issue \#25); tests F01-TEST-01 to 04, 10, 11, 14, 20, 21, 24 \\
+Branch & \path{feat/login-current-user}, from \texttt{sprint-1} \\
+Pull request & \#56 into \texttt{sprint-1}, opened 2026-11-13 07:28 by beambeambeam; closes \#25 \\
+Reviewer, verdicts & Kiatisakk: changes requested 12:09 (six inline findings, two of them blocking), approved 14:33 after re-reviewing \texttt{bb65257..f6b7aa4} \\
+Integration into \texttt{sprint-1} & squash commit \texttt{90b11fa}, merged 2026-11-13 14:35 by Kiatisakk \\
+Integration into \texttt{main} & \todo{release: release PR and merge commit} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Substantive review comment} (Kiatisakk, on \path{apps/api/internal/auth/handler.go}): ``\textbf{Auth logic lives in the handler (blocking).} \texttt{Login} and \texttt{GetMe} do the bcrypt compare, create the session, hash the token, and read the cookie through \texttt{gin.ContextRequestKey}. SDS \S1.3 says handlers map requests to module calls and do not contain business rules, and \S1.4.1 gives \path{internal/auth/service.go} `login, logout, session lookup, ban check'\ldots''
+\textbf{Author's answer} (beambeambeam, 13:57): split in \texttt{bb65257}; \path{internal/auth/service.go} holds \texttt{Login} and \texttt{SessionUser}, \texttt{auth.Session} middleware puts the user in the request context, and the handler only validates fields and maps errors.
+\textbf{Approval} (14:33): ``Re-reviewed \texttt{bb65257..f6b7aa4}. All six threads are addressed\ldots''; two of the findings (clearing the cached user on a 401, and the logout cases of F01-TEST-14) were carried into ticket \#26, where 	exttt{docs/traceability.md} records them (F01-TEST-23, F01-TEST-14 logout).
+
+\evidence{figures/github/pr56-header.png}{PR \#56, \texttt{feat/login-current-user} into \texttt{sprint-1}.}
+\evidence{figures/github/pr56-changes-requested.png}{PR \#56: Kiatisakk's review, changes requested, with what was checked and what blocks.}
+\evidence{figures/github/pr56-thread-auth-in-handler.png}{PR \#56: the blocking finding that auth logic lived in the handler, and the author's fix.}
+\evidence{figures/github/pr56-approved.png}{PR \#56: approval after re-review, one line per resolved thread.}
+
+\subsubsection*{History sequence: contracts and test design before implementation}
+
+The contracts, with their Software Test Specification (every planned TEST ID, its AC and its level), were reviewed and merged in PR \#23 before any Sprint 1 feature PR was opened.
+The three commits at the top were committed on the PR's branch and stay reachable under its Commits tab; \texttt{sprint-1} keeps the squash commit \texttt{e3d6afa}.
+
+\begin{shell}
+$ git log -1 --format="%h  %ad  %an  %s" --date=format:"%Y-%m-%d %H:%M %z" <commit>   (one per line)
+b640042  2026-11-05 18:32 +0700  beambeambeam  docs: add feature specs and tickets
+9471905  2026-11-05 19:02 +0700  beambeambeam  docs: add sprint 1 engineering contracts
+6e9865d  2026-11-05 19:07 +0700  beambeambeam  docs: add three-sprint plan
+e3d6afa  2026-11-07 01:05 +0700  bbb  docs: add sprint plan, feature specs, tickets, and sprint 1 contracts (#23)
+5d1efaa  2026-11-13 00:21 +0700  bbb  feat: add walking skeleton with contract, database, and health checks
+90b11fa  2026-11-13 21:35 +0700  bbb  feat: log in and show the current user
+fc91021  2026-11-14 01:19 +0700  bbb  feat: log out, session expiry, and bans
+201546d  2026-11-14 01:56 +0700  Kiatisakk  feat: add route permissions and the route inventory test (#59)
+a60fcf1  2026-11-14 16:16 +0700  Kiatisakk  feat: submit a claim with its rules and field errors (#60)
+\end{shell}
+
+\begin{center}\small
+\begin{tabular}{@{}llll@{}}
+\toprule \textbf{Step} & \textbf{Pull request} & \textbf{Squash commit} & \textbf{Merged (UTC+7)} \\ \midrule
+Contracts and test design & \#23 & \texttt{e3d6afa} & 2026-11-07 01:05 \\
+Walking skeleton (F-01/01, \#24) & \#36 & \texttt{5d1efaa} & 2026-11-13 00:21 \\
+Log in, current user (F-01/02, \#25) & \#56 & \texttt{90b11fa} & 2026-11-13 21:35 \\
+Log out, expiry, bans (F-01/03, \#26) & \#58 & \texttt{fc91021} & 2026-11-14 01:19 \\
+Route permissions (F-01/04, \#27) & \#59 & \texttt{201546d} & 2026-11-14 01:56 \\
+Submit a claim and its rules (F-02/01, F-02/02, \#28, \#29) & \#60 & \texttt{a60fcf1} & 2026-11-14 16:16 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The contract commits (2026-11-05) precede the first implementation PR (2026-11-13) by eight days, and the contract was revised afterwards only through reviewed PRs (revision history at the end of each contract in Part E, for example F-01 revisions 0.3 to 0.5 for PRs \#36 and \#56).
+Within PR \#60 the failing test \texttt{ca3a703} precedes the code \texttt{7b4787d} by two minutes (F.3).
+
+\subsubsection*{Final board and release}
+
+\pending{Project board (project 5) with every Sprint 1 card in Done}{release: tickets \#30 to \#34 merged and the board captured by hand last (the board is the only capture not taken by script)}
+
+\textbf{Release reference.} \todo{release: tag \texttt{vG.X.Y.Z}, release commit, and the release pull request \texttt{sprint-1} into \texttt{main}}

@@ -1,0 +1,78 @@
+\partsection{F.2}{Program demonstrations}\label{F:2}
+
+All three scenarios run on the local stack of F.1 with the seeded accounts, in Chrome, with synthetic data.
+Release commit for the whole set: \todo{release: release commit on \texttt{main}, stated once for the demonstration set}.
+Exceptions: none known yet \todo{release: state any exception}.
+The screenshots are taken by \path{scripts/capture-demo.cjs} (Playwright), not by hand, so a rerun refreshes them.
+
+\newcommand{\demofacts}[7]{%
+  \begin{center}\small
+  \begin{tabular}{@{}>{\bfseries}p{3.1cm}p{13.2cm}@{}}
+  \toprule
+  IDs & #1 \\
+  Role & #2 \\
+  Starting conditions & #3 \\
+  Steps & #4 \\
+  Expected result & #5 \\
+  Actual result & #6 \\
+  Backend evidence & #7 \\
+  \bottomrule
+  \end{tabular}
+  \end{center}}
+
+\subsection*{Demo 1: submit, approve, retrieve the saved result}
+
+\demofacts
+ {F-02, F-03, F-04; F02-AC-01, F03-AC-01, F04-AC-20}
+ {Requester \texttt{req.anan}, then reviewer \texttt{rev.malee}, then \texttt{req.anan} again}
+ {Seeded database, API and web running}
+ {\texttt{req.anan} submits a claim with two line items; \texttt{rev.malee} approves it from the Review Queue; \texttt{req.anan} opens My Claims and the claim detail.}
+ {Claim \texttt{CLM-<year>-<6 digits>} is \texttt{Approved}; its history shows \texttt{SUBMIT} and \texttt{APPROVE}; the data is read back from PostgreSQL.}
+ {\todo{release: actual result}}
+ {\todo{release: F04-TEST-23 (E2E) and the restart check F04-TEST-19}}
+
+\pending{Demo 1 screenshots (submit, approve, retrieve)}{F-03 list and detail (tickets \#30, \#31) and F-04 review queue and approve (ticket \#32); the E2E journey and demo seed are ticket \#34.}
+
+\subsection*{Demo 2: rule rejection under the field}
+
+\demofacts
+ {F-02; F02-AC-06, F02-AC-07, F02-AC-11; BR-07, BR-12; F02-TEST-12, F02-TEST-17}
+ {Requester \texttt{req.anan}}
+ {Logged in; New Claim form (\path{/claims/new}) with a Travel item and a Meals item}
+ {Enter a Meals item of 1,600.00 THB dated tomorrow; press Submit. Then set the date to yesterday and the amount to 1,000.00 and submit again.}
+ {The first submit is refused with 422; both messages appear under their fields and the input is kept: ``Expense date cannot be in the future.'' (BR-07) and the Meals limit message (BR-12, up to 1,500.00). The corrected claim is accepted with a claim number and the status Submitted.}
+ {\todo{release: actual result, from the screenshots below}}
+ {The same two rules are asserted through \path{POST /claims} by F02-TEST-17 (one 422 listing both violations) and by the table tests in F.3 (F02-TEST-09, F02-TEST-11), which pass in the interim run at \texttt{a60fcf1}.}
+
+\evidence{figures/demo/demo2-1-form-before-submit.png}{Demo 2: New Claim form filled with a Meals item of 1,600.00 THB dated tomorrow (F02-AC-06, F02-AC-07).}
+\evidence{figures/demo/demo2-2-rule-errors-under-fields.png}{Demo 2: after Submit, the server's rule errors under their fields, input kept (BR-07, BR-12).}
+\evidence{figures/demo/demo2-3-corrected-claim-submitted.png}{Demo 2: the corrected claim is accepted and shows its claim number and the Submitted status (F02-AC-01).}
+
+\subsection*{Demo 3: login, logout, and a forbidden operation}
+
+\demofacts
+ {F-01, F-02; F01-AC-07, F01-AC-18, F01-AC-11, F01-AC-12; F02-AC-09, F02-AC-14; BR-15; F01-TEST-08, F01-TEST-12, F01-TEST-13, F02-TEST-14}
+ {Requester \texttt{req.anan} (logout, anonymous visit); Finance Officer \texttt{fin.wanida} (forbidden operation)}
+ {Seeded database, API and web running}
+ {Log out as \texttt{req.anan}; open \path{/claims} without a session; log in as \texttt{fin.wanida} and open \path{/claims/new}.}
+ {Logout shows the Login screen; the anonymous visit goes to \texttt{/login?redirect=\%2Fclaims}; the Finance Officer sees ``You can't create claims.'' and no form; \path{POST /claims} by that account returns 403 and stores nothing.}
+ {\todo{release: actual result, from the screenshots below}}
+ {See the table below. The refusal is enforced by the API, not by the hidden form.}
+
+\textbf{Backend evidence for the protected operations.} Interim run of the Go suite at \texttt{a60fcf1} (the release run replaces it, see F.3):
+
+\begin{center}\small
+\begin{tabular}{@{}llp{9.2cm}l@{}}
+\toprule \textbf{Test} & \textbf{AC} & \textbf{Asserts} & \textbf{Result} \\ \midrule
+F01-TEST-04 & F01-AC-03 & wrong password and unknown user give the same 401, no cookie & pass \\
+F01-TEST-08 & F01-AC-07 & \path{POST /auth/logout} gives 204; the old cookie then gets 401; session row deleted & pass \\
+F01-TEST-12 & F01-AC-11 & every operation except login, health, ready returns 401 without a cookie and with a random token & pass \\
+F01-TEST-13 & F01-AC-12 & a role without the permission gets 403 and the handler does not run & pass \\
+F02-TEST-14 & F02-AC-09 & \texttt{fin.wanida} calls \path{POST /claims}: 403 \texttt{FORBIDDEN}, 0 rows in \texttt{claims} & pass \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\evidence{figures/demo/demo3-1-after-logout-login-screen.png}{Demo 3: after \textbf{Log out} the Login screen is shown (F01-AC-07, F01-AC-20).}
+\evidence{figures/demo/demo3-2-anonymous-claims-redirects-to-login.png}{Demo 3: an anonymous visit to \texttt{/claims} is sent to \texttt{/login?redirect=\%2Fclaims} (F01-AC-18).}
+\evidence{figures/demo/demo3-4-finance-officer-cannot-create-claims.png}{Demo 3: the Finance Officer opening \texttt{/claims/new} sees ``You can't create claims.'' and no form (F02-AC-14, BR-15).}
