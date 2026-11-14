@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -34,7 +35,7 @@ var seedUsers = []seedUser{
 	{username: "req.niran", name: "Niran", role: "requester", position: "Staff, Section B", reviewer: "rev.somchai"},
 }
 
-// seed upserts the SDS §2.5 demo users. Each credential account stores a bcrypt hash of password, made at
+// seed upserts the SDS §2.5 demo users and adds the sample claims of F-04 §4 that do not exist yet. Each credential account stores a bcrypt hash of password, made at
 // cost. A second run updates the same rows. The password never reaches the output or an error message.
 func seed(ctx context.Context, databaseURL, password string, cost int, out io.Writer) error {
 	conn, err := pgx.Connect(ctx, databaseURL)
@@ -46,6 +47,7 @@ func seed(ctx context.Context, databaseURL, password string, cost int, out io.Wr
 	err = pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
 		queries := db.New(tx)
 		ids := make(map[string]uuid.UUID, len(seedUsers))
+		reviewers := make(map[string]string, len(seedUsers))
 
 		for _, user := range seedUsers {
 			reviewerID := uuid.NullUUID{}
@@ -66,6 +68,7 @@ func seed(ctx context.Context, databaseURL, password string, cost int, out io.Wr
 				return fmt.Errorf("upsert user %s: %w", user.username, err)
 			}
 			ids[user.username] = id
+			reviewers[user.username] = user.reviewer
 
 			hash, err := bcrypt.GenerateFromPassword([]byte(password), cost)
 			if err != nil { // coverage-ignore
@@ -83,13 +86,13 @@ func seed(ctx context.Context, databaseURL, password string, cost int, out io.Wr
 			}
 		}
 
-		return nil
+		return seedClaimRows(ctx, queries, ids, reviewers, time.Now())
 	})
 	if err != nil { // coverage-ignore
 		return fmt.Errorf("seed: %w", err)
 	}
 
-	if _, err := fmt.Fprintf(out, "seeded %d users\n", len(seedUsers)); err != nil { // coverage-ignore
+	if _, err := fmt.Fprintf(out, "seeded %d users and %d claims\n", len(seedUsers), len(seedClaims)); err != nil { // coverage-ignore
 		return fmt.Errorf("write summary: %w", err)
 	}
 

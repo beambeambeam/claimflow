@@ -87,3 +87,16 @@ WHERE assigned_reviewer_id = sqlc.arg(reviewer_id) AND status = 'SUBMITTED';
 UPDATE claims
 SET status = sqlc.arg(status), version = version + 1, decided_at = sqlc.arg(now), updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: InsertSeedClaim :execrows
+-- InsertSeedClaim adds a demo claim with the status it should have after its history, unless a claim with the same
+-- claim_no exists. It returns the rows added: 0 means the claim was seeded before, so its children must not be added again.
+INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
+                    first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+SELECT sqlc.arg(id), sqlc.arg(claim_no), u.id, u.reviewer_id, sqlc.arg(title), sqlc.arg(purpose), sqlc.arg(status),
+       sqlc.arg(total_satang), sqlc.arg(version), sqlc.arg(submitted_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz,
+       sqlc.narg(decided_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz,
+       coalesce(sqlc.narg(decided_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz)
+FROM "user" u
+WHERE u.username = sqlc.arg(requester)
+ON CONFLICT (claim_no) DO NOTHING;

@@ -375,6 +375,52 @@ func (q *Queries) InsertLineItem(ctx context.Context, arg InsertLineItemParams) 
 	return err
 }
 
+const insertSeedClaim = `-- name: InsertSeedClaim :execrows
+INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
+                    first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+SELECT $1, $2, u.id, u.reviewer_id, $3, $4, $5,
+       $6, $7, $8::timestamptz, $8::timestamptz,
+       $9::timestamptz, $8::timestamptz,
+       coalesce($9::timestamptz, $8::timestamptz)
+FROM "user" u
+WHERE u.username = $10
+ON CONFLICT (claim_no) DO NOTHING
+`
+
+type InsertSeedClaimParams struct {
+	ID          uuid.UUID
+	ClaimNo     string
+	Title       string
+	Purpose     string
+	Status      ClaimStatus
+	TotalSatang money.Satang
+	Version     int32
+	SubmittedAt pgtype.Timestamptz
+	DecidedAt   pgtype.Timestamptz
+	Requester   string
+}
+
+// InsertSeedClaim adds a demo claim with the status it should have after its history, unless a claim with the same
+// claim_no exists. It returns the rows added: 0 means the claim was seeded before, so its children must not be added again.
+func (q *Queries) InsertSeedClaim(ctx context.Context, arg InsertSeedClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertSeedClaim,
+		arg.ID,
+		arg.ClaimNo,
+		arg.Title,
+		arg.Purpose,
+		arg.Status,
+		arg.TotalSatang,
+		arg.Version,
+		arg.SubmittedAt,
+		arg.DecidedAt,
+		arg.Requester,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listClaimHistory = `-- name: ListClaimHistory :many
 SELECT h.id, h.action, h.from_status, h.to_status, h.comment, h.created_at,
        u.id AS actor_id, u.name AS actor_name, u.position AS actor_position
