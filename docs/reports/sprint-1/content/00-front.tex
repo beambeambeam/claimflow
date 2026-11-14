@@ -1,0 +1,52 @@
+\thispagestyle{plain}
+\reporttitle
+
+\medskip
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & \textbf{Student 1} & \textbf{Student 2} \\ \midrule
+Name & Kiatisak Markmeeshap & Supawit Marayat \\
+Student ID & 67070501005 & \todo{1045: full ID (ends in 1045)} \\
+GitHub & \href{https://github.com/Kiatisakk}{@Kiatisakk} & \href{https://github.com/beambeambeam}{@beambeambeam} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{tabular}{@{}p{3.4cm}p{13cm}@{}}
+\textbf{Theme} & Theme 5, ClaimFlow: Department Expense Reimbursement System \\
+\textbf{Repository} & \url{https://github.com/beambeambeam/claimflow} \\
+\textbf{Release tag} & \todo{release: tag \texttt{vG.X.Y.Z} created by semantic-release when \texttt{sprint-1} merges into \texttt{main}} \\
+\textbf{Release commit} & \todo{release: commit of the release merge on \texttt{main}} \\
+\textbf{Screenshots and test output} & \todo{release: one commit for every capture; this draft was captured from \texttt{sprint-1}, see the red note below} \\
+\end{tabular}
+
+\medskip
+\noindent\fcolorbox{todored}{white}{\parbox{0.97\linewidth}{\small\textcolor{todored}{\textbf{DRAFT.}}
+Parts A to E are captured from branch \texttt{sprint-1} (head \texttt{a60fcf1}), not from the release commit on \texttt{main}.
+Part F holds every piece of evidence that can be written from merged work today; red boxes and \texttt{[TODO]} marks name what each missing item waits for.
+The final build recaptures everything from the release commit and has none of them.}}
+
+\medskip
+\noindent\textbf{How to read this PDF.}
+Parts A to E are the repository documents themselves, captured as GitHub renders them so the PDF and the repository cannot drift;
+each document is headed by its file and the commit it was captured from.
+Part F is written for this report.
+Everything a reader needs is in the PDF; the repository is available for targeted verification.
+
+\clearpage
+\section*{Navigation}
+\addcontentsline{toc}{section}{Navigation table}
+\renewcommand{\arraystretch}{1.25}
+\begin{longtable}{@{}p{0.9cm}p{2.5cm}p{12.6cm}@{}}
+\toprule \textbf{Part} & \textbf{Pages} & \textbf{Content and main IDs} \\ \midrule \endhead
+A & \pages{A} & Complete SRS: FR-01 to FR-14, BR-01 to BR-17, NFR-01 to NFR-10 (\texttt{docs/srs.md}). \\
+B & \pages{B} & Feature inventory F-01 to F-10 and system responsibilities SR-01 to SR-07; traceability matrix of all 41 requirements, coverage and change log (\texttt{docs/features.md}, \texttt{docs/traceability.md}). \\
+C & \pages{C} & System-level SDS (architecture, data model, claim lifecycle, API conventions, roles and permissions, authentication, configuration, deployment); ADR 0001. \\
+D & \pages{D} & Three-sprint plan: sprint goals, feature dependencies, Sprint 1 scope (F-01 to F-04). \\
+E & \pages{E} & Sprint 1 contracts: F-01 (F01-AC-01 to 21, F01-TEST-01 to 24), F-02 (F02-AC-01 to 14, F02-TEST-01 to 21), F-03 (F03-AC-01 to 11, F03-TEST-01 to 12), F-04 (F04-AC-01 to 20, F04-TEST-01 to 24); Product Definition of Done. \\
+F & \pages{F} & Execution evidence. Setup summary, p.~\pageref{F:1}. Demonstrations (F-02, F02-AC-06, F02-AC-07, F01-AC-07, F02-AC-09, BR-07, BR-12, BR-15), p.~\pageref{F:2}. Build and test results, AC-to-test table, test excerpts, TDD red and green (PR \#60), p.~\pageref{F:3}. Workflow: Issue \#27 to PR \#59 and Issue \#25 to PR \#56, history sequence, board, release, p.~\pageref{F:4}. Contributions, AI-use declaration, known limitations, p.~\pageref{F:5}. \\
+\bottomrule
+\end{longtable}
+
+\tableofcontents
