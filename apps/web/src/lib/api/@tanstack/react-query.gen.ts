@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options } from '../sdk.gen';
-import type { CreateClaimData, CreateClaimError, CreateClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse } from '../types.gen';
+import { approveClaim, createClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim } from '../sdk.gen';
+import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -130,9 +130,9 @@ export const getMeOptions = (options?: Options<GetMeData>) => queryOptions<GetMe
 export const listClaimsQueryKey = (options: Options<ListClaimsData>) => createQueryKey('listClaims', options);
 
 /**
- * List claims in a scope, newest first (F-03).
+ * List claims in a scope (F-03, F-04).
  *
- * `scope=mine` lists the session user's own claims in every status and needs the `claim:list` route permission. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+ * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
  */
 export const listClaimsOptions = (options: Options<ListClaimsData>) => queryOptions<ListClaimsResponse, ListClaimsError, ListClaimsResponse, ReturnType<typeof listClaimsQueryKey>>({
   queryFn: async ({ queryKey, signal }) => {
@@ -179,9 +179,9 @@ const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'hea
 export const listClaimsInfiniteQueryKey = (options: Options<ListClaimsData>): QueryKey<Options<ListClaimsData>> => createQueryKey('listClaims', options, true);
 
 /**
- * List claims in a scope, newest first (F-03).
+ * List claims in a scope (F-03, F-04).
  *
- * `scope=mine` lists the session user's own claims in every status and needs the `claim:list` route permission. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+ * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
  */
 export const listClaimsInfiniteOptions = (options: Options<ListClaimsData>) => {
   const opts = infiniteQueryOptions<ListClaimsResponse, ListClaimsError, InfiniteData<ListClaimsResponse>, QueryKey<Options<ListClaimsData>>, number | Pick<QueryKey<Options<ListClaimsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
@@ -246,3 +246,41 @@ export const getClaimOptions = (options: Options<GetClaimData>) => queryOptions<
   },
   queryKey: getClaimQueryKey(options)
 });
+
+/**
+ * Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
+ *
+ * Needs a session; the claim policy decides the rest. The checks run in this order (F-04 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it or is not its assigned reviewer, or is its requester (403); the claim is not `SUBMITTED` (409 `INVALID_TRANSITION`, rule BR-03); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional.
+ */
+export const approveClaimMutation = (options?: Partial<Options<ApproveClaimData>>): UseMutationOptions<ApproveClaimResponse, ApproveClaimError, Options<ApproveClaimData>> => {
+  const mutationOptions: UseMutationOptions<ApproveClaimResponse, ApproveClaimError, Options<ApproveClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await approveClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Reject a submitted claim with a reason (F-04).
+ *
+ * Same checks and order as approve. The reason is the `comment`: required, 5–500 characters after trimming (BR-04). A missing, blank, short, or long reason is a 422 with `field = "comment"`, not a 400, so the schema sets no length.
+ */
+export const rejectClaimMutation = (options?: Partial<Options<RejectClaimData>>): UseMutationOptions<RejectClaimResponse, RejectClaimError, Options<RejectClaimData>> => {
+  const mutationOptions: UseMutationOptions<RejectClaimResponse, RejectClaimError, Options<RejectClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await rejectClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};

@@ -118,6 +118,16 @@ export type Claim = {
   allowedActions: Array<string>;
 };
 
+/**
+ * The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+ */
+export type ClaimDecision = {
+  /**
+   * Optional for approve (at most 500 characters). The reason for reject (5–500 characters).
+   */
+  comment?: string;
+};
+
 export type ClaimEnvelope = {
   data: Claim;
 };
@@ -178,6 +188,16 @@ export type Problem = {
    */
   errors?: Array<FieldError>;
 };
+
+/**
+ * The claim id, a UUID.
+ */
+export type ClaimId = string;
+
+/**
+ * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+ */
+export type IfMatch = string;
 
 export type GetHealthData = {
   body?: never;
@@ -337,9 +357,9 @@ export type ListClaimsData = {
   path?: never;
   query: {
     /**
-     * The list to read. `mine` is the only scope in this version; F-04 adds `review`.
+     * The list to read.
      */
-    scope: 'mine';
+    scope: 'mine' | 'review';
     /**
      * The 1-based page number. A page past the last one returns an empty `data`.
      */
@@ -375,7 +395,7 @@ export type ListClaimsError = ListClaimsErrors[keyof ListClaimsErrors];
 
 export type ListClaimsResponses = {
   /**
-   * One page of the scope's claims, newest first (`createdAt`, then `id`, descending).
+   * One page of the scope's claims. `mine`: newest first (`createdAt`, then `id`, descending). `review`: oldest first (`submittedAt`, then `id`, ascending).
    */
   200: ClaimPage;
 };
@@ -468,3 +488,131 @@ export type GetClaimResponses = {
 };
 
 export type GetClaimResponse = GetClaimResponses[keyof GetClaimResponses];
+
+export type ApproveClaimData = {
+  body?: ClaimDecision;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}/approve';
+};
+
+export type ApproveClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  422: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type ApproveClaimError = ApproveClaimErrors[keyof ApproveClaimErrors];
+
+export type ApproveClaimResponses = {
+  /**
+   * The decided claim, with its new `ETag`.
+   */
+  200: ClaimEnvelope;
+};
+
+export type ApproveClaimResponse = ApproveClaimResponses[keyof ApproveClaimResponses];
+
+export type RejectClaimData = {
+  body?: ClaimDecision;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}/reject';
+};
+
+export type RejectClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  422: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type RejectClaimError = RejectClaimErrors[keyof RejectClaimErrors];
+
+export type RejectClaimResponses = {
+  /**
+   * The decided claim, with its new `ETag`.
+   */
+  200: ClaimEnvelope;
+};
+
+export type RejectClaimResponse = RejectClaimResponses[keyof RejectClaimResponses];

@@ -46,6 +46,10 @@ var (
 	ErrValidation = &Error{Status: http.StatusBadRequest, Code: api.ProblemCodeBadRequest, Title: "Invalid request."}
 	// ErrForbidden is the problem for a request the server refuses on policy, such as a cross-origin write.
 	ErrForbidden = &Error{Status: http.StatusForbidden, Code: api.ProblemCodeForbidden, Title: "Forbidden."}
+	// ErrPreconditionRequired is the problem for a change that sends no If-Match header (BR-13).
+	ErrPreconditionRequired = &Error{Status: http.StatusPreconditionRequired, Code: api.ProblemCodePreconditionRequired, Title: "Send the claim version in If-Match."}
+	// ErrConflict is the problem for a change made from an out-of-date read: the claim's version has moved on (BR-13).
+	ErrConflict = &Error{Status: http.StatusConflict, Code: api.ProblemCodeConflict, Title: "The claim was changed by someone else."}
 
 	errInternal = &Error{Status: http.StatusInternalServerError, Code: api.ProblemCodeInternal, Title: "Something went wrong."}
 )

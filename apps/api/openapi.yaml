@@ -116,19 +116,19 @@ paths:
   /claims:
     get:
       operationId: listClaims
-      summary: List claims in a scope, newest first (F-03).
+      summary: List claims in a scope (F-03, F-04).
       description: >-
-        `scope=mine` lists the session user's own claims in every status and needs the `claim:list` route permission. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+        `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
       tags: [claims]
       parameters:
         - name: scope
           in: query
           required: true
-          description: The list to read. `mine` is the only scope in this version; F-04 adds `review`.
+          description: The list to read.
           schema:
             type: string
-            enum: [mine]
-            x-enum-varnames: [ListScopeMine]
+            enum: [mine, review]
+            x-enum-varnames: [ListScopeMine, ListScopeReview]
         - name: page
           in: query
           description: The 1-based page number. A page past the last one returns an empty `data`.
@@ -146,7 +146,8 @@ paths:
             default: 20
       responses:
         "200":
-          description: One page of the scope's claims, newest first (`createdAt`, then `id`, descending).
+          description: >-
+            One page of the scope's claims. `mine`: newest first (`createdAt`, then `id`, descending). `review`: oldest first (`submittedAt`, then `id`, ascending).
           content:
             application/json:
               schema:
@@ -236,8 +237,106 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /claims/{id}/approve:
+    post:
+      operationId: approveClaim
+      summary: Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
+      description: >-
+        Needs a session; the claim policy decides the rest. The checks run in this order (F-04 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it or is not its assigned reviewer, or is its requester (403); the claim is not `SUBMITTED` (409 `INVALID_TRANSITION`, rule BR-03); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional.
+      tags: [claims]
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimDecision"
+      responses:
+        "200":
+          $ref: "#/components/responses/Decided"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "428":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /claims/{id}/reject:
+    post:
+      operationId: rejectClaim
+      summary: Reject a submitted claim with a reason (F-04).
+      description: >-
+        Same checks and order as approve. The reason is the `comment`: required, 5–500 characters after trimming (BR-04). A missing, blank, short, or long reason is a 422 with `field = "comment"`, not a 400, so the schema sets no length.
+      tags: [claims]
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimDecision"
+      responses:
+        "200":
+          $ref: "#/components/responses/Decided"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "428":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
+  parameters:
+    ClaimId:
+      name: id
+      in: path
+      required: true
+      description: The claim id, a UUID.
+      schema:
+        type: string
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      description: >-
+        The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+      schema:
+        type: string
   responses:
+    Decided:
+      description: The decided claim, with its new `ETag`.
+      headers:
+        ETag:
+          description: The claim's new `version` in quotes, such as `"4"`.
+          required: true
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ClaimEnvelope"
     Problem:
       description: An RFC 9457 problem.
       content:
@@ -542,6 +641,13 @@ components:
           description: The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the owner in Sprint 1.
           items:
             type: string
+    ClaimDecision:
+      type: object
+      description: The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+      properties:
+        comment:
+          type: string
+          description: Optional for approve (at most 500 characters). The reason for reject (5–500 characters).
     ClaimEnvelope:
       type: object
       required: [data]

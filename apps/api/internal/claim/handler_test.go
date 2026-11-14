@@ -55,3 +55,19 @@ func TestGetClaimWithoutSessionUserIsUnauthenticated(t *testing.T) {
 		t.Fatalf("GetClaim error = %v, want the 401 problem", err)
 	}
 }
+
+// The route requires a session before the handler runs, so a missing user is only a guard.
+func TestDecisionsWithoutSessionUserAreUnauthenticated(t *testing.T) {
+	handler := NewHandler(newService(pgtest.New(t)))
+	ifMatch := `"0"`
+
+	_, err := handler.ApproveClaim(t.Context(), api.ApproveClaimRequestObject{Params: api.ApproveClaimParams{IfMatch: &ifMatch}})
+	if !errors.Is(err, errUnauthenticated) {
+		t.Fatalf("ApproveClaim error = %v, want the 401 problem", err)
+	}
+
+	_, err = handler.RejectClaim(t.Context(), api.RejectClaimRequestObject{Params: api.RejectClaimParams{IfMatch: &ifMatch}})
+	if !errors.Is(err, errUnauthenticated) {
+		t.Fatalf("RejectClaim error = %v, want the 401 problem", err)
+	}
+}

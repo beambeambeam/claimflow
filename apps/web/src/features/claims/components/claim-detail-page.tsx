@@ -11,14 +11,13 @@ import { Heading, Text } from "@astryxdesign/core/Text";
 import { useQuery } from "@tanstack/react-query";
 
 import { DateText } from "#/components/date-text";
+import { LoadError } from "#/components/load-error";
 import { Money } from "#/components/money";
 import { StatusBadge, statusLabels } from "#/components/status-badge";
 import { actionLabels, categoryLabels } from "#/features/claims/labels";
 import { getClaimOptions } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim, HistoryEntry, LineItem } from "#/lib/api/types.gen";
 import { isProblem } from "#/lib/problem";
-
-import { LoadError } from "./load-error";
 
 const itemColumns: TableColumn<LineItem>[] = [
   { key: "lineNo", header: "#" },
@@ -96,7 +95,13 @@ const HistoryTimeline = ({ history }: { history: HistoryEntry[] }) => (
   </List>
 );
 
-const ClaimView = ({ claim }: { claim: Claim }) => (
+const ClaimView = ({
+  claim,
+  actions,
+}: {
+  claim: Claim;
+  actions?: (claim: Claim) => React.ReactNode;
+}) => (
   <VStack gap={6} hAlign="stretch">
     <VStack aria-label="Claim" as="section" gap={2}>
       <HStack gap={3} vAlign="center">
@@ -105,6 +110,7 @@ const ClaimView = ({ claim }: { claim: Claim }) => (
       </HStack>
       <Text type="large">{claim.title}</Text>
       <Money value={claim.total} />
+      {actions?.(claim)}
     </VStack>
 
     <Section title="Summary">
@@ -143,7 +149,14 @@ const ClaimSkeleton = () => (
 );
 
 // Claim Detail (F-03 §2.2). A claim the member may not see, or that does not exist, shows its message and no claim data.
-export const ClaimDetailPage = ({ claimId }: { claimId: string }) => {
+// `actions` is a slot under the claim header, which the route fills with what a feature adds, such as the decision panel.
+export const ClaimDetailPage = ({
+  claimId,
+  actions,
+}: {
+  claimId: string;
+  actions?: (claim: Claim) => React.ReactNode;
+}) => {
   const claim = useQuery({
     ...getClaimOptions({ path: { id: claimId } }),
     retry: false,
@@ -182,5 +195,5 @@ export const ClaimDetailPage = ({ claimId }: { claimId: string }) => {
     );
   }
 
-  return <ClaimView claim={claim.data.data} />;
+  return <ClaimView actions={actions} claim={claim.data.data} />;
 };
