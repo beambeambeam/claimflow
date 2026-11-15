@@ -26,6 +26,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
@@ -43,7 +44,7 @@ PAD = 24
 # CSS px. At 1400 a 14 px line is about 6 pt on the page; below GitHub's 1012 px
 # breakpoint the sidebar goes and the file box fills the width, so text prints
 # near 8 pt.
-WIDTH = 800
+WIDTH = 1000
 
 REPO = "https://github.com/beambeambeam/claimflow"
 HERE = Path(__file__).resolve().parent
@@ -82,18 +83,26 @@ def launch(p):
 def source_at(ref, path):
     """The raw markdown at the ref, to count what the page should show."""
     url = f"https://raw.githubusercontent.com/beambeambeam/claimflow/{ref}/{path}"
-    with urllib.request.urlopen(url, timeout=30) as r:
-        return r.read().decode("utf-8")
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as r:
+                return r.read().decode("utf-8")
+        except Exception:
+            if attempt == 4:
+                raise
+            time.sleep(3 * (attempt + 1))
 
 
 def commit_at(ref):
     """The commit the ref points at on GitHub, via the public API."""
     url = f"https://api.github.com/repos/beambeambeam/claimflow/commits/{ref}"
-    try:
-        with urllib.request.urlopen(url, timeout=30) as r:
-            return json.load(r)["sha"][:7]
-    except Exception:
-        return "unknown"
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as r:
+                return json.load(r)["sha"][:7]
+        except Exception:
+            time.sleep(3 * (attempt + 1))
+    return "unknown"
 
 
 def page_box(page, element):
@@ -102,6 +111,43 @@ def page_box(page, element):
         return None
     sx, sy = page.evaluate("() => [window.scrollX, window.scrollY]")
     return {**box, "x": box["x"] + sx, "y": box["y"] + sy}
+
+
+def wrap_tables(page):
+    """Make wide tables wrap inside the file box instead of scrolling sideways.
+
+    GitHub sets table{display:block; width:max-content; overflow:auto}, so a
+    table wider than the box is cut at the right edge of a photograph. Forcing
+    display:table at 100% width, and letting code and long words break, keeps
+    every column inside the box at a readable size.
+    """
+    page.add_style_tag(content="""
+      .markdown-body table {display:table !important; width:100% !important;
+        max-width:100% !important; table-layout:auto !important; overflow:visible !important}
+      .markdown-body td, .markdown-body th {overflow-wrap:break-word}
+      .markdown-body td code, .markdown-body th code {white-space:normal !important;
+        overflow-wrap:anywhere}
+      .markdown-body pre {white-space:pre-wrap !important; overflow-wrap:anywhere}
+    """)
+    # In a wide table, share the width by how much text each column holds
+    # (damped, with a floor), on a fixed layout. With an automatic layout a
+    # column of long code names collapses to a few characters, because code
+    # may break anywhere and so asks for almost no width.
+    page.evaluate("""() => {
+        for (const t of document.querySelectorAll('.markdown-body table')) {
+            const rows = [...t.rows];
+            const n = Math.max(...rows.map(r => r.cells.length));
+            if (n < 5) continue;
+            const len = Array(n).fill(0);
+            for (const r of rows) [...r.cells].forEach((c, i) => len[i] += c.innerText.length);
+            const weight = len.map(l => Math.pow(Math.max(l / rows.length, 14), 0.7));
+            const total = weight.reduce((a, b) => a + b, 0);
+            t.style.setProperty('table-layout', 'fixed', 'important');
+            const head = rows[0];
+            [...head.cells].forEach((c, i) => c.style.width = (100 * weight[i] / total).toFixed(1) + '%');
+        }
+    }""")
+    page.wait_for_timeout(500)
 
 
 def paint_everything(page, pause):
@@ -288,7 +334,7 @@ def check_diagrams(page, target, boxes, box):
     return inked
 
 
-def render(page, name, path, ref):
+def render(page, name, path, ref, label=None):
     url = f"{REPO}/blob/{ref}/{path}"
     expected = source_at(ref, path).count("```mermaid")
 
@@ -296,6 +342,7 @@ def render(page, name, path, ref):
     for sel in FILE_VIEW:
         page.wait_for_selector(sel, timeout=30_000)
     page.wait_for_timeout(1500)
+    wrap_tables(page)
 
     target = OUT / f"{name}.png"
     holes, clipped, errors = [], True, []
@@ -330,7 +377,7 @@ def render(page, name, path, ref):
         status.append(f"MERMAID {drawn}/{expected} drawn")
     mm = f"mermaid {drawn}/{expected}" if expected else "no diagrams"
 
-    meta = {"name": name, "file": path, "ref": ref, "url": url,
+    meta = {"name": name, "file": path, "ref": label or ref, "url": url,
             "commit": commit_at(ref), "mermaid_expected": expected,
             "mermaid_drawn": drawn, "width": width, "height": height,
             "problems": status}
@@ -345,6 +392,12 @@ def main():
     if "--ref" in args:
         i = args.index("--ref")
         ref = args[i + 1]
+        del args[i:i + 2]
+    # --label main: capture from a pinned commit (--ref <sha>) but cite the branch.
+    label = None
+    if "--label" in args:
+        i = args.index("--label")
+        label = args[i + 1]
         del args[i:i + 2]
     global WIDTH
     if "--width" in args:
@@ -363,7 +416,7 @@ def main():
         page = browser.new_page(viewport={"width": WIDTH, "height": 1000},
                                 device_scale_factor=2)
         for name in wanted:
-            render(page, name, DOCS[name], ref)
+            render(page, name, DOCS[name], ref, label)
         browser.close()
 
 

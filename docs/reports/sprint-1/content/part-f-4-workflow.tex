@@ -1,7 +1,7 @@
 \partsection{F.4}{Engineering workflow and history}\label{F:4}
 
 Two completed Issue to Pull Request chains, both into the Sprint 1 staging branch \texttt{sprint-1}.
-Times are UTC as GitHub records them. Both PRs were squash-merged into \texttt{sprint-1}; the merge of \texttt{sprint-1} into \texttt{main} has not happened yet (\todo{release: release PR \texttt{sprint-1} into \texttt{main}, its merge commit, and the tag, for both chains}).
+Times are UTC as GitHub records them. Both PRs were squash-merged into \texttt{sprint-1}; \texttt{sprint-1} then reached \texttt{main} through the release PR \#69, merged with a merge commit so that \texttt{main} keeps each feature's commit subject (see ``Final board and release'' below).
 
 \subsubsection*{Chain 1: route permissions (author 1005, reviewer 1045)}
 
@@ -14,7 +14,7 @@ Branch & \path{feat/route-permissions}, from \texttt{sprint-1} \\
 Pull request & \#59 into \texttt{sprint-1}, opened 2026-11-13 18:32 by Kiatisakk; PR body: ``Closes \#27'' \\
 Reviewer, verdicts & beambeambeam: review comments 18:41 (two inline findings), approved 18:56 \\
 Integration into \texttt{sprint-1} & squash commit \texttt{201546d}, merged 2026-11-13 18:56 by beambeambeam \\
-Integration into \texttt{main} & \todo{release: release PR and merge commit} \\
+Integration into \texttt{main} & release PR \#69 (\texttt{sprint-1} into \texttt{main}), merge commit \texttt{ac5bce5}, merged 2026-11-15 08:31 by beambeambeam; tag \texttt{v0.0.3.0} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -38,7 +38,7 @@ Branch & \path{feat/login-current-user}, from \texttt{sprint-1} \\
 Pull request & \#56 into \texttt{sprint-1}, opened 2026-11-13 07:28 by beambeambeam; closes \#25 \\
 Reviewer, verdicts & Kiatisakk: changes requested 12:09 (six inline findings, two of them blocking), approved 14:33 after re-reviewing \texttt{bb65257..f6b7aa4} \\
 Integration into \texttt{sprint-1} & squash commit \texttt{90b11fa}, merged 2026-11-13 14:35 by Kiatisakk \\
-Integration into \texttt{main} & \todo{release: release PR and merge commit} \\
+Integration into \texttt{main} & release PR \#69 (\texttt{sprint-1} into \texttt{main}), merge commit \texttt{ac5bce5}, merged 2026-11-15 08:31 by beambeambeam; tag \texttt{v0.0.3.0} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -68,10 +68,14 @@ e3d6afa  2026-11-07 01:05 +0700  bbb  docs: add sprint plan, feature specs, tick
 fc91021  2026-11-14 01:19 +0700  bbb  feat: log out, session expiry, and bans
 201546d  2026-11-14 01:56 +0700  Kiatisakk  feat: add route permissions and the route inventory test (#59)
 a60fcf1  2026-11-14 16:16 +0700  Kiatisakk  feat: submit a claim with its rules and field errors (#60)
+0c07a8d  2026-11-14 18:04 +0700  bbb  feat: list my claims and open a claim with its policy (#63)
+29fd6fb  2026-11-15 03:19 +0700  bbb  feat: review queue, approve and reject a claim, and the Sprint 1 journey (#65)
+7e787d4  2026-11-15 15:10 +0700  Kiatisakk  chore: prepare the Sprint 1 release (#68)
+ac5bce5  2026-11-15 15:31 +0700  bbb  chore: release Sprint 1 (#69)   (merge commit on main)
 \end{shell}
 
 \begin{center}\small
-\begin{tabular}{@{}llll@{}}
+\begin{tabular}{@{}p{7.6cm}lll@{}}
 \toprule \textbf{Step} & \textbf{Pull request} & \textbf{Squash commit} & \textbf{Merged (UTC+7)} \\ \midrule
 Contracts and test design & \#23 & \texttt{e3d6afa} & 2026-11-07 01:05 \\
 Walking skeleton (F-01/01, \#24) & \#36 & \texttt{5d1efaa} & 2026-11-13 00:21 \\
@@ -79,6 +83,10 @@ Log in, current user (F-01/02, \#25) & \#56 & \texttt{90b11fa} & 2026-11-13 21:3
 Log out, expiry, bans (F-01/03, \#26) & \#58 & \texttt{fc91021} & 2026-11-14 01:19 \\
 Route permissions (F-01/04, \#27) & \#59 & \texttt{201546d} & 2026-11-14 01:56 \\
 Submit a claim and its rules (F-02/01, F-02/02, \#28, \#29) & \#60 & \texttt{a60fcf1} & 2026-11-14 16:16 \\
+My Claims and claim detail (F-03/01, F-03/02, \#30, \#31) & \#63 & \texttt{0c07a8d} & 2026-11-14 18:04 \\
+Review queue, decisions, journey (F-04/01--03, \#32--\#34) & \#65 & \texttt{29fd6fb} & 2026-11-15 03:19 \\
+Release preparation (DoD evidence, \#4) & \#68 & \texttt{7e787d4} & 2026-11-15 15:10 \\
+Release \texttt{sprint-1} into \texttt{main} & \#69 & \texttt{ac5bce5} (merge) & 2026-11-15 15:31 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -88,6 +96,9 @@ Within PR \#60 the failing test \texttt{ca3a703} precedes the code \texttt{7b478
 
 \subsubsection*{Final board and release}
 
-\pending{Project board (project 5) with every Sprint 1 card in Done}{release: tickets \#30 to \#34 merged and the board captured by hand last (the board is the only capture not taken by script)}
+\evidence{figures/github/board.png}{Project board (project 5) after the release: every Sprint 1 ticket (\#24 to \#34) in Done; the report \#4 in progress; Sprint 2, Lab 5 and the follow-ups \#66, \#67 in Backlog or Ready.}
+\evidence{figures/github/pr69-header.png}{Release PR \#69: \texttt{sprint-1} into \texttt{main}, merged with a merge commit.}
 
-\textbf{Release reference.} \todo{release: tag \texttt{vG.X.Y.Z}, release commit, and the release pull request \texttt{sprint-1} into \texttt{main}}
+\textbf{Release reference.} Tag \texttt{v0.0.3.0}, created by semantic-release on \texttt{main}; release commit \texttt{ac5bce5} (the merge of \texttt{sprint-1} at \texttt{7e787d4} into \texttt{main} at \texttt{c06182e}); release PR \#69, opened by Kiatisakk and merged by beambeambeam on 2026-11-15.
+Before the release PR, \texttt{sprint-1} was checked against the Product DoD and this specification in PR \#68: every Feature DoD box carries its evidence, or stays open with a known gap and a follow-up issue (\#66, \#67).
+The release brings 14 commits to \texttt{main}; the \texttt{feat:} subjects make it a minor release (\texttt{v0.0.2.0} to \texttt{v0.0.3.0}).

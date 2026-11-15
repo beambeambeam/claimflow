@@ -18,6 +18,7 @@
 
 \usepackage[a4paper, margin=2cm]{geometry}
 \usepackage{graphicx}
+\usepackage{pdflscape}
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{array}
@@ -123,6 +124,23 @@
     {\begin{figure}[H]\centering
        \fbox{\includegraphics[width=0.96\linewidth,height=11.5cm,keepaspectratio]{#1}}%
        \caption{#2}\end{figure}}%
+    {\begin{figure}[H]\centering\figmissing{#1}{#2}\caption{#2}\end{figure}}}
+
+% \diagramfull{file}{caption}: one Mermaid diagram of a captured document,
+% photographed on its own at 3x by scripts/capture_diagrams.py, at full text width.
+\newcommand{\diagramfull}[2]{%
+  \IfFileExists{#1}%
+    {\begin{figure}[H]\centering
+       \fbox{\includegraphics[width=0.96\linewidth,height=\evidencemaxheight,keepaspectratio]{#1}}%
+       \caption{#2}\end{figure}}%
+    {\begin{figure}[H]\centering\figmissing{#1}{#2}\caption{#2}\end{figure}}}
+
+% \diagramwide{file}{caption}: a diagram much wider than tall, on its own landscape page.
+\newcommand{\diagramwide}[2]{%
+  \IfFileExists{#1}%
+    {\begin{landscape}\begin{figure}[H]\centering
+       \fbox{\includegraphics[width=0.96\linewidth,height=15cm,keepaspectratio]{#1}}%
+       \caption{#2}\end{figure}\end{landscape}}%
     {\begin{figure}[H]\centering\figmissing{#1}{#2}\caption{#2}\end{figure}}}
 
 % \evidencesmall{file}{caption}{width fraction}: a capture that is small to begin with.

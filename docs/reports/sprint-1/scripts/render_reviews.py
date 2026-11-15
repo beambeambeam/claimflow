@@ -14,6 +14,8 @@ Chain 1: issue #27 -> feat/route-permissions -> PR #59
 Chain 2: issue #25 -> feat/login-current-user -> PR #56
          author beambeambeam, reviewer Kiatisakk (changes requested, approval)
 
+Release: PR #69, sprint-1 into main (header only).
+
 Output: figures/github/<name>.png. The repository is public: no login.
 The review and comment ids come from
     gh api repos/beambeambeam/claimflow/pulls/<n>/reviews   (id)
@@ -39,6 +41,7 @@ TARGETS = [
     ("pr56", "pr56-changes-requested", 56, "pullrequestreview-5890718551"),
     ("pr56", "pr56-thread-auth-in-handler", 56, "discussion_r4563077254"),
     ("pr56", "pr56-approved",         56, "pullrequestreview-5892813259"),
+    ("pr69", "pr69-header",           69, None),
 ]
 
 HEADER = "[class*='PageLayout-Header']"

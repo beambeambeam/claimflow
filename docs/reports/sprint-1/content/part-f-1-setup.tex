@@ -1,6 +1,6 @@
 \partsection{F.1}{Setup summary}\label{F:1}
 
-This summary is taken from \texttt{README.md} and \path{apps/api/.env.example} at \texttt{sprint-1} head \texttt{a60fcf1}; the README is rechecked at the release commit (\todo{release: recheck the README and this summary at the release commit}).
+This summary is taken from \texttt{README.md} and \path{apps/api/.env.example} at the release commit \texttt{ac5bce5} on \texttt{main}. The README steps were run on an empty database before the release (\texttt{migrate up}, \texttt{seed}, \texttt{seed} again: 7 users and 6 sample claims, the second run adds nothing).
 Nothing below is a secret: the demo password is not in Git or in this PDF, and each student sets it locally.
 
 \textbf{Requires.} Bun, Node.js 26 (\texttt{.node-version}), Go 1.27.4 (\path{apps/api/go.mod}), and Docker (PostgreSQL 17 through \texttt{docker compose}).
@@ -10,7 +10,7 @@ bun install
 cp apps/api/.env.example apps/api/.env      # then set SEED_USER_PASSWORD in apps/api/.env
 bun run db:up                               # docker compose: PostgreSQL 17 on localhost:5432
 bun run --cwd apps/api migrate up           # goose migrations 00001_auth, 00002_claims
-bun run --cwd apps/api seed                 # 7 demo accounts, password from SEED_USER_PASSWORD
+bun run --cwd apps/api seed                 # 7 demo accounts and 6 sample claims; idempotent
 bun run dev                                 # web http://localhost:3000, API http://localhost:8080
 \end{shell}
 
@@ -30,7 +30,7 @@ bun run dev                                 # web http://localhost:3000, API htt
 \end{tabular}
 \end{center}
 
-\textbf{Seeded demo accounts} (\path{apps/api/seed.go}, SDS \S2.5; the seed is idempotent and a re-run updates the hash).
+\textbf{Seeded demo accounts} (README ``Demo data'', \path{apps/api/seed.go}, SDS \S2.5). The seed also adds six sample claims with their history (\texttt{CLM-2026-9000xx}): two Submitted, one Approved, and one Rejected from the requesters to their reviewers, and a Submitted claim each from \texttt{rev.malee} and \texttt{rev.prasert} (40,000.00) for the next reviewer up.
 
 \begin{center}\small
 \begin{tabular}{@{}lll@{}}
@@ -54,4 +54,4 @@ bun run --cwd apps/web test:coverage        # vp test run --coverage (Vitest)
 bun run check                               # format, lint, type-check
 \end{shell}
 
-\textbf{Gap found while writing this summary.} The Product Definition of Done and the F-01 contract ask the README to explain how to run the seed and set \texttt{SEED\_USER\_PASSWORD}; at \texttt{a60fcf1} the README does not mention the seed command or the variable, so the two lines above come from \path{apps/api/package.json}, \texttt{.env.example}, and PR \#56. \todo{release: README seed instructions added before the release, or the gap listed in F.5}
+\textbf{Also in the README.} How to run the Playwright specs in \path{apps/web/e2e} against a running stack (with a PowerShell line for \texttt{SEED\_USER\_PASSWORD}), and the restart check for NFR-05 (F04-TEST-19): stop the API and the database, start them again with the named volume kept, and compare what \texttt{req.anan} sees.

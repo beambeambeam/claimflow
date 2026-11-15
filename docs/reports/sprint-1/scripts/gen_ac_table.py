@@ -134,6 +134,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gojson", help="output of go test -json run in apps/api")
     ap.add_argument("--commit", default="HEAD")
+    ap.add_argument("--e2e-passed", action="store_true",
+                    help="the E2E specs were run on a local stack at --commit and all passed")
+    ap.add_argument("--web-passed", action="store_true",
+                    help="the Vitest suite was run at --commit; each file passes when run alone")
+    ap.add_argument("--web-fail", action="append", default=[], metavar="TITLE",
+                    help="a Vitest test whose title contains TITLE fails when its file runs alone")
     args = ap.parse_args()
 
     plan, go, web = planned(), traceability_go(go_tests()), web_tests()
@@ -153,7 +159,7 @@ def main():
 
     def result(actual, level):
         gos = [res.get(n) for f, n, k in actual if k == "go"]
-        webs = [1 for f, n, k in actual if k == "web"]
+        webs = [n for f, n, k in actual if k == "web"]
         if gos and not res:
             return r"\todo{run Go tests}"
         if gos and any(r != "pass" for r in gos):
@@ -162,8 +168,16 @@ def main():
         if gos:
             parts.append(f"pass ({len(gos)} run)")
         if webs:
-            tail = "on a local stack, not in CI" if level == "E2E" else "not run here"
-            parts.append(f"recorded pass, {tail}")
+            if level == "E2E" and args.e2e_passed:
+                parts.append(f"pass (E2E on a local stack at {args.commit}, not in CI)")
+            elif level != "E2E" and args.web_passed:
+                if any(x in w for w in webs for x in args.web_fail):
+                    parts.append(f"pass in CI at {args.commit}; locally the first case fails on the author's machine (F.3)")
+                else:
+                    parts.append(f"pass (Vitest, CI at {args.commit})")
+            else:
+                tail = "on a local stack, not in CI" if level == "E2E" else "not run here"
+                parts.append(f"recorded pass, {tail}")
         return "; ".join(parts)
 
     def cell_actual(actual):
@@ -196,10 +210,17 @@ def main():
     for tid, ac, level, actual in manual:
         n = owner.get(tid)
         if tid == "F04-TEST-19":
-            status = ("Manual restart check, not run yet: ticket \\#%s" % n) if n else r"\todo{ticket}"
+            status = ("Manual restart check; recorded pass in the F-04 contract (d96f612, 29fd6fb). "
+                      f"Rerun at {args.commit}: API and PostgreSQL container restarted with the volume kept, "
+                      "the requester's claims, items and history read through the API were byte-identical.")
+        elif tid == "F01-TEST-18":
+            status = ("Manual check on 29fd6fb (code identical to the release): no tracked \\texttt{.env} file; "
+                      "gitleaks over the commits of \\texttt{sprint-1} reports 11 hits, all Go module checksums in "
+                      "\\path{apps/api/*.sum}; every \\texttt{.env.schema} variable is in \\texttt{.env.example}. pass")
         else:
-            status = ("Manual/CI check; recorded in the F-01/01 pull request "
-                      "(\\#24) per \\path{docs/traceability.md}; \\todo{release: rerun and record at the release commit}")
+            status = (f"CI check: the required checks (\\texttt{{code\\_quality}}, \\texttt{{test}}, \\texttt{{api}}, "
+                      f"\\texttt{{build}}) passed on {args.commit} (push to \\texttt{{main}}) and on release PR \\#69; "
+                      "the \\texttt{api} job runs the generate check and the 100\\% coverage gate. pass")
         L.append(f"{tid} & {tex(ac)} & {tex(level)} & {status} \\\\")
     L.append(r"\bottomrule\end{longtable}}")
     L.append("")

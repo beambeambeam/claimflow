@@ -7,7 +7,7 @@
 \toprule
  & \textbf{Student 1} & \textbf{Student 2} \\ \midrule
 Name & Kiatisak Markmeeshap & Supawit Marayat \\
-Student ID & 67070501005 & \todo{1045: full ID (ends in 1045)} \\
+Student ID & 67070501005 & 67070501045 \\
 GitHub & \href{https://github.com/Kiatisakk}{@Kiatisakk} & \href{https://github.com/beambeambeam}{@beambeambeam} \\
 \bottomrule
 \end{tabular}
@@ -16,16 +16,10 @@ GitHub & \href{https://github.com/Kiatisakk}{@Kiatisakk} & \href{https://github.
 \begin{tabular}{@{}p{3.4cm}p{13cm}@{}}
 \textbf{Theme} & Theme 5, ClaimFlow: Department Expense Reimbursement System \\
 \textbf{Repository} & \url{https://github.com/beambeambeam/claimflow} \\
-\textbf{Release tag} & \todo{release: tag \texttt{vG.X.Y.Z} created by semantic-release when \texttt{sprint-1} merges into \texttt{main}} \\
-\textbf{Release commit} & \todo{release: commit of the release merge on \texttt{main}} \\
-\textbf{Screenshots and test output} & \todo{release: one commit for every capture; this draft was captured from \texttt{sprint-1}, see the red note below} \\
+\textbf{Release tag} & \texttt{v0.0.3.0} (created by semantic-release on \texttt{main}; \url{https://github.com/beambeambeam/claimflow/releases/tag/v0.0.3.0}) \\
+\textbf{Release commit} & \texttt{ac5bce5} on \texttt{main}: merge commit of release PR \#69 (\texttt{sprint-1} at \texttt{7e787d4} into \texttt{main}), 2026-11-15 \\
+\textbf{Screenshots and test output} & all from \texttt{ac5bce5}: Parts A to E captured from \texttt{main} at that commit; builds, tests and demos run on its tree \\
 \end{tabular}
-
-\medskip
-\noindent\fcolorbox{todored}{white}{\parbox{0.97\linewidth}{\small\textcolor{todored}{\textbf{DRAFT.}}
-Parts A to E are captured from branch \texttt{sprint-1} (head \texttt{a60fcf1}), not from the release commit on \texttt{main}.
-Part F holds every piece of evidence that can be written from merged work today; red boxes and \texttt{[TODO]} marks name what each missing item waits for.
-The final build recaptures everything from the release commit and has none of them.}}
 
 \medskip
 \noindent\textbf{How to read this PDF.}
@@ -45,7 +39,7 @@ B & \pages{B} & Feature inventory F-01 to F-10 and system responsibilities SR-01
 C & \pages{C} & System-level SDS (architecture, data model, claim lifecycle, API conventions, roles and permissions, authentication, configuration, deployment); ADR 0001. \\
 D & \pages{D} & Three-sprint plan: sprint goals, feature dependencies, Sprint 1 scope (F-01 to F-04). \\
 E & \pages{E} & Sprint 1 contracts: F-01 (F01-AC-01 to 21, F01-TEST-01 to 24), F-02 (F02-AC-01 to 14, F02-TEST-01 to 21), F-03 (F03-AC-01 to 11, F03-TEST-01 to 12), F-04 (F04-AC-01 to 20, F04-TEST-01 to 24); Product Definition of Done. \\
-F & \pages{F} & Execution evidence. Setup summary, p.~\pageref{F:1}. Demonstrations (F-02, F02-AC-06, F02-AC-07, F01-AC-07, F02-AC-09, BR-07, BR-12, BR-15), p.~\pageref{F:2}. Build and test results, AC-to-test table, test excerpts, TDD red and green (PR \#60), p.~\pageref{F:3}. Workflow: Issue \#27 to PR \#59 and Issue \#25 to PR \#56, history sequence, board, release, p.~\pageref{F:4}. Contributions, AI-use declaration, known limitations, p.~\pageref{F:5}. \\
+F & \pages{F} & Execution evidence. Setup summary, p.~\pageref{F:1}. Demonstrations (submit, approve, retrieve: F-02, F-03, F-04, F04-AC-20; rule rejection: F02-AC-06, F02-AC-07, BR-07, BR-12; login, logout, forbidden operation: F01-AC-07, F02-AC-09, BR-15), p.~\pageref{F:2}. Build and test results on \texttt{ac5bce5}, AC-to-test table for F-01 to F-04, test excerpts, TDD red and green (PR \#60), p.~\pageref{F:3}. Workflow: Issue \#27 to PR \#59 and Issue \#25 to PR \#56, both into \texttt{main} through release PR \#69, history sequence, board, release \texttt{v0.0.3.0}, p.~\pageref{F:4}. Contributions, AI-use declaration, known limitations, p.~\pageref{F:5}. \\
 \bottomrule
 \end{longtable}
 

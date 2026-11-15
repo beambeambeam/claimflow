@@ -2,7 +2,7 @@
 
 \subsubsection*{Contribution table}
 
-From the merged pull requests and closed issues of \path{beambeambeam/claimflow} on GitHub, collected by \path{scripts/collect_team.py} on 14 November 2026 (\todo{release: recollect at the release; the report PR and the remaining Sprint 1 tickets \#30 to \#34 are not merged yet}).
+From the merged pull requests and closed issues of \path{beambeambeam/claimflow} on GitHub, collected by \path{scripts/collect_team.py} on 15 November 2026, after the release.
 An equal number of commits is not required; the two students split the work as follows.
 Dependabot pull requests (\#10, \#22) are not counted.
 
@@ -11,8 +11,8 @@ Dependabot pull requests (\#10, \#22) are not counted.
 \begin{center}\small
 \begin{tabular}{@{}>{\bfseries}p{2.7cm}p{13.6cm}@{}}
 \toprule
-Kiatisakk (1005) & Requirements and design documents: SRS (\#18, issue \#1), feature inventory and traceability matrix (\#20, issue \#2), system-level SDS (\#21, issue \#3). Implementation: route permissions and the route inventory test, F-01/04 (\#59, issue \#27); submit a claim, F-02/01 and F-02/02, with the claim rules, the schema and the New Claim form (\#60, issues \#28, \#29). Reviews of Beam's PRs \#23, \#35, \#36, \#56, \#57, \#58, including the changes requested on \#56. This report (issue \#4). \\
-beambeambeam (1045) & Repository, CI and tooling setup (\#8, \#9, \#11 to \#15, \#17, \#19, issue \#7), the sprint plan and the Sprint 1 contracts (\#23, issues \#5, \#6), the sprint workflow rules (\#35), moving issue tracking to GitHub Issues (\#57). Implementation: walking skeleton with contract, database and health checks, F-01/01 (\#36, issue \#24); log in and the current user, F-01/02 (\#56, issue \#25); log out, session expiry and bans, F-01/03 (\#58, issue \#26). Reviews of Kiatisak's PRs \#18, \#20, \#21, \#59, \#60. \\
+Kiatisakk (1005) & Requirements and design documents: SRS (\#18, issue \#1), feature inventory and traceability matrix (\#20, issue \#2), system-level SDS (\#21, issue \#3). Implementation: route permissions and the route inventory test, F-01/04 (\#59, issue \#27); submit a claim, F-02/01 and F-02/02, with the claim rules, the schema and the New Claim form (\#60, issues \#28, \#29). Reviews of Beam's PRs \#23, \#35, \#36, \#56, \#57, \#58, \#63, \#65, with changes requested on \#56 and \#65. The release: the check of \texttt{sprint-1} against the Product DoD (\#68) and the release PR (\#69). This report (issue \#4). \\
+beambeambeam (1045) & Repository, CI and tooling setup (\#8, \#9, \#11 to \#15, \#17, \#19, issue \#7), the sprint plan and the Sprint 1 contracts (\#23, issues \#5, \#6), the sprint workflow rules (\#35), moving issue tracking to GitHub Issues (\#57). Implementation: walking skeleton with contract, database and health checks, F-01/01 (\#36, issue \#24); log in and the current user, F-01/02 (\#56, issue \#25); log out, session expiry and bans, F-01/03 (\#58, issue \#26); My Claims and the claim detail, F-03/01 and F-03/02 (\#63, issues \#30, \#31); the review queue, approve and reject, and the Sprint 1 journey with Playwright, F-04/01 to 03 (\#65, issues \#32, \#33, \#34). Reviews of Kiatisak's PRs \#18, \#20, \#21, \#59, \#60, \#68, \#69, and the merge of the release. \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -30,16 +30,15 @@ Every result is gated by the repository checks (formatting, lint, tests, coverag
 
 \subsubsection*{Known limitations, failed and skipped tests}
 
-Written from the contracts, the pull request descriptions and the open issues at \texttt{a60fcf1}; the list is updated at the release.
+Written from the contracts, the pull request descriptions and the open issues at the release commit \texttt{ac5bce5}.
+Issues \#61, \#66, \#67 and \#70 track the open work; the two small known gaps of PR \#60 have no issue of their own.
 
 \begin{itemize}\setlength\itemsep{2pt}
-\item \textbf{F-03 My Claims and F-04 Review decision are not implemented yet.} All 12 planned F-03 tests and 22 of the 24 planned F-04 tests have no actual test (tickets \#30, \#31, \#32, \#33, \#34, open); F04-TEST-18 passes, and F04-TEST-19 is a manual check not yet run. Demo 1 depends on this work. \todo{release: replace with the final state when \#30 to \#34 merge, or list what is cut}
-\item \textbf{E2E is not in CI until \#34.} F02-TEST-21 and F01-TEST-24 pass on a local seeded stack, but CI has no Playwright job; it comes with the Sprint 1 journey ticket \#34 (F-02 contract \S7, revision 0.3).
-\item \textbf{Web tests that fail on the author's Windows machine.} PR \#60 reports 60 of 65 web tests passing locally; the failures are in \texttt{auth-routing.test.tsx} and \texttt{session-end.test.tsx} and pass in CI. \todo{release: CI result of the web job on the release commit, or the failures listed as failed}
+\item \textbf{The E2E specs do not run in CI} (issue \#66). F01-TEST-24, F02-TEST-21, F03-TEST-12, F04-TEST-23 and F04-TEST-24 pass on a local seeded stack (F.3), but CI has no Playwright job. For that reason the ``pass in CI'' box of \S7 in the F-01, F-02 and F-03 contracts is left open with a known-gap line (Part E); F-04's Playwright item allows a recorded run.
+\item \textbf{The SDS and the code differ in three places} (issue \#67): two \texttt{List} methods where \S3.1 has one, history actions stored as strings, and empty audit fields for the session. SDS revision 0.12 records them as as-built notes; \#67 also holds the smaller review follow-ups of PR \#65. The review of the release PR \#69 added \#70: none of its items blocks the release or changes an acceptance criterion; the one that touches behaviour is the F-04 \S2.2 403 page, which shows only when the next read of the claim also returns 403.
+\item \textbf{Receipt files are not part of Sprint 1} (issue \#61). A line item has a \texttt{Receipt reference} text field; uploads come later.
 \item \textbf{Layout shift in error rows.} In a New Claim line item that shows errors, the columns shift right (PR \#60, known gaps).
-\item \textbf{F-02 E2E covers the happy path only;} rule errors are covered by the API and component tests, not by the E2E test (PR \#60).
-\item \textbf{Receipt files are not part of Sprint 1.} Issue \#61 (open) adds receipt uploads; the \texttt{Receipt reference} text field is what Sprint 1 ships.
-\item \textbf{README does not yet explain the seed} (F.1); the Definition of Done asks for it. \todo{release: fixed in the README, or kept here}
-\item \textbf{Manual checks.} F01-TEST-18 (secret scan, \texttt{.env.example} against the schema), F01-TEST-19 (CI checks on a PR) and F04-TEST-19 (restart check) are manual or CI-recorded; the first two are recorded in the F-01/01 PR (\#24), the third is ticket \#34. \todo{release: record each manual check with the release commit}
-\item \textbf{Failed or skipped tests in the interim run:} none (0 failed, 0 skipped of 83 top-level Go tests, F.3); no test was disabled or weakened to obtain this.
+\item \textbf{The F-02 E2E test covers the happy path only;} the rule errors are covered by the API and component tests (PR \#60).
+\item \textbf{Manual checks} were run on \texttt{29fd6fb}, the last code commit before the release, whose code is identical to \texttt{ac5bce5} (the two later commits change \texttt{README.md} and \path{docs/} only): F01-TEST-18 (no tracked \texttt{.env}; gitleaks reports 11 hits, all Go module checksums; \texttt{.env.example} matches \texttt{.env.schema}), F01-TEST-19 (required CI checks on PR \#65), and F04-TEST-19 (restart check: \texttt{req.anan}'s claims, items and history byte-identical before and after), which was run again on \texttt{ac5bce5} (F.3). Results are in \path{docs/traceability.md}.
+\item \textbf{Failed and skipped tests on the release commit.} Go: 0 failed, 0 skipped of 123 top-level tests and 152 subtests. Web: 130 of 130 pass in CI on \texttt{ac5bce5}; on the author's machine a full local run times out on 19 tests under load, and rerun file by file only the first test of \texttt{auth-routing.test.tsx} still fails there (F.3). E2E: 5 of 5 pass locally. No test was disabled, skipped or weakened to obtain these results.
 \end{itemize}

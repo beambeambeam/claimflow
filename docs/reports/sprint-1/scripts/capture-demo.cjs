@@ -1,7 +1,12 @@
 /* eslint-disable typescript/no-unsafe-call, typescript/no-unsafe-member-access, typescript/no-unsafe-assignment, typescript/no-unsafe-return, typescript/strict-boolean-expressions, typescript/use-unknown-in-catch-callback-variable, unicorn/no-await-expression-member, unicorn/filename-case, eslint/require-unicode-regexp, eslint/func-style, eslint/no-inline-comments, promise/prefer-await-to-callbacks, typescript/prefer-nullish-coalescing, typescript/no-unsafe-argument */
 // A standalone capture script, run by hand with node: untyped, not part of the app.
-// Capture demo 2 and demo 3 of Part F.2 from a running local stack.
+// Capture demos 1, 2 and 3 of Part F.2 from a running local stack.
 //
+//   demo 1  submit, approve, retrieve: req.anan submits a claim with two line
+//           items (F02-AC-01); rev.malee approves it from the Review Queue
+//           (F04-AC-04); req.anan opens My Claims and the claim detail, which
+//           shows Approved with the SUBMIT and APPROVE history (F03-AC-01,
+//           F04-AC-20). The journey is the same as E2E test F04-TEST-23.
 //   demo 2  rule rejection under the field: a Meals line over 1,500.00 THB (BR-12,
 //           F02-AC-06) and a future expense date (BR-07, F02-AC-07), then the
 //           corrected claim accepted with its claim number.
@@ -68,6 +73,9 @@ async function fillItem(page, i, category, description, date, amount) {
     .fill(`RC-${i + 1}`);
 }
 
+// Ends the session, so the same page can log in as someone else.
+const logout = (page) => page.context().clearCookies();
+
 const shot = (page, name) =>
   page.screenshot({ fullPage: true, path: path.join(out, name) });
 
@@ -77,6 +85,51 @@ const shot = (page, name) =>
   const page = await (
     await browser.newContext({ viewport: { height: 1000, width: 1280 } })
   ).newPage();
+
+  // ---- Demo 1: submit, approve, retrieve --------------------------------------
+  await login(page, "req.anan");
+  await page.goto(`${base}/claims/new`);
+  const title = `Demo approve ${Date.now()}`;
+  await page.getByLabel("Title").fill(title);
+  await page.getByLabel("Purpose").fill("Train fare and a client lunch");
+  await fillItem(page, 0, "Travel", "Train return", day(-1), "250.00");
+  await page.getByRole("button", { name: "Add line item" }).click();
+  await fillItem(page, 1, "Meals", "Client lunch", day(-1), "400.00");
+  await shot(page, "demo1-1-new-claim-two-items.png");
+  await page.getByRole("button", { name: "Submit" }).click();
+
+  const confirmation = page.getByRole("heading", {
+    name: /^Claim CLM-\d{4}-\d{6} submitted$/,
+  });
+
+  await confirmation.waitFor();
+  const [claimNo] = /CLM-\d{4}-\d{6}/.exec(await confirmation.textContent());
+  await shot(page, "demo1-2-claim-submitted.png");
+
+  await logout(page);
+  await login(page, "rev.malee");
+  await page.goto(`${base}/reviews`);
+  await page.getByRole("link", { name: claimNo }).first().waitFor();
+  await shot(page, "demo1-3-review-queue-lists-the-claim.png");
+  await page.getByRole("link", { name: claimNo }).first().click();
+  await page.waitForURL(/\/claims\/[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: "Approve" }).click();
+  await page.getByRole("button", { name: "Approve" }).last().waitFor();
+  await shot(page, "demo1-4-approve-dialog.png");
+  await page.getByRole("button", { name: "Approve" }).last().click();
+  await page.getByText("Claim approved.").first().waitFor();
+  await shot(page, "demo1-5-reviewer-sees-claim-approved.png");
+
+  await logout(page);
+  await login(page, "req.anan");
+  await page.getByRole("link", { name: claimNo }).first().waitFor();
+  await shot(page, "demo1-6-my-claims-after-approval.png");
+  await page.getByRole("link", { name: claimNo }).first().click();
+  await page.waitForURL(/\/claims\/[0-9a-f-]{36}$/);
+  const history = page.getByRole("region", { name: "History" });
+  await history.getByText("Submitted → Approved").waitFor();
+  await shot(page, "demo1-7-claim-detail-approved-with-history.png");
+  await logout(page);
 
   // ---- Demo 2: rule rejection, then acceptance --------------------------------
   await login(page, "req.anan");

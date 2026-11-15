@@ -53,11 +53,13 @@ docs/reports/sprint-1/
 
 ## Evidence index
 
+**15 November 2026: phase 3 is done.** Every row below is filled from the release `v0.0.3.0` (`ac5bce5`) except the AI-use declaration and the contribution check of 1045 in F.5. The statuses below are the plan as written in phase 1.
+
 Status: `ready` can be written now from merged work, `release` waits for the Sprint 1 release on `main`, `blocked` waits for a ticket.
 
 | Part | Artifact | IDs / version | Status |
 | --- | --- | --- | --- |
-| Front | Names, IDs, theme, repo URL | – | ready (second student's full ID to confirm) |
+| Front | Names, IDs, theme, repo URL | – | done |
 | Front | Release tag and commit | `vG.X.Y.Z` | release |
 | A–E | Document captures | `main` at the release commit | release (draft from `sprint-1` now) |
 | F.1 | Setup summary | README at the release commit | ready (recheck at release). Finding: at `a60fcf1` the README does not explain the seed or `SEED_USER_PASSWORD`, which the Product DoD asks for |
@@ -93,14 +95,16 @@ Needs Python with Playwright and Pillow, Chrome or Edge, MiKTeX (`xelatex`), and
 
 ```bash
 cd docs/reports/sprint-1
-python scripts/render_docs.py --ref sprint-1     # or --ref main after the release; also writes figures/docs/<name>.json
+python scripts/render_docs.py --ref ac5bce5 --label main   # the release commit, cited as main; writes figures/docs/<name>.json
 python scripts/slice_tall.py                     # cut tall captures into pages
-python scripts/gen_part_lists.py                 # content/part-a..e from what is in figures/docs
-python scripts/render_reviews.py                 # figures/github: review and comment anchors of PRs #59 and #56
+python scripts/capture_diagrams.py --ref ac5bce5 --label main  # each Mermaid diagram alone at 3x, figures/diagrams/
+python scripts/gen_part_lists.py                 # content/part-a..e from figures/docs and figures/diagrams
+python scripts/render_reviews.py                 # figures/github: review and comment anchors of PRs #59 and #56, header of #69
+python scripts/capture_board.py                  # figures/github/board.png, the public project board
 python scripts/collect_team.py && python scripts/gen_team_table.py     # F.5 contribution table
 (cd ../../../apps/api && go test -json -count=1 ./... > /tmp/go.json)  # needs Docker
-python scripts/gen_ac_table.py --gojson /tmp/go.json --commit <sha>    # F.3 AC-to-test table
-SEED_USER_PASSWORD=... node scripts/capture-demo.cjs                  # demos 2 and 3; local stack must be running
+python scripts/gen_ac_table.py --gojson /tmp/go.json --commit <sha> --e2e-passed --web-passed [--web-fail <title>]   # F.3 AC-to-test table
+SEED_USER_PASSWORD=... node scripts/capture-demo.cjs                  # demos 1 to 3; local stack must be running
 xelatex -interaction=nonstopmode main.tex && xelatex -interaction=nonstopmode main.tex
 python scripts/check_report.py                   # pending figures, \todo, blank captures, Mermaid, overfull boxes
 ```

@@ -219,6 +219,50 @@
       "reviews": {
         "beambeambeam": ["APPROVED", "COMMENTED"]
       }
+    },
+    {
+      "number": 63,
+      "title": "feat: list my claims and open a claim with its policy",
+      "author": "beambeambeam",
+      "base": "sprint-1",
+      "merged_by": "Kiatisakk",
+      "merged_at": "2026-11-14T11:04:51Z",
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "COMMENTED"]
+      }
+    },
+    {
+      "number": 65,
+      "title": "feat: review queue, approve and reject a claim, and the Sprint 1 journey",
+      "author": "beambeambeam",
+      "base": "sprint-1",
+      "merged_by": "Kiatisakk",
+      "merged_at": "2026-11-14T20:19:07Z",
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      }
+    },
+    {
+      "number": 68,
+      "title": "chore: prepare the Sprint 1 release",
+      "author": "Kiatisakk",
+      "base": "sprint-1",
+      "merged_by": "beambeambeam",
+      "merged_at": "2026-11-15T08:10:57Z",
+      "reviews": {
+        "beambeambeam": ["APPROVED", "COMMENTED"]
+      }
+    },
+    {
+      "number": 69,
+      "title": "chore: release Sprint 1",
+      "author": "Kiatisakk",
+      "base": "main",
+      "merged_by": "beambeambeam",
+      "merged_at": "2026-11-15T08:31:02Z",
+      "reviews": {
+        "beambeambeam": ["APPROVED"]
+      }
     }
   ],
   "issues": [
@@ -293,6 +337,36 @@
       "title": "F-02/02: Claim rules with field-level errors",
       "assignees": ["Kiatisakk"],
       "closed_at": "2026-11-14T09:24:11Z"
+    },
+    {
+      "number": 30,
+      "title": "F-03/01: My Claims list",
+      "assignees": ["beambeambeam"],
+      "closed_at": "2026-11-14T11:31:27Z"
+    },
+    {
+      "number": 31,
+      "title": "F-03/02: Claim Detail and the claim policy",
+      "assignees": ["beambeambeam"],
+      "closed_at": "2026-11-14T11:31:28Z"
+    },
+    {
+      "number": 32,
+      "title": "F-04/01: Review Queue and approve",
+      "assignees": ["beambeambeam"],
+      "closed_at": "2026-11-14T20:20:41Z"
+    },
+    {
+      "number": 33,
+      "title": "F-04/02: Reject, invalid transitions, and concurrent decisions",
+      "assignees": ["beambeambeam"],
+      "closed_at": "2026-11-14T20:20:42Z"
+    },
+    {
+      "number": 34,
+      "title": "F-04/03: Sprint 1 journey: demo seed, Playwright, and restart check",
+      "assignees": ["beambeambeam"],
+      "closed_at": "2026-11-14T20:20:45Z"
     }
   ]
 }

@@ -2,45 +2,76 @@
 
 \subsubsection*{Commands, tested commit, and counts}
 
-\textbf{Interim run (draft).} Go suite on \texttt{sprint-1} head \texttt{a60fcf1}, on the author's Windows machine with Docker Desktop (PostgreSQL 17 test containers through \path{internal/pgtest}), 14 November 2026:
+Every command below ran on the release commit \texttt{ac5bce5} (tag \texttt{v0.0.3.0}); the local runs used a worktree checked out at that commit on the author's Windows machine with Docker Desktop (PostgreSQL 17 test containers through \path{internal/pgtest}), 15 November 2026. CI ran the same suites on \texttt{ac5bce5} itself (the push to \texttt{main}, run 43694874437, every job green).
+
+\textbf{Go API: tests, race detector, 100\% coverage gate.}
 
 \begin{shell}
 $ cd apps/api && go test -json -count=1 ./...
 packages with tests: 5   (apps/api, internal/auth, internal/claim, internal/money, migrations)
-top-level tests: 83 passed, 0 failed, 0 skipped
-subtests:        63 passed, 0 failed, 0 skipped      (146 pass events in all)
-exit status 0, 1 m 43 s
+top-level tests: 123 passed, 0 failed, 0 skipped
+subtests:        152 passed, 0 failed, 0 skipped
+exit status 0, 2 m 49 s
+
+$ go test -coverpkg=./... -coverprofile=coverage.out ./... -count=1
+$ go tool -modfile=tools.mod go-test-coverage --config=.testcoverage.yml
+Package coverage threshold (100%) satisfied:  PASS
+Total coverage threshold (100%) satisfied:    PASS
+Total test coverage: 100% (734/734)
+
+$ go test -race -count=1 ./...                 (root package with -timeout 40m)
+ok  apps/api, internal/auth, internal/claim, internal/money, migrations; no data race reported
 \end{shell}
 
-Per package, top-level tests that passed: \path{apps/api} 52, \path{internal/claim} 16, \path{internal/auth} 10, \path{internal/money} 3, \texttt{migrations} 2.
-The run did not use \texttt{-race} or coverage, so it does not replace the release commands.
-The web suite (Vitest) and the E2E tests were not run for this draft.
-Known: on the author's machine three web tests in \texttt{auth-routing.test.tsx} and \texttt{session-end.test.tsx} fail and pass in CI (PR \#60 reports 60 of 65 web tests passing locally); they are listed again in F.5.
+Per package, top-level tests that passed: \path{apps/api} 82, \path{internal/claim} 25, \path{internal/auth} 10, \path{internal/money} 3, \texttt{migrations} 3.
+The race run of the root package passed in 904 s; with Go's default 10-minute timeout it was stopped on this machine, so it was rerun with \texttt{-timeout 40m}.
 
-\textbf{Release run.} The commands of F.1, run on the release commit:
+\textbf{Web (Vitest) and build.}
 
-\pending{Build and test output with passed, failed, and skipped counts (Go with \texttt{-race} and the 100\% coverage gate, web, E2E)}{release: the release commit on \texttt{main}; run \texttt{bun run build}, \path{bun run --cwd apps/api test:coverage}, \path{bun run --cwd apps/web test:coverage}, \texttt{bun run check}, and paste the output here as text}
+\begin{shell}
+CI on ac5bce5 (job test):  bun run test:coverage
+ Test Files  16 passed (16)
+      Tests  130 passed (130)
+ Statements : 100% ( 330/330 )
+
+local:  vp build       -> built in 3.62 s (chunk-size warning only)
+local:  vp test run --coverage
+ Tests  111 passed, 19 failed (130); 8 files failed, all on "Unable to find a label" timeouts
+ rerun of each failing file alone: 7 files pass in full; auth-routing.test.tsx 16 of 17
+\end{shell}
+
+The web suite passes in CI on the release commit. On the author's machine the full run is too slow for the tests' wait time, and a different set of tests times out on each run; each file passes alone except the first test of \texttt{auth-routing.test.tsx} (``returns anonymous /claims to /claims after a requester logs in''), which fails only on this machine. It is listed as a failure in the table below and in F.5; no test was changed or skipped to hide it.
+
+\textbf{End-to-end (Playwright, local seeded stack, Chrome).}
+
+\begin{shell}
+$ SEED_USER_PASSWORD=<local value> playwright test        (apps/web/e2e)
+  F01-TEST-24, F02-TEST-21, F03-TEST-12, F04-TEST-23, F04-TEST-24
+  5 passed (55.2s)
+\end{shell}
+
+The E2E specs do not run in CI yet (issue \#66).
+\textbf{Manual check F04-TEST-19 (restart, NFR-05)} on the same stack with a named database volume: \texttt{req.anan}'s 8 claims, 13 line items and 12 history entries, read through the API, were byte-identical after the API and the PostgreSQL container were stopped and started.
 
 \input{content/data/ac-table}
 
-\noindent The Result column of the automated table is \textbf{pass (n run)} where this draft ran the Go test, and \textbf{recorded pass} where \path{docs/traceability.md} records a result that this draft did not rerun (web component tests and E2E).
-The release run replaces both with one result per test on the release commit \todo{release: rerun every row on the release commit; the web and E2E rows are only recorded until then}.
+\noindent The Result column shows the result of each automated test on \texttt{ac5bce5}: Go tests from the \texttt{go test -json} run above, web component tests from CI on \texttt{ac5bce5}, E2E tests from the local Playwright run. Manual checks are listed separately with the commit they ran on.
 
 \subsubsection*{Test excerpts}
 
 \textbf{Domain rule: BR-12, a Meals item is at most 1,500.00 THB} (F02-TEST-09, F02-AC-06).
-\path{apps/api/internal/claim/rules_test.go}, commit \texttt{a60fcf1}, lines 133--140 and 72--90.
+\path{apps/api/internal/claim/rules_test.go}, commit \texttt{ac5bce5}, lines 133--140 and 72--90.
 The setup is the seeded requester and the real \texttt{claim.Service} on PostgreSQL; each case states the violations it expects, and the assertion compares them with what the service returned (1,500.00 is accepted, 1,500.01 on Meals is rejected with BR-12, 1,500.01 on Travel is accepted).
 
 \VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/excerpt-domain.go}
 
-\textbf{Role rule: BR-15, a Finance Officer cannot create claims} (F02-TEST-14, F02-AC-09).
-\path{apps/api/claims_create_test.go}, commit \texttt{a60fcf1}, lines 215--226.
-The setup logs in as the seeded \texttt{fin.wanida} through the real router; the assertions are the 403 \texttt{FORBIDDEN} problem and that no row was stored.
+\textbf{Ownership rule: BR-01, a reviewer cannot decide her own claim} (F04-TEST-08, F04-AC-07).
+\path{apps/api/claims_review_test.go}, commit \texttt{ac5bce5}, lines 283--299.
+The setup is the seeded reviewer \texttt{rev.malee}, who submits a claim of her own (assigned to \texttt{rev.prasert}) and logs in through the real router; the assertions are the 403 \texttt{FORBIDDEN} problem for both approve and reject, and that the stored status, version and history are unchanged.
 
 \VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/excerpt-role.go}
 
-\textbf{Execution results of the two excerpts} (run on \texttt{a60fcf1}):
+\textbf{Execution results of the two excerpts} (run on \texttt{ac5bce5}):
 
 \VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/excerpt-results.txt}
 
