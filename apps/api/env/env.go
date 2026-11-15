@@ -28,10 +28,12 @@ type Env struct {
 	LogLevel string
 	// Release tag or git SHA. `/health` returns it as `version`.
 	AppVersion string
+	// Password for the 7 seeded demo users. Only `api seed` reads it. Never commit a value.
+	SeedUserPassword *string
 }
 
 // SensitiveKeys marks which keys hold sensitive values — use to build your own redaction / leak-scanning.
-var SensitiveKeys = map[string]bool{"DATABASE_URL": true}
+var SensitiveKeys = map[string]bool{"DATABASE_URL": true, "SEED_USER_PASSWORD": true}
 
 // Load parses the __VARLOCK_ENV blob (injected by `varlock run`) into a typed, coerced Env.
 func Load() (Env, error) {
@@ -63,6 +65,7 @@ func Load() (Env, error) {
 		{"BCRYPT_COST", &e.BcryptCost, true},
 		{"LOG_LEVEL", &e.LogLevel, true},
 		{"APP_VERSION", &e.AppVersion, true},
+		{"SEED_USER_PASSWORD", &e.SeedUserPassword, false},
 	}
 	var missing []string
 	for _, f := range fields {

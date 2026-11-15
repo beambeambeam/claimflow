@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetHealthData, GetHealthErrors, GetHealthResponses, GetReadyData, GetReadyErrors, GetReadyResponses } from './types.gen';
-import { zGetHealthResponse, zGetReadyResponse } from './zod.gen';
+import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses } from './types.gen';
+import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -47,4 +47,144 @@ export const getReady = <ThrowOnError extends boolean = false>(options?: Options
   responseValidator: async (data) => await zGetReadyResponse.parseAsync(data),
   url: '/ready',
   ...options
+});
+
+/**
+ * Check the username and password, then start a session.
+ */
+export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>): RequestResult<LoginResponses, LoginErrors, ThrowOnError> => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zLoginBody,
+    path: z.never().optional(),
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zLoginResponse.parseAsync(data),
+  url: '/auth/login',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * End the current session. The session row is deleted and the cookie is cleared.
+ */
+export const logout = <ThrowOnError extends boolean = false>(options?: Options<LogoutData, ThrowOnError>): RequestResult<LogoutResponses, LogoutErrors, ThrowOnError> => (options?.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zLogoutResponse.parseAsync(data),
+  url: '/auth/logout',
+  ...options
+});
+
+/**
+ * The user of the current session. Requires a session cookie.
+ */
+export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, GetMeErrors, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, GetMeErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zGetMeResponse.parseAsync(data),
+  url: '/auth/me',
+  ...options
+});
+
+/**
+ * List claims in a scope (F-03, F-04).
+ *
+ * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+ */
+export const listClaims = <ThrowOnError extends boolean = false>(options: Options<ListClaimsData, ThrowOnError>): RequestResult<ListClaimsResponses, ListClaimsErrors, ThrowOnError> => (options.client ?? client).get<ListClaimsResponses, ListClaimsErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: zListClaimsQuery
+  }).parseAsync(data),
+  responseValidator: async (data) => await zListClaimsResponse.parseAsync(data),
+  url: '/claims',
+  ...options
+});
+
+/**
+ * Create a claim and submit it for review (F-02). Sprint 1 always submits.
+ *
+ * Needs the `claim:create` route permission, and an assigned reviewer (BR-15). The server calculates the total and ignores any `total` in the request (BR-08).
+ */
+export const createClaim = <ThrowOnError extends boolean = false>(options: Options<CreateClaimData, ThrowOnError>): RequestResult<CreateClaimResponses, CreateClaimErrors, ThrowOnError> => (options.client ?? client).post<CreateClaimResponses, CreateClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zCreateClaimBody,
+    path: z.never().optional(),
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zCreateClaimResponse.parseAsync(data),
+  url: '/claims',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * A visible claim with its line items, history, and the actions the session user may take (F-03).
+ *
+ * The claim policy decides visibility (SDS §5.2): own, or assigned and not `DRAFT`. A claim that is not visible is a 403 with no claim data. A malformed id is a 400.
+ */
+export const getClaim = <ThrowOnError extends boolean = false>(options: Options<GetClaimData, ThrowOnError>): RequestResult<GetClaimResponses, GetClaimErrors, ThrowOnError> => (options.client ?? client).get<GetClaimResponses, GetClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    path: zGetClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zGetClaimResponse.parseAsync(data),
+  url: '/claims/{id}',
+  ...options
+});
+
+/**
+ * Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
+ *
+ * Needs a session; the claim policy decides the rest. The checks run in this order (F-04 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it or is not its assigned reviewer, or is its requester (403); the claim is not `SUBMITTED` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional.
+ */
+export const approveClaim = <ThrowOnError extends boolean = false>(options: Options<ApproveClaimData, ThrowOnError>): RequestResult<ApproveClaimResponses, ApproveClaimErrors, ThrowOnError> => (options.client ?? client).post<ApproveClaimResponses, ApproveClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zApproveClaimBody.optional(),
+    headers: zApproveClaimHeaders.optional(),
+    path: zApproveClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zApproveClaimResponse.parseAsync(data),
+  url: '/claims/{id}/approve',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Reject a submitted claim with a reason (F-04).
+ *
+ * Same checks and order as approve. The reason is the `comment`: required, 5–500 characters after trimming (BR-04). A missing, blank, short, or long reason is a 422 with `field = "comment"`, not a 400, so the schema sets no length.
+ */
+export const rejectClaim = <ThrowOnError extends boolean = false>(options: Options<RejectClaimData, ThrowOnError>): RequestResult<RejectClaimResponses, RejectClaimErrors, ThrowOnError> => (options.client ?? client).post<RejectClaimResponses, RejectClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zRejectClaimBody.optional(),
+    headers: zRejectClaimHeaders.optional(),
+    path: zRejectClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zRejectClaimResponse.parseAsync(data),
+  url: '/claims/{id}/reject',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
 });

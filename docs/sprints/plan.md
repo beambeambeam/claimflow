@@ -2,9 +2,9 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System
 - **Baseline:** `docs/srs.md` v0.2 · Features: `docs/features.md` v1.0 · Design: `docs/system-sds.md` v0.8
-- **Issue:** #5 · **Version:** 0.1 (draft) · **Last updated:** 2026-11-05
+- **Issue:** #5 · **Version:** 0.2 · **Last updated:** 2026-11-15
 
-This plan orders the features in `docs/features.md` into three sprints. It shows the dependencies, fits the work around the labs and the exam period, and explains the Sprint 1 scope. Feature IDs and requirement IDs are unchanged from those documents. Work items for each feature are in `.scratch/<feature>/issues/` (see `docs/agents/issue-tracker.md`).
+This plan orders the features in `docs/features.md` into three sprints. It shows the dependencies, fits the work around the labs and the exam period, and explains the Sprint 1 scope. Feature IDs and requirement IDs are unchanged from those documents. Work items for each feature are GitHub Issues titled `F-NN/NN` (see `docs/agents/issue-tracker.md`).
 
 ---
 
@@ -210,3 +210,4 @@ Record every scope or date change here with its reason. Do not rewrite earlier e
 | --- | --- | --- | --- |
 | 2026-11-05 | Staging branches are named `staging-N`, not `sprint-N` as #5 and #7 say. | `CONTRIBUTING.md`, the GitHub rulesets, and the system SDS already use `staging-N`. | Pending review |
 | 2026-11-07 | Staging branches are named `sprint-N`, as #7 says. `staging-1` was renamed to `sprint-1` and the ruleset now targets `sprint-*`. | Replaces the 2026-11-05 entry: the issue name was the intended one. | Pending review |
+| 2026-11-15 | Sprint 1 finished on 15 Nov, not 8 Nov. The four features merged into `sprint-1` between 13 and 15 Nov, and the release PR to `main` follows. F-05 and F-06/01 (planned for 12–15 Nov) and the Lab 5 implementation (#52 to #55) have not started, so Sprint 2 starts after the release. The feature scope of the three sprints is unchanged. | The eleven Sprint 1 tickets, each with a teammate review, needed more than the 6–8 Nov window in §4. | Pending review |

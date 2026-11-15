@@ -2,8 +2,8 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.9 (draft for Deliverable 1)
-- **Last updated:** 2026-11-07
+- **Version:** 0.12 (draft for Deliverable 1)
+- **Last updated:** 2026-11-15
 - **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
 This document defines the system-wide design: architecture, data model, the API contract and its conventions, roles and access, authentication, configuration, and deployment. Each feature contract in `docs/sprints/` refines it with exact operations in `apps/api/openapi.yaml`, screens, and schema changes.
@@ -41,10 +41,10 @@ flowchart LR
 | Layer | Choice | Status | Reason |
 | --- | --- | --- | --- |
 | Monorepo/tooling | Bun workspaces, Vite+ (`vp`) for lint/format/test, semantic-release | in repo | Existing team setup |
-| UI | React 19 + TypeScript, TanStack Router (file routes), Tailwind CSS 4 | in repo | Existing team setup; typed routes |
-| UI components | HeroUI v3 (React Aria based, Tailwind CSS 4) | to add | Accessible ready-made components that use the existing Tailwind 4 setup |
+| UI | React 19 + TypeScript, TanStack Router (file routes) | in repo | Existing team setup; typed routes |
+| UI components | Astryx (`@astryxdesign/core`, precompiled CSS) with the Neutral theme | in repo | Accessible ready-made components and layout, themed through tokens, with no CSS build step |
 | UI server state | TanStack Query | to add | Caching, plus built-in loading/error states for every API call |
-| UI forms | TanStack Form with the Zod schemas generated from the contract | to add | Client checks use the same limits as the server |
+| UI forms | TanStack Form with the Zod schemas generated from the contract; `#/lib/form` binds Astryx inputs to fields | in repo | Client checks use the same limits as the server |
 | API contract | OpenAPI 3.0.3, written by hand in `apps/api/openapi.yaml` | to add | One source for both apps; it is the feature contract for each sprint |
 | API code generation | `oapi-codegen` (Gin strict server + types), pinned in `tools.mod` | to add | Handlers implement a generated interface, so the code cannot drift from the contract |
 | Web code generation | `@hey-api/openapi-ts` (fetch client, TanStack Query options, Zod schemas) | to add | Typed calls and query keys with no hand-written fetch code |
@@ -93,6 +93,8 @@ This follows the Go guide [Organizing a Go module](https://go.dev/doc/modules/la
 ```
 apps/api/
   main.go  server.go  config.go   # entry: startup, config, router; composes the feature handlers
+  migrate.go  seed.go              # `migrate` and `seed` subcommands of the one binary
+  validate.go                      # request validation middleware: JSON body checked against the contract schema (400 with field errors)
   openapi.yaml                     # the API contract (Section 4)
   oapi-codegen.yaml  sqlc.yaml     # code generation config
   env/                             # varlock-generated (excluded from coverage)
@@ -102,7 +104,8 @@ apps/api/
     auth/                          # feature: login/logout/me, sessions, bans, route permissions
       handler.go                   #   implements the auth operations of the strict server interface
       service.go                   #   login, logout, session lookup, ban check
-      access.go                    #   statement, roles, RequirePermission (Section 5.1)
+      middleware.go                #   Session: session cookie → current user in the request context
+      access.go                    #   statement, roles, RequirePermission, OperationPermissions (Section 5.1)
       queries.sql  *_test.go
     claim/                         # feature: claims, line items, lifecycle, review and finance actions
       handler.go                   #   implements the claim operations
@@ -118,7 +121,6 @@ apps/api/
     money/                         # shared: the money.Satang type (Section 2.3)
     pgtest/                        # shared, tests only: one PostgreSQL container per package, a fresh database per test
   migrations/                      # goose SQL migrations (one schema for all features)
-  seed/                            # seed data, run with `bun run seed`
 ```
 
 - **Inside a feature, files split by responsibility.** `handler.go` maps the generated request and response types. `service.go` is the feature's interface and owns transactions. `policy.go`, `lifecycle.go`, and `rules.go` are pure functions behind it.
@@ -136,7 +138,7 @@ This follows the `features/` model in [bulletproof-react](https://github.com/ala
 
 ```
 apps/web/src/
-  main.tsx  router.tsx  styles.css     # entry, router + QueryClient setup (router context holds both)
+  main.tsx  router.tsx  astryx-themes.ts  # entry, router + QueryClient setup (router context holds both), generated theme module
   routes/                              # thin route files (Section 7.1): path, beforeLoad guard, loader,
                                        #   search params; render feature components and nothing else
   features/
@@ -152,6 +154,7 @@ apps/web/src/
   lib/
     api/                               # shared: generated client, query options, Zod schemas (@hey-api/openapi-ts)
     problem.ts                         # shared: reads RFC 9457 errors into field messages
+    form.tsx                           # shared: TanStack Form hook with Astryx field components
     format.ts                          # shared: money and date formatting (Asia/Bangkok)
   __test__/                            # app-level tests (router, routes) and shared test helpers:
                                        #   render helpers, MSW handlers, seed users
@@ -344,6 +347,7 @@ func (s *Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version in
 
 - `Claim` includes `AllowedActions`, the actions this actor may take on this claim right now (Section 5.2).
 - Errors are typed: `ErrNotFound`, `ErrForbidden`, `ErrInvalidTransition{Rule}`, `ErrConflict`, and `ValidationError{Fields}`. The handler maps each one to a problem response (Section 4.2).
+- **As built in Sprint 1.** `List` is two methods, `ListMine` and `ListReview`, each with `page` and `pageSize`; the `Query` type comes with the filters of F-09. `Act` takes the action as a string (`claim.ActionApprove`, `claim.ActionReject`), and `AllowedActions` holds strings. `ErrInvalidTransition` is a plain error, and its rule ID is in `rules.go`. `Edit` and `Delete` come in Sprint 2. #67 tracks the difference.
 - Each submit-type action (`submit`, `approve`, `reject`, `return`, `withdraw`, `final-approve`, `final-reject`) is a call to `Act`. Every action endpoint becomes a short handler that makes one call.
 
 ### 3.2 Lifecycle table
@@ -371,7 +375,7 @@ The transition table lives once, in `internal/claim/lifecycle.go`. Who may take 
 Each call runs in one transaction (`pgx.BeginFunc`, NFR-06):
 
 1. Load the claim. If it does not exist → `ErrNotFound`. If the policy says the actor may not see it → `ErrForbidden`.
-2. If the action is not in the policy's allowed actions for this actor → `ErrForbidden` (BR-01, BR-02, BR-15) or `ErrInvalidTransition` (BR-03, BR-10, BR-14, BR-16), with the rule ID.
+2. If the action is not in the policy's allowed actions for this actor → `ErrForbidden` (BR-01, BR-02, BR-15) or `ErrInvalidTransition` (BR-03, BR-10, BR-14, BR-16), with the rule ID. One exception: when the status does not allow the action and the client's `If-Match` version is not the current one, the result is `ErrConflict` (BR-13). Another decision won since the client loaded the claim (F-04 contract revision 0.4).
 3. Run the field rules (BR-04 to BR-07, BR-12) → `ValidationError` with one entry per field.
 4. Run `UPDATE claims SET status = $to, version = version + 1, ... WHERE id = $id AND version = $expected`, where `$expected` is the version the **client** sent in `If-Match`.
 5. If 0 rows are updated, the claim changed after the client loaded it, or another request won a race → `ErrConflict` (409) and roll back. This covers both concurrent decisions (BR-13) and a decision made on an out-of-date screen.
@@ -487,7 +491,7 @@ Access is checked at two levels:
 
 ### 5.1 Route permissions
 
-Route permissions are defined in `internal/auth/access.go`. A **statement** lists the resources and actions, and each **role** gets a subset. Middleware `auth.RequirePermission(resource, action)` returns **403** when `user.role` does not grant the action. Code checks permissions, never role names.
+Route permissions are defined in `internal/auth/access.go`. A **statement** lists the resources and actions, and each **role** gets a subset. Middleware `auth.RequirePermission(resource, action)` returns **403** when `user.role` does not grant the action. The router applies the same check per contract operation through `auth.OperationPermissions`, after the request is validated; a feature adds its operation to `operationPermissions` in `apps/api/routes.go`. Code checks permissions, never role names.
 
 ```go
 var statement = Statement{
@@ -572,9 +576,9 @@ The "not own" check uses `requester_id` directly, so self-approval is blocked ev
 | --- | --- |
 | Credentials | Username + password. The username is lowercased, then the `user` row and its `credential` `account` row are loaded. The password is checked against `account.password` with `bcrypt.CompareHashAndPassword`. |
 | Failed login | 401 with the generic message "Invalid username or password." A banned user (`banned = true` and `ban_expires` NULL or in the future) gets the same response, so the response does not show which accounts exist or are banned. To limit timing differences, an unknown username is still compared against a dummy hash. |
-| Session creation | 32 bytes from `crypto/rand`, base64url-encoded, becomes the cookie value. Its SHA-256 is stored in `session.token` with `expires_at = now + 8h`, `ip_address`, and `user_agent`. The 8-hour lifetime is a constant, not configuration (NFR-03). |
+| Session creation | 32 bytes from `crypto/rand`, base64url-encoded, becomes the cookie value. Its SHA-256 is stored in `session.token` with `expires_at = now + 8h`, `ip_address`, and `user_agent`. Sprint 1 leaves `ip_address` and `user_agent` empty (#67). The 8-hour lifetime is a constant, not configuration (NFR-03). |
 | Cookie | `__Host-sid=<token>`; `HttpOnly`; `Secure`; `SameSite=Lax`; `Path=/`; no `Domain`; `Max-Age=28800`. The `__Host-` prefix makes the browser enforce `Secure`, `Path=/`, and no `Domain`. Local development over plain HTTP (`COOKIE_SECURE=false`) uses the name `sid` without `Secure`. |
-| Request handling | Gin middleware hashes the cookie, loads an unexpired session and its user, and stores the actor (`id`, `role`, `reviewer_id`) in the request context. A missing, unknown, or expired session, or a banned user → 401. |
+| Request handling | The `auth.Session` Gin middleware hashes the cookie, loads an unexpired session of a user who is not banned through `auth.Service`, and stores the user in the request context. A request with no such session continues without a user. `auth.RequireSession` then returns 401 for it on every matched route except the public ones, the operations that `openapi.yaml` marks `security: []` (login, health, ready). The check fails closed: a route added outside the contract, or one whose key does not match the Gin route, needs a session. A request that matches no route still gets 404. Handlers read the user with `auth.UserFrom`; route-level permissions (Section 5.1) build on the same value. |
 | Current user | `GET /auth/me`. The `_auth` route's `beforeLoad` calls `queryClient.ensureQueryData` for it, puts the user in router context, and redirects anonymous users to `/login?redirect=<path>` before any protected screen renders. |
 | Logout | Delete the session row and clear the cookie. Reusing the old token afterwards → 401 (NFR-03). |
 | Expiry | Fixed lifetime, no sliding renewal. Expired rows are deleted at login. |
@@ -748,3 +752,5 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.8 | 2026-11-04 | Auth design (2.2, 5.1, 6, SD-10) written as this system's own design, with no references to outside frameworks | 1005, 1045 |
 | 0.9 | 2026-11-07 | Sprint branches renamed to `sprint-1`–`sprint-3` and the ruleset to `sprint` (#7); both rulesets require 1 approval, dismiss stale approvals, and block last-pusher approval (9.1) | 1005, 1045 |
 | 0.10 | 2026-11-07 | F-01/01 (#24) decisions: HeroUI v3 (1.2); `system` package and per-test template databases in `pgtest` (1.4, 10); `db:up` at the root, `migrate up\|down\|status` subcommand with embedded migrations and an advisory lock (2.5); problem `type` is `about:blank`, and `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (4.2) | 1005, 1045 |
+| 0.11 | 2026-11-13 | Web UI: Astryx with the Neutral theme replaces Tailwind and HeroUI; TanStack Form in use through `#/lib/form` (1.2, 1.4.2) | 1005, 1045 |
+| 0.12 | 2026-11-15 | Sprint 1 release. Records the changes that feature PRs made: `OperationPermissions` and the per-operation check (1.4.1, 5.1, PR #59); `validate.go` (1.4.1, PR #60); the stale-version exception in 3.3 (PR #65, F-04 contract 0.4). Adds what Sprint 1 built differently from 3.1 and 8 (the `List` methods, string actions, empty session audit fields), tracked in #67 | 1005 |

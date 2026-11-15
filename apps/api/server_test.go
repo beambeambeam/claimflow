@@ -82,11 +82,21 @@ func decodeProblem(t *testing.T, recorder *httptest.ResponseRecorder, status int
 }
 
 // F01-TEST-15: unexpected errors and unknown paths return problems, and a 500
-// hides the error text, which only the log line with the same requestId has.
+// hides the error text, which only the log line with the same requestId has. An unknown path gets 404, not
+// 401, even without a session.
 func TestProblemResponses(t *testing.T) {
 	var logs bytes.Buffer
 
-	router := newRouter(slog.New(slog.NewJSONHandler(&logs, nil)), testVersion, pgtest.New(t))
+	pool := pgtest.New(t)
+	insertCredentialUser(t, pool)
+	router := newRouter(slog.New(slog.NewJSONHandler(&logs, nil)), testEnv(0), pool)
+	// The test routes are outside the contract, so RequireSession fails closed on them: they need a session.
+	login := postLogin(t, router, "req.anan", "correct-password")
+	if login.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want 200; body = %s", login.Code, login.Body)
+	}
+	token := sessionToken(t, login, "sid", "HttpOnly; SameSite=Lax; Path=/; Max-Age=28800")
+
 	router.GET("/api/v1/test/internal-error", func(c *gin.Context) {
 		_ = c.Error(errors.New(`pq: relation "secret_table" does not exist`))
 	})
@@ -95,7 +105,7 @@ func TestProblemResponses(t *testing.T) {
 	for _, path := range []string{"/api/v1/test/internal-error", "/api/v1/test/panic"} {
 		logs.Reset()
 
-		recorder := get(t, router, path)
+		recorder := getWithSession(t, router, path, token)
 		body := decodeProblem(t, recorder, http.StatusInternalServerError, "INTERNAL")
 
 		if strings.Contains(recorder.Body.String(), "secret") {
@@ -132,7 +142,7 @@ func logLineHas(logs, requestID, text string) bool {
 func TestEveryResponseHasRequestID(t *testing.T) {
 	var logs bytes.Buffer
 
-	recorder := get(t, newRouter(slog.New(slog.NewJSONHandler(&logs, nil)), testVersion, pgtest.New(t)), "/api/v1/health")
+	recorder := get(t, newRouter(slog.New(slog.NewJSONHandler(&logs, nil)), testEnv(0), pgtest.New(t)), "/api/v1/health")
 
 	requestID := recorder.Header().Get("X-Request-Id")
 	if requestID == "" {
@@ -151,7 +161,7 @@ func TestHealthAndReadyFollowTheDatabase(t *testing.T) {
 		t.Fatalf("start postgres: %v", err)
 	}
 
-	router := newRouter(discardLogger(), testVersion, server.New(t))
+	router := newRouter(discardLogger(), testEnv(0), server.New(t))
 
 	assertHealthy := func() {
 		t.Helper()

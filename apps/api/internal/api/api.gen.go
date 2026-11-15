@@ -9,15 +9,142 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
+	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for ClaimAction.
+const (
+	ClaimActionApprove      ClaimAction = "APPROVE"
+	ClaimActionFinalApprove ClaimAction = "FINAL_APPROVE"
+	ClaimActionFinalReject  ClaimAction = "FINAL_REJECT"
+	ClaimActionReject       ClaimAction = "REJECT"
+	ClaimActionResubmit     ClaimAction = "RESUBMIT"
+	ClaimActionReturn       ClaimAction = "RETURN"
+	ClaimActionSubmit       ClaimAction = "SUBMIT"
+	ClaimActionWithdraw     ClaimAction = "WITHDRAW"
+)
+
+// Valid indicates whether the value is a known member of the ClaimAction enum.
+func (e ClaimAction) Valid() bool {
+	switch e {
+	case ClaimActionApprove:
+		return true
+	case ClaimActionFinalApprove:
+		return true
+	case ClaimActionFinalReject:
+		return true
+	case ClaimActionReject:
+		return true
+	case ClaimActionResubmit:
+		return true
+	case ClaimActionReturn:
+		return true
+	case ClaimActionSubmit:
+		return true
+	case ClaimActionWithdraw:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClaimStatus.
+const (
+	ClaimStatusApproved       ClaimStatus = "APPROVED"
+	ClaimStatusDraft          ClaimStatus = "DRAFT"
+	ClaimStatusPendingFinance ClaimStatus = "PENDING_FINANCE"
+	ClaimStatusRejected       ClaimStatus = "REJECTED"
+	ClaimStatusReturned       ClaimStatus = "RETURNED"
+	ClaimStatusSubmitted      ClaimStatus = "SUBMITTED"
+	ClaimStatusWithdrawn      ClaimStatus = "WITHDRAWN"
+)
+
+// Valid indicates whether the value is a known member of the ClaimStatus enum.
+func (e ClaimStatus) Valid() bool {
+	switch e {
+	case ClaimStatusApproved:
+		return true
+	case ClaimStatusDraft:
+		return true
+	case ClaimStatusPendingFinance:
+		return true
+	case ClaimStatusRejected:
+		return true
+	case ClaimStatusReturned:
+		return true
+	case ClaimStatusSubmitted:
+		return true
+	case ClaimStatusWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CurrentUserRole.
+const (
+	RoleFinance   CurrentUserRole = "finance"
+	RoleRequester CurrentUserRole = "requester"
+	RoleReviewer  CurrentUserRole = "reviewer"
+)
+
+// Valid indicates whether the value is a known member of the CurrentUserRole enum.
+func (e CurrentUserRole) Valid() bool {
+	switch e {
+	case RoleFinance:
+		return true
+	case RoleRequester:
+		return true
+	case RoleReviewer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExpenseCategory.
+const (
+	ExpenseCategoryAccommodation ExpenseCategory = "ACCOMMODATION"
+	ExpenseCategoryMeals         ExpenseCategory = "MEALS"
+	ExpenseCategoryOther         ExpenseCategory = "OTHER"
+	ExpenseCategorySupplies      ExpenseCategory = "SUPPLIES"
+	ExpenseCategoryTraining      ExpenseCategory = "TRAINING"
+	ExpenseCategoryTravel        ExpenseCategory = "TRAVEL"
+)
+
+// Valid indicates whether the value is a known member of the ExpenseCategory enum.
+func (e ExpenseCategory) Valid() bool {
+	switch e {
+	case ExpenseCategoryAccommodation:
+		return true
+	case ExpenseCategoryMeals:
+		return true
+	case ExpenseCategoryOther:
+		return true
+	case ExpenseCategorySupplies:
+		return true
+	case ExpenseCategoryTraining:
+		return true
+	case ExpenseCategoryTravel:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for HealthStatus.
 const (
@@ -106,6 +233,139 @@ func (e ReadyStatus) Valid() bool {
 	}
 }
 
+// Defines values for ListClaimsParamsScope.
+const (
+	ListScopeMine   ListClaimsParamsScope = "mine"
+	ListScopeReview ListClaimsParamsScope = "review"
+)
+
+// Valid indicates whether the value is a known member of the ListClaimsParamsScope enum.
+func (e ListClaimsParamsScope) Valid() bool {
+	switch e {
+	case ListScopeMine:
+		return true
+	case ListScopeReview:
+		return true
+	default:
+		return false
+	}
+}
+
+// Claim defines model for Claim.
+type Claim struct {
+	// AllowedActions The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the owner in Sprint 1.
+	AllowedActions   []string       `json:"allowedActions"`
+	AssignedReviewer *MemberSummary `json:"assignedReviewer"`
+
+	// ClaimNo Example: CLM-2026-000123
+	ClaimNo          string         `json:"claimNo"`
+	CreatedAt        time.Time      `json:"createdAt"`
+	DecidedAt        *time.Time     `json:"decidedAt"`
+	FirstSubmittedAt *time.Time     `json:"firstSubmittedAt"`
+	History          []HistoryEntry `json:"history"`
+	Id               string         `json:"id"`
+	Items            []LineItem     `json:"items"`
+	Purpose          string         `json:"purpose"`
+	Requester        MemberSummary  `json:"requester"`
+	ReturnCount      int            `json:"returnCount"`
+	Status           ClaimStatus    `json:"status"`
+	SubmittedAt      *time.Time     `json:"submittedAt"`
+	Title            string         `json:"title"`
+
+	// Total An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+	//
+	// Example: 1250.00
+	Total     Money     `json:"total"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Version   int       `json:"version"`
+}
+
+// ClaimAction defines model for ClaimAction.
+type ClaimAction string
+
+// ClaimDecision The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+type ClaimDecision struct {
+	// Comment Optional for approve (at most 500 characters). The reason for reject (5–500 characters).
+	Comment *string `json:"comment,omitempty"`
+}
+
+// ClaimEnvelope defines model for ClaimEnvelope.
+type ClaimEnvelope struct {
+	Data Claim `json:"data"`
+}
+
+// ClaimInput The line-item count and every business limit are checked by the claim module (422), not by this schema. Unknown fields, including `total`, are ignored (BR-08).
+type ClaimInput struct {
+	Items   []LineItemInput `json:"items"`
+	Purpose string          `json:"purpose"`
+	Title   string          `json:"title"`
+}
+
+// ClaimPage defines model for ClaimPage.
+type ClaimPage struct {
+	Data []ClaimSummary `json:"data"`
+
+	// Page Example: 1
+	Page int `json:"page"`
+
+	// PageSize Example: 20
+	PageSize int `json:"pageSize"`
+
+	// Total The number of claims in the scope, on every page.
+	//
+	// Example: 57
+	Total int `json:"total"`
+}
+
+// ClaimStatus defines model for ClaimStatus.
+type ClaimStatus string
+
+// ClaimSummary A claim as a list shows it (F-03 §3.1).
+type ClaimSummary struct {
+	// ClaimNo Example: CLM-2026-000123
+	ClaimNo     string        `json:"claimNo"`
+	CreatedAt   time.Time     `json:"createdAt"`
+	Id          string        `json:"id"`
+	Requester   MemberSummary `json:"requester"`
+	Status      ClaimStatus   `json:"status"`
+	SubmittedAt *time.Time    `json:"submittedAt"`
+	Title       string        `json:"title"`
+
+	// Total An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+	//
+	// Example: 1250.00
+	Total Money `json:"total"`
+}
+
+// CurrentUser defines model for CurrentUser.
+type CurrentUser struct {
+	// Id Example: 0192f1c4-7b2e-7c3a-9d41-3f0a6b8e2c11
+	Id string `json:"id"`
+
+	// Name Example: Anan K.
+	Name string `json:"name"`
+
+	// Permissions Actions the role grants, keyed by resource (F-01 §1.6).
+	//
+	// Example: {"claim":["create","list"]}
+	Permissions map[string][]string `json:"permissions"`
+	Role        CurrentUserRole     `json:"role"`
+
+	// Username Example: req.anan
+	Username string `json:"username"`
+}
+
+// CurrentUserRole defines model for CurrentUser.Role.
+type CurrentUserRole string
+
+// CurrentUserEnvelope defines model for CurrentUserEnvelope.
+type CurrentUserEnvelope struct {
+	Data CurrentUser `json:"data"`
+}
+
+// ExpenseCategory defines model for ExpenseCategory.
+type ExpenseCategory string
+
 // FieldError defines model for FieldError.
 type FieldError struct {
 	// Field Example: username
@@ -128,6 +388,65 @@ type Health struct {
 
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
+
+// HistoryEntry defines model for HistoryEntry.
+type HistoryEntry struct {
+	Action     ClaimAction   `json:"action"`
+	Actor      MemberSummary `json:"actor"`
+	Comment    *string       `json:"comment"`
+	CreatedAt  time.Time     `json:"createdAt"`
+	FromStatus *ClaimStatus  `json:"fromStatus"`
+	Id         int64         `json:"id"`
+	ToStatus   ClaimStatus   `json:"toStatus"`
+}
+
+// LineItem defines model for LineItem.
+type LineItem struct {
+	// Amount An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+	//
+	// Example: 1250.00
+	Amount      Money              `json:"amount"`
+	Category    ExpenseCategory    `json:"category"`
+	Description string             `json:"description"`
+	ExpenseDate openapi_types.Date `json:"expenseDate"`
+	LineNo      int                `json:"lineNo"`
+	ReceiptRef  string             `json:"receiptRef"`
+}
+
+// LineItemInput defines model for LineItemInput.
+type LineItemInput struct {
+	// Amount An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+	//
+	// Example: 1250.00
+	Amount      Money              `json:"amount"`
+	Category    ExpenseCategory    `json:"category"`
+	Description string             `json:"description"`
+	ExpenseDate openapi_types.Date `json:"expenseDate"`
+	ReceiptRef  string             `json:"receiptRef"`
+}
+
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	// Password 1–72 bytes of UTF-8, the bcrypt input limit. maxLength counts characters, so it is only an upper bound; the server and the web client also check the byte length.
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
+
+// MemberSummary defines model for MemberSummary.
+type MemberSummary struct {
+	Id string `json:"id"`
+
+	// Name Example: Anan K.
+	Name string `json:"name"`
+
+	// Position Example: Staff, Section A
+	Position string `json:"position"`
+}
+
+// Money An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+//
+// Example: 1250.00
+type Money = money.Satang
 
 // Problem RFC 9457 problem details with the `code`, `requestId`, and `errors` extensions.
 type Problem struct {
@@ -169,8 +488,80 @@ type Ready struct {
 // ReadyStatus defines model for Ready.Status.
 type ReadyStatus string
 
+// ClaimId defines model for ClaimId.
+type ClaimId = string
+
+// IfMatch defines model for IfMatch.
+type IfMatch = string
+
+// Decided defines model for Decided.
+type Decided = ClaimEnvelope
+
+// ListClaimsParams defines parameters for ListClaims.
+type ListClaimsParams struct {
+	// Scope The list to read.
+	Scope ListClaimsParamsScope `form:"scope" json:"scope"`
+
+	// Page The 1-based page number. A page past the last one returns an empty `data`.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+
+	// PageSize Claims per page.
+	PageSize *int `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// ListClaimsParamsScope defines parameters for ListClaims.
+type ListClaimsParamsScope string
+
+// ApproveClaimParams defines parameters for ApproveClaim.
+type ApproveClaimParams struct {
+	// IfMatch The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
+// RejectClaimParams defines parameters for RejectClaim.
+type RejectClaimParams struct {
+	// IfMatch The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+	IfMatch *IfMatch `json:"If-Match,omitempty"`
+}
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
+// CreateClaimJSONRequestBody defines body for CreateClaim for application/json ContentType.
+type CreateClaimJSONRequestBody = ClaimInput
+
+// ApproveClaimJSONRequestBody defines body for ApproveClaim for application/json ContentType.
+type ApproveClaimJSONRequestBody = ClaimDecision
+
+// RejectClaimJSONRequestBody defines body for RejectClaim for application/json ContentType.
+type RejectClaimJSONRequestBody = ClaimDecision
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Login Check the username and password, then start a session.
+	// (POST /auth/login)
+	Login(c *gin.Context)
+	// Logout End the current session. The session row is deleted and the cookie is cleared.
+	// (POST /auth/logout)
+	Logout(c *gin.Context)
+	// GetMe The user of the current session. Requires a session cookie.
+	// (GET /auth/me)
+	GetMe(c *gin.Context)
+	// ListClaims List claims in a scope (F-03, F-04).
+	// (GET /claims)
+	ListClaims(c *gin.Context, params ListClaimsParams)
+	// CreateClaim Create a claim and submit it for review (F-02). Sprint 1 always submits.
+	// (POST /claims)
+	CreateClaim(c *gin.Context)
+	// GetClaim A visible claim with its line items, history, and the actions the session user may take (F-03).
+	// (GET /claims/{id})
+	GetClaim(c *gin.Context, id string)
+	// ApproveClaim Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
+	// (POST /claims/{id}/approve)
+	ApproveClaim(c *gin.Context, id ClaimId, params ApproveClaimParams)
+	// RejectClaim Reject a submitted claim with a reason (F-04).
+	// (POST /claims/{id}/reject)
+	RejectClaim(c *gin.Context, id ClaimId, params RejectClaimParams)
 	// GetHealth Liveness. Does not use the database.
 	// (GET /health)
 	GetHealth(c *gin.Context)
@@ -187,6 +578,224 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.Login(c)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.Logout(c)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMe(c)
+}
+
+// ListClaims operation middleware
+func (siw *ServerInterfaceWrapper) ListClaims(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListClaimsParams
+
+	// ------------- Required query parameter "scope" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "scope", c.Request.URL.Query(), &params.Scope, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter scope: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "pageSize" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "pageSize", c.Request.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter pageSize: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListClaims(c, params)
+}
+
+// CreateClaim operation middleware
+func (siw *ServerInterfaceWrapper) CreateClaim(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateClaim(c)
+}
+
+// GetClaim operation middleware
+func (siw *ServerInterfaceWrapper) GetClaim(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetClaim(c, id)
+}
+
+// ApproveClaim operation middleware
+func (siw *ServerInterfaceWrapper) ApproveClaim(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ClaimId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApproveClaimParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for If-Match, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter If-Match: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ApproveClaim(c, id, params)
+}
+
+// RejectClaim operation middleware
+func (siw *ServerInterfaceWrapper) RejectClaim(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ClaimId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RejectClaimParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for If-Match, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter If-Match: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RejectClaim(c, id, params)
+}
 
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(c *gin.Context) {
@@ -243,9 +852,822 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.GET(options.BaseURL+"/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/ready", wrapper.GetReady)
+	router.POST(options.BaseURL+"/auth/login", wrapper.Login)
+	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout)
+	router.GET(options.BaseURL+"/auth/me", wrapper.GetMe)
+	router.GET(options.BaseURL+"/claims", wrapper.ListClaims)
+	router.POST(options.BaseURL+"/claims", wrapper.CreateClaim)
+	router.GET(options.BaseURL+"/claims/:id", wrapper.GetClaim)
+	router.POST(options.BaseURL+"/claims/:id/approve", wrapper.ApproveClaim)
+	router.POST(options.BaseURL+"/claims/:id/reject", wrapper.RejectClaim)
+}
+
+type DecidedResponseHeaders struct {
+	ETag string
+}
+type DecidedJSONResponse struct {
+	Body ClaimEnvelope
+
+	Headers DecidedResponseHeaders
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type LoginRequestObject struct {
+	Body *LoginJSONRequestBody
+}
+
+type LoginResponseObject interface {
+	VisitLoginResponse(w http.ResponseWriter) error
+}
+
+type Login200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Login200JSONResponse struct {
+	Body    CurrentUserEnvelope
+	Headers Login200ResponseHeaders
+}
+
+func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Login400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response Login400ApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Login401ApplicationProblemPlusJSONResponse Problem
+
+func (response Login401ApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Login403ApplicationProblemPlusJSONResponse Problem
+
+func (response Login403ApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogindefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogindefaultApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Logout204Response struct {
+	Headers Logout204ResponseHeaders
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type Logout401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response Logout401ApplicationProblemPlusJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Logout403ApplicationProblemPlusJSONResponse Problem
+
+func (response Logout403ApplicationProblemPlusJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogoutdefaultApplicationProblemPlusJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse CurrentUserEnvelope
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMe401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetMe401ApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListClaimsRequestObject struct {
+	Params ListClaimsParams
+}
+
+type ListClaimsResponseObject interface {
+	VisitListClaimsResponse(w http.ResponseWriter) error
+}
+
+type ListClaims200JSONResponse ClaimPage
+
+func (response ListClaims200JSONResponse) VisitListClaimsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListClaims400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListClaims400ApplicationProblemPlusJSONResponse) VisitListClaimsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListClaims401ApplicationProblemPlusJSONResponse Problem
+
+func (response ListClaims401ApplicationProblemPlusJSONResponse) VisitListClaimsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListClaims403ApplicationProblemPlusJSONResponse Problem
+
+func (response ListClaims403ApplicationProblemPlusJSONResponse) VisitListClaimsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListClaimsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListClaimsdefaultApplicationProblemPlusJSONResponse) VisitListClaimsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaimRequestObject struct {
+	Body *CreateClaimJSONRequestBody
+}
+
+type CreateClaimResponseObject interface {
+	VisitCreateClaimResponse(w http.ResponseWriter) error
+}
+
+type CreateClaim201ResponseHeaders struct {
+	ETag     string
+	Location string
+}
+
+type CreateClaim201JSONResponse struct {
+	Body    ClaimEnvelope
+	Headers CreateClaim201ResponseHeaders
+}
+
+func (response CreateClaim201JSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", fmt.Sprint(response.Headers.ETag))
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaim400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateClaim400ApplicationProblemPlusJSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaim401ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateClaim401ApplicationProblemPlusJSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaim403ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateClaim403ApplicationProblemPlusJSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaim422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateClaim422ApplicationProblemPlusJSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateClaimdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateClaimdefaultApplicationProblemPlusJSONResponse) VisitCreateClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetClaimRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetClaimResponseObject interface {
+	VisitGetClaimResponse(w http.ResponseWriter) error
+}
+
+type GetClaim200ResponseHeaders struct {
+	ETag string
+}
+
+type GetClaim200JSONResponse struct {
+	Body    ClaimEnvelope
+	Headers GetClaim200ResponseHeaders
+}
+
+func (response GetClaim200JSONResponse) VisitGetClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", fmt.Sprint(response.Headers.ETag))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetClaim400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetClaim400ApplicationProblemPlusJSONResponse) VisitGetClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetClaim401ApplicationProblemPlusJSONResponse Problem
+
+func (response GetClaim401ApplicationProblemPlusJSONResponse) VisitGetClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetClaim403ApplicationProblemPlusJSONResponse Problem
+
+func (response GetClaim403ApplicationProblemPlusJSONResponse) VisitGetClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetClaim404ApplicationProblemPlusJSONResponse Problem
+
+func (response GetClaim404ApplicationProblemPlusJSONResponse) VisitGetClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetClaimdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetClaimdefaultApplicationProblemPlusJSONResponse) VisitGetClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaimRequestObject struct {
+	Id     ClaimId `json:"id"`
+	Params ApproveClaimParams
+	Body   *ApproveClaimJSONRequestBody
+}
+
+type ApproveClaimResponseObject interface {
+	VisitApproveClaimResponse(w http.ResponseWriter) error
+}
+
+type ApproveClaim200JSONResponse struct{ DecidedJSONResponse }
+
+func (response ApproveClaim200JSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", fmt.Sprint(response.Headers.ETag))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ApproveClaim400ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim401ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim401ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim403ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim403ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim404ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim404ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim409ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim409ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim422ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim422ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaim428ApplicationProblemPlusJSONResponse Problem
+
+func (response ApproveClaim428ApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveClaimdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ApproveClaimdefaultApplicationProblemPlusJSONResponse) VisitApproveClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaimRequestObject struct {
+	Id     ClaimId `json:"id"`
+	Params RejectClaimParams
+	Body   *RejectClaimJSONRequestBody
+}
+
+type RejectClaimResponseObject interface {
+	VisitRejectClaimResponse(w http.ResponseWriter) error
+}
+
+type RejectClaim200JSONResponse struct{ DecidedJSONResponse }
+
+func (response RejectClaim200JSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", fmt.Sprint(response.Headers.ETag))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RejectClaim400ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim401ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim401ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim403ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim403ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim404ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim404ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim409ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim409ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim422ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim422ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaim428ApplicationProblemPlusJSONResponse Problem
+
+func (response RejectClaim428ApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectClaimdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RejectClaimdefaultApplicationProblemPlusJSONResponse) VisitRejectClaimResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type GetHealthRequestObject struct {
 }
@@ -341,6 +1763,30 @@ func (response GetReadydefaultApplicationProblemPlusJSONResponse) VisitGetReadyR
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Login Check the username and password, then start a session.
+	// (POST /auth/login)
+	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// Logout End the current session. The session row is deleted and the cookie is cleared.
+	// (POST /auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// GetMe The user of the current session. Requires a session cookie.
+	// (GET /auth/me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// ListClaims List claims in a scope (F-03, F-04).
+	// (GET /claims)
+	ListClaims(ctx context.Context, request ListClaimsRequestObject) (ListClaimsResponseObject, error)
+	// CreateClaim Create a claim and submit it for review (F-02). Sprint 1 always submits.
+	// (POST /claims)
+	CreateClaim(ctx context.Context, request CreateClaimRequestObject) (CreateClaimResponseObject, error)
+	// GetClaim A visible claim with its line items, history, and the actions the session user may take (F-03).
+	// (GET /claims/{id})
+	GetClaim(ctx context.Context, request GetClaimRequestObject) (GetClaimResponseObject, error)
+	// ApproveClaim Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
+	// (POST /claims/{id}/approve)
+	ApproveClaim(ctx context.Context, request ApproveClaimRequestObject) (ApproveClaimResponseObject, error)
+	// RejectClaim Reject a submitted claim with a reason (F-04).
+	// (POST /claims/{id}/reject)
+	RejectClaim(ctx context.Context, request RejectClaimRequestObject) (RejectClaimResponseObject, error)
 	// GetHealth Liveness. Does not use the database.
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -406,6 +1852,286 @@ type strictHandler struct {
 	options     StrictGinServerOptions
 }
 
+// Login operation middleware
+func (sh *strictHandler) Login(ctx *gin.Context) {
+	var request LoginRequestObject
+
+	var body LoginJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Login(ctx, request.(LoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Login")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(LoginResponseObject); ok {
+		if err := validResponse.VisitLoginResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(ctx *gin.Context) {
+	var request LogoutRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		if err := validResponse.VisitLogoutResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(ctx *gin.Context) {
+	var request GetMeRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx, request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		if err := validResponse.VisitGetMeResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListClaims operation middleware
+func (sh *strictHandler) ListClaims(ctx *gin.Context, params ListClaimsParams) {
+	var request ListClaimsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListClaims(ctx, request.(ListClaimsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListClaims")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListClaimsResponseObject); ok {
+		if err := validResponse.VisitListClaimsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateClaim operation middleware
+func (sh *strictHandler) CreateClaim(ctx *gin.Context) {
+	var request CreateClaimRequestObject
+
+	var body CreateClaimJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateClaim(ctx, request.(CreateClaimRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateClaim")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(CreateClaimResponseObject); ok {
+		if err := validResponse.VisitCreateClaimResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetClaim operation middleware
+func (sh *strictHandler) GetClaim(ctx *gin.Context, id string) {
+	var request GetClaimRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetClaim(ctx, request.(GetClaimRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetClaim")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetClaimResponseObject); ok {
+		if err := validResponse.VisitGetClaimResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveClaim operation middleware
+func (sh *strictHandler) ApproveClaim(ctx *gin.Context, id ClaimId, params ApproveClaimParams) {
+	var request ApproveClaimRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body ApproveClaimJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(ctx, err)
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveClaim(ctx, request.(ApproveClaimRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveClaim")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ApproveClaimResponseObject); ok {
+		if err := validResponse.VisitApproveClaimResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectClaim operation middleware
+func (sh *strictHandler) RejectClaim(ctx *gin.Context, id ClaimId, params RejectClaimParams) {
+	var request RejectClaimRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body RejectClaimJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(ctx, err)
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectClaim(ctx, request.(RejectClaimRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectClaim")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(RejectClaimResponseObject); ok {
+		if err := validResponse.VisitRejectClaimResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealth operation middleware
 func (sh *strictHandler) GetHealth(ctx *gin.Context) {
 	var request GetHealthRequestObject
@@ -459,26 +2185,84 @@ func (sh *strictHandler) GetReady(ctx *gin.Context) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"082lWMNkmwtxMLN0ajEte354+/C/AwA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

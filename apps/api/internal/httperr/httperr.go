@@ -24,11 +24,13 @@ const (
 	requestIDKey    = "httperr.requestID"
 )
 
-// Error is an error with a known problem response.
+// Error is an error with a known problem response. Errors names the invalid fields of a 400 or 422, and is
+// empty when no field can be named.
 type Error struct {
 	Status int
 	Code   api.ProblemCode
 	Title  string
+	Errors []api.FieldError
 }
 
 func (e *Error) Error() string {
@@ -40,6 +42,14 @@ var (
 	ErrNotFound = &Error{Status: http.StatusNotFound, Code: api.ProblemCodeNotFound, Title: "Not found."}
 	// ErrUnavailable is the problem when a dependency, such as the database, cannot be reached.
 	ErrUnavailable = &Error{Status: http.StatusServiceUnavailable, Code: api.ProblemCodeUnavailable, Title: "Service unavailable."}
+	// ErrValidation is the problem for a request that does not decode. It names no field.
+	ErrValidation = &Error{Status: http.StatusBadRequest, Code: api.ProblemCodeBadRequest, Title: "Invalid request."}
+	// ErrForbidden is the problem for a request the server refuses on policy, such as a cross-origin write.
+	ErrForbidden = &Error{Status: http.StatusForbidden, Code: api.ProblemCodeForbidden, Title: "Forbidden."}
+	// ErrPreconditionRequired is the problem for a change that sends no If-Match header (BR-13).
+	ErrPreconditionRequired = &Error{Status: http.StatusPreconditionRequired, Code: api.ProblemCodePreconditionRequired, Title: "Send the claim version in If-Match."}
+	// ErrConflict is the problem for a change made from an out-of-date read: the claim's version has moved on (BR-13).
+	ErrConflict = &Error{Status: http.StatusConflict, Code: api.ProblemCodeConflict, Title: "The claim was changed by someone else."}
 
 	errInternal = &Error{Status: http.StatusInternalServerError, Code: api.ProblemCodeInternal, Title: "Something went wrong."}
 )
@@ -107,6 +117,32 @@ func Report(c *gin.Context, err error) {
 	_ = c.Error(err)
 }
 
+// ReportInvalid reports a request that does not decode as ErrValidation. It fits the generated
+// strict server's RequestErrorHandlerFunc.
+func ReportInvalid(c *gin.Context, _ error) {
+	Report(c, ErrValidation)
+}
+
+// InvalidFields returns the 400 problem for a request whose fields break a bound. It names each field in fields.
+func InvalidFields(fields []api.FieldError) *Error {
+	problem := *ErrValidation
+	problem.Errors = fields
+
+	return &problem
+}
+
+// ValidationFailed returns the 422 problem for a request that breaks business rules. It lists every broken rule in
+// fields, one entry per field (NFR-08).
+func ValidationFailed(fields []api.FieldError) *Error {
+	return &Error{Status: http.StatusUnprocessableEntity, Code: api.ProblemCodeValidationFailed, Title: "Some fields are invalid.", Errors: fields}
+}
+
+// InvalidTransition returns the 409 problem for an action that the claim's status does not allow (BR-03). fields names
+// the status that broke the rule.
+func InvalidTransition(fields ...api.FieldError) *Error {
+	return &Error{Status: http.StatusConflict, Code: api.ProblemCodeInvalidTransition, Title: "The claim cannot move to that status.", Errors: fields}
+}
+
 func write(c *gin.Context, problem *Error) {
 	body := api.Problem{
 		Type:      api.ProblemTypeAboutBlank,
@@ -116,6 +152,10 @@ func write(c *gin.Context, problem *Error) {
 		Instance:  c.Request.URL.Path,
 		RequestId: RequestIDFrom(c),
 	}
+	if len(problem.Errors) > 0 {
+		body.Errors = &problem.Errors
+	}
+
 	c.Header("Content-Type", contentType)
 	c.JSON(problem.Status, body)
 }

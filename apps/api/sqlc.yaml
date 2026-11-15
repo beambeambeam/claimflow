@@ -1,11 +1,13 @@
 # sqlc: https://docs.sqlc.dev/en/latest/reference/config.html
-# Each feature keeps its queries in internal/<feature>/queries.sql. sqlc generates one internal/db package.
+# Each feature keeps its queries in internal/<feature>/*.sql. sqlc generates one internal/db package.
 version: "2"
 sql:
   - engine: postgresql
     schema: migrations
     queries:
       - internal/system/queries.sql
+      - internal/auth/queries.sql
+      - internal/claim/queries.sql
     gen:
       go:
         package: db
@@ -18,6 +20,10 @@ sql:
         overrides:
           - db_type: uuid
             go_type: github.com/google/uuid.UUID
+          - column: claims.total_satang
+            go_type: github.com/beambeambeam/claimflow/apps/api/internal/money.Satang
+          - column: line_items.amount_satang
+            go_type: github.com/beambeambeam/claimflow/apps/api/internal/money.Satang
           - db_type: uuid
             nullable: true
             go_type:

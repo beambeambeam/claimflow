@@ -23,16 +23,7 @@ bun run build
 
 ## Styling
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Remove `@tailwindcss/vite` and `tailwindcss` from `package.json`
+This project uses [Astryx](https://www.npmjs.com/package/@astryxdesign/core) components with the Neutral theme. See `AGENTS.md` for the rules and `bunx astryx help` for the CLI.
 
 ## Routing
 

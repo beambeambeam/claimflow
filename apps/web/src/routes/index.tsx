@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { HomePage } from "#/components/home-page";
+import { HomePage } from "#/features/home/components/home-page";
 import { getHealthOptions } from "#/lib/api/@tanstack/react-query.gen";
 
 export const Route = createFileRoute("/")({

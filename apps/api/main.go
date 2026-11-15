@@ -8,7 +8,7 @@ import (
 	"syscall"
 )
 
-// main serves the API, or runs `api migrate up|down|status`.
+// main serves the API, or runs `api migrate up|down|status` or `api seed`.
 func main() { // coverage-ignore
 	if err := runUntilSignal(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "api:", err)
@@ -28,6 +28,15 @@ func runUntilSignal(args []string) error { // coverage-ignore
 
 	if len(args) > 0 && args[0] == "migrate" {
 		return migrate(ctx, cfg.DatabaseUrl, args[1:], os.Stdout)
+	}
+
+	if len(args) > 0 && args[0] == "seed" {
+		password := ""
+		if cfg.SeedUserPassword != nil {
+			password = *cfg.SeedUserPassword
+		}
+
+		return seedCommand(ctx, cfg.DatabaseUrl, password, int(cfg.BcryptCost), os.Stdout)
 	}
 
 	return run(ctx, &cfg, newLogger(os.Stdout, cfg.LogLevel))

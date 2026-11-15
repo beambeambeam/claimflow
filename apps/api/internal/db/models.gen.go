@@ -5,9 +5,154 @@
 package db
 
 import (
+	"database/sql/driver"
+	"fmt"
+
+	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type ClaimAction string
+
+const (
+	ClaimActionSUBMIT       ClaimAction = "SUBMIT"
+	ClaimActionAPPROVE      ClaimAction = "APPROVE"
+	ClaimActionREJECT       ClaimAction = "REJECT"
+	ClaimActionRETURN       ClaimAction = "RETURN"
+	ClaimActionRESUBMIT     ClaimAction = "RESUBMIT"
+	ClaimActionWITHDRAW     ClaimAction = "WITHDRAW"
+	ClaimActionFINALAPPROVE ClaimAction = "FINAL_APPROVE"
+	ClaimActionFINALREJECT  ClaimAction = "FINAL_REJECT"
+)
+
+func (e *ClaimAction) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ClaimAction(s)
+	case string:
+		*e = ClaimAction(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ClaimAction: %T", src)
+	}
+	return nil
+}
+
+type NullClaimAction struct {
+	ClaimAction ClaimAction
+	Valid       bool // Valid is true if ClaimAction is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullClaimAction) Scan(value interface{}) error {
+	if value == nil {
+		ns.ClaimAction, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ClaimAction.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullClaimAction) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ClaimAction), nil
+}
+
+type ClaimStatus string
+
+const (
+	ClaimStatusDRAFT          ClaimStatus = "DRAFT"
+	ClaimStatusSUBMITTED      ClaimStatus = "SUBMITTED"
+	ClaimStatusRETURNED       ClaimStatus = "RETURNED"
+	ClaimStatusPENDINGFINANCE ClaimStatus = "PENDING_FINANCE"
+	ClaimStatusAPPROVED       ClaimStatus = "APPROVED"
+	ClaimStatusREJECTED       ClaimStatus = "REJECTED"
+	ClaimStatusWITHDRAWN      ClaimStatus = "WITHDRAWN"
+)
+
+func (e *ClaimStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ClaimStatus(s)
+	case string:
+		*e = ClaimStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ClaimStatus: %T", src)
+	}
+	return nil
+}
+
+type NullClaimStatus struct {
+	ClaimStatus ClaimStatus
+	Valid       bool // Valid is true if ClaimStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullClaimStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ClaimStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ClaimStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullClaimStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ClaimStatus), nil
+}
+
+type ExpenseCategory string
+
+const (
+	ExpenseCategoryTRAVEL        ExpenseCategory = "TRAVEL"
+	ExpenseCategoryACCOMMODATION ExpenseCategory = "ACCOMMODATION"
+	ExpenseCategoryMEALS         ExpenseCategory = "MEALS"
+	ExpenseCategorySUPPLIES      ExpenseCategory = "SUPPLIES"
+	ExpenseCategoryTRAINING      ExpenseCategory = "TRAINING"
+	ExpenseCategoryOTHER         ExpenseCategory = "OTHER"
+)
+
+func (e *ExpenseCategory) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ExpenseCategory(s)
+	case string:
+		*e = ExpenseCategory(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ExpenseCategory: %T", src)
+	}
+	return nil
+}
+
+type NullExpenseCategory struct {
+	ExpenseCategory ExpenseCategory
+	Valid           bool // Valid is true if ExpenseCategory is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullExpenseCategory) Scan(value interface{}) error {
+	if value == nil {
+		ns.ExpenseCategory, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ExpenseCategory.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullExpenseCategory) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ExpenseCategory), nil
+}
 
 type Account struct {
 	ID         uuid.UUID
@@ -17,6 +162,46 @@ type Account struct {
 	Password   pgtype.Text
 	CreatedAt  pgtype.Timestamptz
 	UpdatedAt  pgtype.Timestamptz
+}
+
+type Claim struct {
+	ID                 uuid.UUID
+	ClaimNo            string
+	RequesterID        uuid.UUID
+	AssignedReviewerID uuid.NullUUID
+	Title              string
+	Purpose            string
+	Status             ClaimStatus
+	TotalSatang        money.Satang
+	ReturnCount        int16
+	Version            int32
+	FirstSubmittedAt   pgtype.Timestamptz
+	SubmittedAt        pgtype.Timestamptz
+	DecidedAt          pgtype.Timestamptz
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+}
+
+type ClaimHistory struct {
+	ID         int64
+	ClaimID    uuid.UUID
+	ActorID    uuid.UUID
+	Action     ClaimAction
+	FromStatus NullClaimStatus
+	ToStatus   ClaimStatus
+	Comment    pgtype.Text
+	CreatedAt  pgtype.Timestamptz
+}
+
+type LineItem struct {
+	ID           uuid.UUID
+	ClaimID      uuid.UUID
+	LineNo       int16
+	Category     ExpenseCategory
+	Description  string
+	ExpenseDate  pgtype.Date
+	AmountSatang money.Satang
+	ReceiptRef   string
 }
 
 type Session struct {

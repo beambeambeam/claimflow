@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-03 (NFR-05, local restart), SR-04 (BR-03, BR-11, BR-13, NFR-06)
 - **Depends on:** F-01, F-02, F-03 (claim policy and Claim Detail)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claim_history`; §3.2 `APPROVE`, `REJECT`; §3.3; §4.1 versions; §4.3 `approve`, `reject`; §5.2; §5.3 `scope=review` and access tests; §7.2 decisions; ADR-0001
-- **Version:** 0.2 (draft) · **Last updated:** 2026-11-06
+- **Version:** 0.5 · **Last updated:** 2026-11-15
 
 ---
 
@@ -33,14 +33,14 @@ sequenceDiagram
     W->>H: POST /claims/{id}/approve, If-Match: "3"
     H->>H: If-Match present? (else 428)
     H->>C: Act(actor, id, version 3, APPROVE, comment)
-    C->>D: BEGIN; load claim
+    C->>D: BEGIN, then load claim
     C->>C: policy: visible? (403) allowed action? (403 / 409 BR-03)
     C->>C: BR-04 comment rule (422)
     C->>D: UPDATE claims SET status, version+1, decided_at WHERE id AND version = 3
     alt 0 rows
         C->>D: ROLLBACK → 409 CONFLICT
     else 1 row
-        C->>D: INSERT claim_history; COMMIT
+        C->>D: INSERT claim_history, then COMMIT
         C-->>H: Claim (version 4)
         H-->>W: 200 + ETag "4"
     end
@@ -63,7 +63,7 @@ sequenceDiagram
 | 2. Claim exists | no | 404 `NOT_FOUND` |
 | 3. Claim visible to actor | no | 403 `FORBIDDEN` (no claim data) |
 | 4. Actor relation allows the action | own (BR-01), not assigned (BR-02) | 403 `FORBIDDEN` |
-| 5. Status allows the action | not `SUBMITTED` (BR-03) | 409 `INVALID_TRANSITION`, `errors[0].rule = "BR-03"` |
+| 5. Status allows the action | not `SUBMITTED` (BR-03) | 409 `INVALID_TRANSITION`, `errors[0].rule = "BR-03"`; 409 `CONFLICT` instead when the `If-Match` version is not the current one (BR-13) |
 | 6. Comment rule | BR-04 | 422 `VALIDATION_FAILED`, `field = "comment"` |
 | 7. Conditional update | version changed (BR-13) | 409 `CONFLICT` |
 | 8. History insert, commit | database error (NFR-06) | 500; whole transaction rolled back |
@@ -91,7 +91,8 @@ Steps 4 and 5 both come from the policy: when the actor's relation is wrong, the
 | Policy called with a claim whose `assigned_reviewer_id = requester_id` | No `approve` or `reject` in actions (BR-01). The database CHECK also refuses to store such a row. |
 | `rev.somchai` approves `req.anan`'s claim (assigned to `rev.malee`) | 403 (BR-02) |
 | `req.anan` approves his own claim | 403 |
-| Approve an `APPROVED` or `REJECTED` claim | 409 `INVALID_TRANSITION` BR-03; history unchanged |
+| Approve an `APPROVED` or `REJECTED` claim with the current `If-Match` | 409 `INVALID_TRANSITION` BR-03; history unchanged |
+| Approve an `APPROVED` or `REJECTED` claim with a stale `If-Match` | 409 `CONFLICT` (BR-13); history unchanged |
 | Two decisions at once with the same version | One 200, one 409 `CONFLICT`; one history row |
 | `If-Match` with a well-formed version that is not the current one | 409 `CONFLICT` |
 | No `If-Match` | 428 |
@@ -123,7 +124,7 @@ The route file `_auth/claims/$claimId.tsx` renders `DecisionPanel` from `feature
 | Control | Behavior |
 | --- | --- |
 | **Approve** | Opens a confirmation dialog: "Approve claim CLM-…?", optional comment, **Approve** and **Cancel**. |
-| **Reject** | Opens a dialog with a required reason field, a counter (`0 / 500`), the field messages from §1.5, **Reject** and **Cancel**. |
+| **Reject** | Opens a dialog with a required reason field, a counter (`0/500`), the field messages from §1.5, **Reject** and **Cancel**. |
 | Sending | Dialog buttons disabled with a spinner. |
 | Success | Toast "Claim approved." or "Claim rejected."; the claim detail and the queue are refetched; the panel disappears because `allowedActions` is empty. |
 | 409 | Toast "This claim was changed by someone else – reloaded", then refetch. |
@@ -203,7 +204,7 @@ Example 409 for an invalid transition:
 | F04-AC-08 | BR-02, NFR-02 | `rev.somchai` approves or rejects `req.anan`'s claim → 403 with no claim data; status and history are unchanged. |
 | F04-AC-09 | BR-02, NFR-02 | `req.anan` calls approve on his own claim → 403. `req.ploy` calls approve on `req.anan`'s claim → 403. |
 | F04-AC-10 | FR-06, BR-02 | `fin.wanida` approves `rev.prasert`'s 40,000.00 claim → 200 with status `APPROVED` (ADR-0001; single stage in Sprint 1). |
-| F04-AC-11 | BR-03 | The assigned reviewer approves or rejects an `APPROVED` or `REJECTED` claim → 409 `INVALID_TRANSITION` with `errors[0].rule = "BR-03"`. Status, `version`, and history are unchanged. |
+| F04-AC-11 | BR-03 | The assigned reviewer approves or rejects an `APPROVED` or `REJECTED` claim with the current `If-Match` → 409 `INVALID_TRANSITION` with `errors[0].rule = "BR-03"`. Status, `version`, and history are unchanged. |
 | F04-AC-12 | BR-13 | Two decisions on the same claim at the same time with the same version → exactly one 200 and one 409 `CONFLICT`, and exactly one decision history row. |
 | F04-AC-13 | BR-13 | A decision with a well-formed `If-Match` that is not the current version → 409 `CONFLICT`. Without `If-Match` → 428. With a malformed `If-Match` → 400. |
 | F04-AC-14 | NFR-06 | If the history insert fails, the decision returns 500 and the claim's status, `version`, and `decidedAt` are unchanged. |
@@ -249,10 +250,14 @@ Levels as in F-01 §6. Module tests call `claim.Service.Act` against `pgtest` Po
 
 The Product DoD applies. For F-04 the evidence is:
 
-- [ ] All F04-TEST rows run; automated ones pass in CI on the merge commit; F04-TEST-19 is recorded with the commit.
-- [ ] TDD evidence for BR-01 or BR-13: commit IDs of the failing test and the passing implementation, for #4.
-- [ ] The Playwright journey (F04-TEST-23) runs in CI or is recorded with the tested commit.
-- [ ] `docs/traceability.md` lists the actual test names and results for F-04 rows.
+- [x] All F04-TEST rows run; automated ones pass in CI on the merge commit; F04-TEST-19 is recorded with the commit.
+  - F04-TEST-01 to 18 and 20 to 22: CI on PR #65, whose head has the same tree as `29fd6fb` on `sprint-1`.
+  - F04-TEST-19 (manual): pass on `d96f612` and again on `29fd6fb`. On `29fd6fb`, `req.anan` submitted a claim and `rev.malee` approved it; after the API and the PostgreSQL container restarted with the volume kept, `req.anan`'s 3 claims, 5 line items, and 5 history entries, read through the API, were byte-identical.
+- [x] TDD evidence for BR-01 or BR-13: commit IDs of the failing test and the passing implementation, for #4.
+  - BR-01, F04-TEST-08: red `cccb853`, green `cf3289a`. BR-13, F04-TEST-16: red `cccb853`, green `cf3289a` (PR #65).
+- [x] The Playwright journey (F04-TEST-23) runs in CI or is recorded with the tested commit.
+  - Recorded: F04-TEST-23 and 24 pass on a local seeded stack on `29fd6fb`. CI has no Playwright job (#66).
+- [x] `docs/traceability.md` lists the actual test names and results for F-04 rows.
 
 ## 8. Revision history
 
@@ -261,3 +266,5 @@ The Product DoD applies. For F-04 the evidence is:
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
 | 0.2 | 2026-11-06 | Review fix (PR #23): reject `comment` is optional in the contract so BR-04 returns 422; F04-TEST-07 sends missing and blank reasons; `If-Match` is optional in `openapi.yaml`; the handler returns 428 when it is missing and 400 when it is malformed; F04-TEST-16 uses `If-Match: "v+1"`, because `"v-1"` is `"-1"` for a new claim | 1005, 1045 |
 | 0.3 | 2026-11-07 | Problem example uses `type: about:blank` and a UUIDv7 `requestId`, matching SDS §4.2 v0.10 | 1005, 1045 |
+| 0.4 | 2026-11-14 | Write the reject counter as `0/500`, as the field renders it. Clarify check 5, §1.6, F04-AC-11, and BR-13: a decision with a stale `If-Match` version on a claim that is no longer `SUBMITTED` returns 409 `CONFLICT`, not `INVALID_TRANSITION`. This makes the losing request of two concurrent decisions always `CONFLICT` (F04-AC-12). `INVALID_TRANSITION` stays for a current version on a decided claim (F04-AC-11) | beambeambeam |
+| 0.5 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence; F04-TEST-19 recorded again on `29fd6fb`. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |

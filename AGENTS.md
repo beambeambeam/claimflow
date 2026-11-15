@@ -15,7 +15,7 @@
 
 ### Issue tracker
 
-Issues live as local markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues on `beambeambeam/claimflow`. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 

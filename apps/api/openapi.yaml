@@ -9,6 +9,10 @@ servers:
 tags:
   - name: system
     description: Liveness and readiness
+  - name: auth
+    description: Sign-in and the current user
+  - name: claims
+    description: Submit and read claims
 paths:
   /health:
     get:
@@ -42,8 +46,297 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /auth/login:
+    post:
+      operationId: login
+      summary: Check the username and password, then start a session.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: The user is signed in. The session cookie is set (F-01 §3.3).
+          headers:
+            Set-Cookie:
+              description: The session cookie. `__Host-sid` when COOKIE_SECURE is true, else `sid`.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserEnvelope"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: End the current session. The session row is deleted and the cookie is cleared.
+      tags: [auth]
+      responses:
+        "204":
+          description: The session ended. The cookie is cleared with Max-Age=0 (F-01 §3.3).
+          headers:
+            Set-Cookie:
+              description: The session cookie name with an empty value and `Max-Age=0`.
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /auth/me:
+    get:
+      operationId: getMe
+      summary: The user of the current session. Requires a session cookie.
+      tags: [auth]
+      responses:
+        "200":
+          description: The signed-in user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserEnvelope"
+        "401":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /claims:
+    get:
+      operationId: listClaims
+      summary: List claims in a scope (F-03, F-04).
+      description: >-
+        `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+      tags: [claims]
+      parameters:
+        - name: scope
+          in: query
+          required: true
+          description: The list to read.
+          schema:
+            type: string
+            enum: [mine, review]
+            x-enum-varnames: [ListScopeMine, ListScopeReview]
+        - name: page
+          in: query
+          description: The 1-based page number. A page past the last one returns an empty `data`.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          description: Claims per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: >-
+            One page of the scope's claims. `mine`: newest first (`createdAt`, then `id`, descending). `review`: oldest first (`submittedAt`, then `id`, ascending).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimPage"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createClaim
+      summary: Create a claim and submit it for review (F-02). Sprint 1 always submits.
+      description: >-
+        Needs the `claim:create` route permission, and an assigned reviewer (BR-15). The server calculates the total and ignores any `total` in the request (BR-08).
+      tags: [claims]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimInput"
+      responses:
+        "201":
+          description: The claim is stored with status `SUBMITTED`.
+          headers:
+            ETag:
+              description: The claim's `version` in quotes, such as `"0"`.
+              required: true
+              schema:
+                type: string
+            Location:
+              description: The path of the new claim, `/api/v1/claims/{id}`.
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimEnvelope"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /claims/{id}:
+    get:
+      operationId: getClaim
+      summary: A visible claim with its line items, history, and the actions the session user may take (F-03).
+      description: >-
+        The claim policy decides visibility (SDS §5.2): own, or assigned and not `DRAFT`. A claim that is not visible is a 403 with no claim data. A malformed id is a 400.
+      tags: [claims]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The claim id, a UUID.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The claim.
+          headers:
+            ETag:
+              description: The claim's `version` in quotes, such as `"0"`.
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimEnvelope"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /claims/{id}/approve:
+    post:
+      operationId: approveClaim
+      summary: Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
+      description: >-
+        Needs a session; the claim policy decides the rest. The checks run in this order (F-04 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it or is not its assigned reviewer, or is its requester (403); the claim is not `SUBMITTED` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional.
+      tags: [claims]
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimDecision"
+      responses:
+        "200":
+          $ref: "#/components/responses/Decided"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "428":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /claims/{id}/reject:
+    post:
+      operationId: rejectClaim
+      summary: Reject a submitted claim with a reason (F-04).
+      description: >-
+        Same checks and order as approve. The reason is the `comment`: required, 5–500 characters after trimming (BR-04). A missing, blank, short, or long reason is a 422 with `field = "comment"`, not a 400, so the schema sets no length.
+      tags: [claims]
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimDecision"
+      responses:
+        "200":
+          $ref: "#/components/responses/Decided"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "428":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
+  parameters:
+    ClaimId:
+      name: id
+      in: path
+      required: true
+      description: The claim id, a UUID.
+      schema:
+        type: string
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      description: >-
+        The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+      schema:
+        type: string
   responses:
+    Decided:
+      description: The decided claim, with its new `ETag`.
+      headers:
+        ETag:
+          description: The claim's new `version` in quotes, such as `"4"`.
+          required: true
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ClaimEnvelope"
     Problem:
       description: An RFC 9457 problem.
       content:
@@ -68,6 +361,343 @@ components:
         status:
           type: string
           enum: [ok]
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 50
+        password:
+          type: string
+          description: >-
+            1–72 bytes of UTF-8, the bcrypt input limit. maxLength counts characters, so it is only an upper bound; the server and the web client also check the byte length.
+          minLength: 1
+          maxLength: 72
+    CurrentUser:
+      type: object
+      required: [id, username, name, role, permissions]
+      properties:
+        id:
+          type: string
+          example: 0192f1c4-7b2e-7c3a-9d41-3f0a6b8e2c11
+        username:
+          type: string
+          example: req.anan
+        name:
+          type: string
+          example: Anan K.
+        role:
+          type: string
+          enum: [requester, reviewer, finance]
+          x-enum-varnames: [RoleRequester, RoleReviewer, RoleFinance]
+        permissions:
+          type: object
+          description: Actions the role grants, keyed by resource (F-01 §1.6).
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            claim: [create, list]
+    CurrentUserEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/CurrentUser"
+    Money:
+      type: string
+      description: An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
+      pattern: '^\d{1,6}\.\d{2}$'
+      example: "1250.00"
+      x-go-type: money.Satang
+      x-go-type-import:
+        path: github.com/beambeambeam/claimflow/apps/api/internal/money
+    ExpenseCategory:
+      type: string
+      enum: [TRAVEL, ACCOMMODATION, MEALS, SUPPLIES, TRAINING, OTHER]
+      x-enum-varnames:
+        [
+          ExpenseCategoryTravel,
+          ExpenseCategoryAccommodation,
+          ExpenseCategoryMeals,
+          ExpenseCategorySupplies,
+          ExpenseCategoryTraining,
+          ExpenseCategoryOther,
+        ]
+    ClaimStatus:
+      type: string
+      enum:
+        [
+          DRAFT,
+          SUBMITTED,
+          RETURNED,
+          PENDING_FINANCE,
+          APPROVED,
+          REJECTED,
+          WITHDRAWN,
+        ]
+      x-enum-varnames:
+        [
+          ClaimStatusDraft,
+          ClaimStatusSubmitted,
+          ClaimStatusReturned,
+          ClaimStatusPendingFinance,
+          ClaimStatusApproved,
+          ClaimStatusRejected,
+          ClaimStatusWithdrawn,
+        ]
+    ClaimAction:
+      type: string
+      enum:
+        [
+          SUBMIT,
+          APPROVE,
+          REJECT,
+          RETURN,
+          RESUBMIT,
+          WITHDRAW,
+          FINAL_APPROVE,
+          FINAL_REJECT,
+        ]
+      x-enum-varnames:
+        [
+          ClaimActionSubmit,
+          ClaimActionApprove,
+          ClaimActionReject,
+          ClaimActionReturn,
+          ClaimActionResubmit,
+          ClaimActionWithdraw,
+          ClaimActionFinalApprove,
+          ClaimActionFinalReject,
+        ]
+    LineItemInput:
+      type: object
+      required: [category, description, expenseDate, amount, receiptRef]
+      properties:
+        category:
+          $ref: "#/components/schemas/ExpenseCategory"
+        description:
+          type: string
+          minLength: 1
+          maxLength: 200
+        expenseDate:
+          type: string
+          format: date
+        amount:
+          $ref: "#/components/schemas/Money"
+        receiptRef:
+          type: string
+          minLength: 1
+          maxLength: 50
+    ClaimInput:
+      type: object
+      description: The line-item count and every business limit are checked by the claim module (422), not by this schema. Unknown fields, including `total`, are ignored (BR-08).
+      required: [title, purpose, items]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        purpose:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItemInput"
+    MemberSummary:
+      type: object
+      required: [id, name, position]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: Anan K.
+        position:
+          type: string
+          example: Staff, Section A
+    LineItem:
+      type: object
+      required: [lineNo, category, description, expenseDate, amount, receiptRef]
+      properties:
+        lineNo:
+          type: integer
+          minimum: 1
+          maximum: 20
+        category:
+          $ref: "#/components/schemas/ExpenseCategory"
+        description:
+          type: string
+        expenseDate:
+          type: string
+          format: date
+        amount:
+          $ref: "#/components/schemas/Money"
+        receiptRef:
+          type: string
+    HistoryEntry:
+      type: object
+      required: [id, action, fromStatus, toStatus, actor, comment, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        action:
+          $ref: "#/components/schemas/ClaimAction"
+        fromStatus:
+          allOf:
+            - $ref: "#/components/schemas/ClaimStatus"
+          nullable: true
+        toStatus:
+          $ref: "#/components/schemas/ClaimStatus"
+        actor:
+          $ref: "#/components/schemas/MemberSummary"
+        comment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    Claim:
+      type: object
+      required:
+        [
+          id,
+          claimNo,
+          status,
+          title,
+          purpose,
+          total,
+          returnCount,
+          version,
+          requester,
+          assignedReviewer,
+          firstSubmittedAt,
+          submittedAt,
+          decidedAt,
+          createdAt,
+          updatedAt,
+          items,
+          history,
+          allowedActions,
+        ]
+      properties:
+        id:
+          type: string
+        claimNo:
+          type: string
+          example: CLM-2026-000123
+        status:
+          $ref: "#/components/schemas/ClaimStatus"
+        title:
+          type: string
+        purpose:
+          type: string
+        total:
+          $ref: "#/components/schemas/Money"
+        returnCount:
+          type: integer
+        version:
+          type: integer
+        requester:
+          $ref: "#/components/schemas/MemberSummary"
+        assignedReviewer:
+          allOf:
+            - $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+        firstSubmittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryEntry"
+        allowedActions:
+          type: array
+          description: The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the owner in Sprint 1.
+          items:
+            type: string
+    ClaimDecision:
+      type: object
+      description: The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+      properties:
+        comment:
+          type: string
+          description: Optional for approve (at most 500 characters). The reason for reject (5–500 characters).
+    ClaimEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Claim"
+    ClaimSummary:
+      type: object
+      description: A claim as a list shows it (F-03 §3.1).
+      required:
+        [id, claimNo, title, status, total, requester, submittedAt, createdAt]
+      properties:
+        id:
+          type: string
+        claimNo:
+          type: string
+          example: CLM-2026-000123
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/ClaimStatus"
+        total:
+          $ref: "#/components/schemas/Money"
+        requester:
+          $ref: "#/components/schemas/MemberSummary"
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    ClaimPage:
+      type: object
+      required: [data, page, pageSize, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClaimSummary"
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          description: The number of claims in the scope, on every page.
+          example: 57
     ProblemCode:
       type: string
       description: A stable error code for the client (SDS §4.2).
