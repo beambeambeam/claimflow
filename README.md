@@ -52,6 +52,8 @@ bunx playwright install chromium
 SEED_USER_PASSWORD=<the seed password> bun run --cwd apps/web e2e
 ```
 
+In PowerShell, set the variable first with `$env:SEED_USER_PASSWORD = "<the seed password>"`, then run `bun run --cwd apps/web e2e`.
+
 Set `E2E_BASE_URL` when the web app is not on http://localhost:3000.
 
 ## Restart check (NFR-05, F04-TEST-19)
