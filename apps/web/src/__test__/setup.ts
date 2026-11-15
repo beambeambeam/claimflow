@@ -1,9 +1,4 @@
-import { configure } from "@testing-library/react";
 import { vi } from "vite-plus/test";
-
-// The default wait of findBy and waitFor is 1 s. The first render of a file can take longer on a slow or busy machine,
-// which fails the test before the page shows. A longer wait changes nothing for a test that passes.
-configure({ asyncUtilTimeout: 15_000 });
 
 // Third-party dev UI. Its unmount throws under jsdom, which breaks cleanup for every later test.
 vi.mock("@tanstack/react-devtools", () => ({
