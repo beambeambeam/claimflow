@@ -16,7 +16,7 @@ Each feature contract adds its own items in section 7 (Feature DoD). Both lists 
 | 3 | **Planned tests executed.** Every TEST row in the STS is implemented and run at its stated level. Manual tests are run and recorded. | Test file and test name per TEST ID in `docs/traceability.md` (Actual test column); manual results recorded with the commit ID they ran on. |
 | 4 | **Meaningful tests passing.** All automated tests pass in CI on the merge commit. Go coverage is 100% (`bun run test:coverage` in `apps/api`). Tests check the outcomes in the AC, not only that code runs. | Green CI run linked from the PR; Result and Version columns in `docs/traceability.md` set to `pass` and the commit or tag. CI runs on pull requests and on `main`, not on pushes to `sprint-1`, so the run is the last one of the PR, whose head has the same tree as its squash commit. |
 | 5 | **TDD for rule work.** For business rules (BR-xx), the failing test was committed before the code that makes it pass. | Commit IDs of the red test and the green implementation, noted for the Sprint 1 report (#4). |
-| 6 | **Review and integration complete.** The PR is reviewed and approved by the other student, merged into the integration branch with a squash merge, and `bun run check` passes at the root. | PR approval, merge commit on `sprint-1`, the required CI checks (`code_quality`, `test`, `api`, `build`) green. |
+| 6 | **Review and integration complete.** The PR is reviewed and approved by the other student, merged into the integration branch with a squash merge, and `bun run check` passes at the root. | PR approval, the squash commit on `sprint-1`, and the required CI checks (`code_quality`, `test`, `api`, `build`) green on the PR's last run (see item 4). |
 | 7 | **Access rules verified.** Every new protected endpoint returns 401 without a session and 403 for a role or user without access (NFR-02). | Integration test names for the 401 and 403 cases. |
 | 8 | **Setup and documents current.** `README`, `.env.example`, OpenAPI file, migrations, seed, and `docs/traceability.md` match the merged code. A new developer can run the app from the README. | Diff in the PR; the README steps run on a clean checkout. |
 | 9 | **No secrets committed.** No passwords, keys, or tokens in Git (NFR-04). | F01-TEST-18 result recorded for the tested commit (tracked `.env` files and secret scan). |
@@ -31,4 +31,4 @@ If an AC or test changes after implementation starts, add a row to the contract'
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-05 | Initial Product DoD | 1005, 1045 |
-| 0.2 | 2026-11-15 | Sprint 1 release: item 4 names which CI run is the evidence for a squash commit on `sprint-1`. No item added or removed | 1005 |
+| 0.2 | 2026-11-15 | Sprint 1 release: items 4 and 6 name which CI run is the evidence for a squash commit on `sprint-1`. No item added or removed | 1005 |

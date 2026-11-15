@@ -3,7 +3,7 @@
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
 - **Version:** 0.12 (draft for Deliverable 1)
-- **Last updated:** 2026-11-07
+- **Last updated:** 2026-11-15
 - **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
 This document defines the system-wide design: architecture, data model, the API contract and its conventions, roles and access, authentication, configuration, and deployment. Each feature contract in `docs/sprints/` refines it with exact operations in `apps/api/openapi.yaml`, screens, and schema changes.

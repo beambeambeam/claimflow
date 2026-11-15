@@ -293,7 +293,7 @@ Levels as in F-01 §6. Module tests call `claim.Service` against `pgtest` Postgr
 
 The Product DoD applies. For F-02 the evidence is:
 
-- [x] All F02-TEST rows pass in CI on the merge commit.
+- [ ] All F02-TEST rows pass in CI on the merge commit.
   - F02-TEST-01 to 20: CI on PR #60; the whole suite ran again in CI on PR #65, whose head has the same tree as `29fd6fb` on `sprint-1`.
   - Known gap: F02-TEST-21 (E2E) passes on a local seeded stack, last on `29fd6fb`, but CI has no Playwright job. F-04/03 (#34) set up Playwright for local runs only; #66 adds the CI job.
 - [x] TDD evidence for at least one rule (BR-05, BR-07, or BR-12): commit IDs of the failing test and the passing implementation, for #4.
@@ -309,4 +309,4 @@ The Product DoD applies. For F-02 the evidence is:
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
 | 0.2 | 2026-11-06 | Review fix (PR #23): workflow shows session, then contract validation, then route permission (SDS §1.3) | 1005, 1045 |
 | 0.3 | 2026-11-14 | §1.4 adds the message for a bad or calendar-impossible expense date (400, shape); §7 records the known gap that F02-TEST-21 runs in CI only after F-04/03 (#34) sets up Playwright | 1005 |
-| 0.4 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The known gap now says that #34 set up Playwright for local runs only and #66 adds the CI job. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |
+| 0.4 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The CI item stays open because F02-TEST-21 does not run in CI. The known gap now says that #34 set up Playwright for local runs only and #66 adds the CI job. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |

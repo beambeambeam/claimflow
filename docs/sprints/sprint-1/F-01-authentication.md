@@ -289,7 +289,7 @@ Integration tests use the seed users and a fixed clock.
 
 The Product DoD (`definition-of-done.md`) applies. For F-01 the evidence is:
 
-- [x] All F01-TEST rows run; automated ones pass in CI on the merge commit; manual ones are recorded with the commit.
+- [ ] All F01-TEST rows run; automated ones pass in CI on the merge commit; manual ones are recorded with the commit.
   - Automated: CI on PRs #36, #56, #58, and #59; the whole suite ran again in CI on PR #65, whose head has the same tree as `29fd6fb` on `sprint-1`.
   - F01-TEST-18 (manual) on `29fd6fb`: no `.env` file is tracked; a gitleaks scan of the 25 commits on `sprint-1` reports 11 hits, all Go module checksums in `apps/api/*.sum`; every variable in `.env.schema` is in `.env.example` (`apps/api` and `apps/web`).
   - F01-TEST-19 (manual) on PR #65: `code_quality`, `test`, `api`, and `build` passed; the `api` job runs the generate check and the 100% coverage check.
@@ -311,4 +311,4 @@ The Product DoD (`definition-of-done.md`) applies. For F-01 the evidence is:
 | 0.3 | 2026-11-07 | Ticket 01 (#24): problem `type` is `about:blank`, `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (SDS §4.2); migration `00001_auth.sql` (4.1) ships in ticket 01, because goose needs at least one migration; UI components are HeroUI v3 (SDS §1.2); PRs target `sprint-1` | 1005, 1045 |
 | 0.4 | 2026-11-11 | Review fix (PR #36): migration `00001_auth.sql` adds a trigger that deletes a user's sessions when a ban starts (4.1); F01-TEST-06 bans with a direct SQL `UPDATE` | 1005, 1045 |
 | 0.5 | 2026-11-13 | Ticket 02 (#25, PR #56): UI components are Astryx with the Neutral theme, replacing HeroUI v3 and Tailwind (SDS 0.11 §1.2); forms use TanStack Form through `#/lib/form`; the password limit is 72 bytes, not characters, in §1.5, §2.3, the endpoint table, and `openapi.yaml` (the client checks bytes too) | 1005, 1045 |
-| 0.6 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence; F01-TEST-18 and 19 recorded on `29fd6fb` and PR #65; the E2E gap (no Playwright job in CI) is tracked in #66. No AC or test changed | 1005 |
+| 0.6 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The test item stays open because F01-TEST-24 does not run in CI; F01-TEST-18 and 19 recorded on `29fd6fb` and PR #65; the E2E gap (no Playwright job in CI) is tracked in #66. No AC or test changed | 1005 |

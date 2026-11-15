@@ -194,7 +194,7 @@ Levels as in F-01 §6.
 
 The Product DoD applies. For F-03 the evidence is:
 
-- [x] All F03-TEST rows pass in CI on the merge commit.
+- [ ] All F03-TEST rows pass in CI on the merge commit.
   - F03-TEST-01 to 11: CI on PR #63; the whole suite ran again in CI on PR #65, whose head has the same tree as `29fd6fb` on `sprint-1`.
   - Known gap: F03-TEST-12 (E2E) passes on a local seeded stack, last on `29fd6fb`, but CI has no Playwright job (#66).
 - [x] The policy matrix test (F03-TEST-09) exists and later features extend it instead of adding a second policy test.
@@ -206,4 +206,4 @@ The Product DoD applies. For F-03 the evidence is:
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
-| 0.2 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence; the E2E gap (no Playwright job in CI) is tracked in #66. No AC or test changed | 1005 |
+| 0.2 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The CI item stays open because F03-TEST-12 does not run in CI; the E2E gap (no Playwright job in CI) is tracked in #66. No AC or test changed | 1005 |
