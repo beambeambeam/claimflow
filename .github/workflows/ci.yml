@@ -59,6 +59,16 @@ jobs:
           cache-dependency-path: |
             apps/api/*.mod
             apps/api/*.sum
+      - uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          node-version-file: .node-version
+          cache: true
+      - name: Check generated code is current
+        working-directory: .
+        run: |
+          bun run generate
+          git add --intent-to-add --all
+          git diff --exit-code
       - name: Check modules are tidy
         run: |
           go mod tidy -diff
@@ -70,7 +80,7 @@ jobs:
           working-directory: apps/api
       - name: Test
         run: >-
-          go tool -modfile=tools.mod gotestsum --junitfile .ci-reports/junit.xml -- -race -coverprofile=coverage.out ./...
+          go tool -modfile=tools.mod gotestsum --junitfile .ci-reports/junit.xml -- -race -coverpkg=./... -coverprofile=coverage.out ./...
       - name: Check coverage
         run: go tool -modfile=tools.mod go-test-coverage --config=.testcoverage.yml
       - name: Check vulnerabilities

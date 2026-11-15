@@ -7,5 +7,7 @@ threshold:
   total: 100
 exclude:
   paths:
-    # Varlock generates this package from .env.schema.
+    # Generated code: varlock (.env.schema), oapi-codegen (openapi.yaml), and sqlc (queries.sql).
     - ^env/
+    - ^internal/api/
+    - ^internal/db/

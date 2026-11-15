@@ -2,7 +2,7 @@
 
 FROM ghcr.io/dmno-dev/varlock:1.24.0 AS varlock
 
-FROM golang:1.27.3 AS build
+FROM golang:1.27.4 AS build
 WORKDIR /src
 
 COPY go.mod go.sum ./
@@ -10,6 +10,8 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY *.go ./
 COPY env ./env
+COPY internal ./internal
+COPY migrations ./migrations
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/api .

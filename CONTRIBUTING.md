@@ -4,14 +4,43 @@ This project uses GitHub issues and pull requests to plan, review, and ship chan
 
 ## Workflow
 
-1. Start from the latest `main` branch.
+1. Start from the latest current sprint staging branch (`sprint-N`).
 2. Choose or create a focused issue before making a change.
 3. Create a short-lived branch using the pattern `<type>/<short-kebab-name>`.
 4. Keep the change focused and link the issue from the pull request.
 5. Run the relevant validation commands locally.
-6. Open a pull request and complete its description before requesting review.
+6. Open a pull request into `sprint-N` and complete its description before requesting review.
 
-See [Branch, commit, and release naming](#branch-commit-and-release-naming) for the allowed branch types and release impact.
+See [Branch, commit, and release naming](#branch-commit-and-release-naming) for the allowed branch types and release impact, [Sprint branches](#sprint-branches) for how work reaches `main`, and [Reviews](#reviews) for the review rules.
+
+## Sprint branches
+
+Each sprint has one staging branch: `sprint-1`, `sprint-2`, `sprint-3`.
+
+```text
+feat/claim-submission ──squash──▶ sprint-1 ──merge commit──▶ main ──▶ semantic-release
+```
+
+1. Feature pull requests target the current sprint's staging branch. They are squash-merged, so the pull request title becomes the commit subject. Set the title to the final `type: description` subject before merging.
+2. At the end of the sprint, open one release pull request from `sprint-N` into `main`. Merge it with a merge commit, so `main` keeps each feature's commit subject as a release signal.
+3. Create `sprint-N+1` from `main` after the release.
+
+GitHub rulesets enforce this. On `main` and every `sprint-*` branch:
+
+- Changes need a pull request. Direct pushes, force pushes, and branch deletion are blocked, and nobody can bypass the rules.
+- The `code_quality`, `test`, `api`, and `build` CI jobs must pass.
+- `sprint-*` allows squash merges only and requires linear history. `main` allows merge commits only.
+- A pull request needs 1 approving review. The person who pushed last cannot approve, and a new push dismisses earlier approvals.
+
+## Reviews
+
+- The teammate reviews every pull request, including release pull requests. Authors do not approve their own work.
+- Each review comment or approval names a specific check, question, or finding, for example the test path you ran, a rule you checked against the contract, or a defect. "LGTM" alone is not a review.
+- Resolve or answer every review thread before merging.
+
+## Pair work
+
+When both students work on one change, say so in the issue and the pull request: list both names and what each person did. The reviewer is still the person who did not push last.
 
 ## Commit messages
 
@@ -81,10 +110,12 @@ Expected result: the release impact is clear from the commit subject before merg
 
 ## Application boundaries
 
-- Add file-based routes in `apps/web/src/routes/` and reusable UI in `apps/web/src/components/`.
+Both apps use feature folders with lint-enforced boundaries. See section 1.4 of [`docs/system-sds.md`](docs/system-sds.md).
+
+- Add thin file-based routes in `apps/web/src/routes/`, feature code in `apps/web/src/features/<name>/`, reusable UI in `apps/web/src/components/`, and shared non-UI code in `apps/web/src/lib/`.
 - Keep router setup in `apps/web/src/router.tsx` and app startup in `apps/web/src/main.tsx`.
-- Treat `apps/web/src/routeTree.gen.ts` as generated output; do not edit it by hand.
-- Keep global styles in `apps/web/src/styles.css` and use Tailwind for component styling.
+- Treat `apps/web/src/routeTree.gen.ts`, `apps/web/src/lib/api/`, `apps/api/env/env.go`, `apps/api/internal/api/`, and `apps/api/internal/db/` as generated output; do not edit them by hand. Run `bun run generate` after you change their sources.
+- Build UI with Astryx components and their props; see `apps/web/AGENTS.md`. Change colors and fonts through the theme, not CSS files.
 
 ## Definition of ready
 

@@ -6,16 +6,24 @@
       "apps/*"
     ],
     "catalog": {
-      "@types/node": "^26.6.5",
+      "@playwright/test": "^1.65.0",
+      "@testing-library/dom": "^10.4.2",
+      "@testing-library/react": "^16.3.3",
+      "@testing-library/user-event": "^14.6.10",
+      "@types/node": "^26.6.6",
+      "jsdom": "^31.0.0",
       "typescript": "^7.0.2",
       "varlock": "^1.24.0",
-      "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
-      "vite-plus": "1.4.0"
+      "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0",
+      "vite-plus": "1.5.0"
     }
   },
   "type": "module",
   "scripts": {
     "dev": "vp run -r --parallel dev",
+    "db:up": "docker compose up -d --wait db",
+    "db:down": "docker compose down",
+    "generate": "vp run -r generate",
     "build": "vp run -r build",
     "test": "vp run -r test",
     "test:coverage": "vp run -r test:coverage",
@@ -38,12 +46,12 @@
     "semantic-release": "25.0.9",
     "skills": "1.7.4",
     "typescript": "catalog:",
-    "ultracite": "^8.0.1",
+    "ultracite": "^8.1.1",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
   "overrides": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0"
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0"
   },
   "packageManager": "bun@1.4.4",
   "trustedDependencies": [

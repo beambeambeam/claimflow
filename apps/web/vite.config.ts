@@ -1,4 +1,3 @@
-import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import {
@@ -18,7 +17,6 @@ const config = defineConfig({
     varlockVitePlugin(),
     lazyPlugins(() => [
       devtools(),
-      tailwindcss(),
       tanstackRouter({ autoCodeSplitting: true, target: "react" }),
       viteReact(),
     ]),
@@ -26,10 +24,12 @@ const config = defineConfig({
   resolve: { tsconfigPaths: true },
   server: { proxy: { "/api": ENV.API_URL } },
   test: {
+    environment: "jsdom",
     coverage: {
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/**/__test__/**",
+        "src/lib/api/**",
         "src/main.tsx",
         "src/routeTree.gen.ts",
         "src/routes/**",
@@ -42,6 +42,7 @@ const config = defineConfig({
       },
     },
     include: ["src/**/__test__/**/*.test.{ts,tsx}"],
+    setupFiles: ["src/__test__/setup.ts"],
   },
 });
 

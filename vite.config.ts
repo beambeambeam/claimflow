@@ -3,11 +3,7 @@ import antiSlop from "ultracite/oxlint/anti-slop";
 import ultraciteOxlintCore from "ultracite/oxlint/core";
 import { defineConfig } from "vite-plus";
 
-import {
-  webFmtOverride,
-  webIgnorePatterns,
-  webLintOverrides,
-} from "./apps/web/check.config";
+import { webIgnorePatterns, webLintOverrides } from "./apps/web/check.config";
 
 // Repository-wide format, lint, and pre-commit rules. App-specific rules live in each app.
 const config = defineConfig({
@@ -17,7 +13,6 @@ const config = defineConfig({
       ...(ultraciteOxfmt.ignorePatterns ?? []),
       ...webIgnorePatterns,
     ],
-    overrides: [webFmtOverride],
   },
   lint: {
     extends: [ultraciteOxlintCore, antiSlop],

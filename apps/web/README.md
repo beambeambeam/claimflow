@@ -1,5 +1,3 @@
-Welcome to your new TanStack Start app!
-
 # Getting Started
 
 To run this application from the repository root:
@@ -8,6 +6,12 @@ To run this application from the repository root:
 bun install
 bun run dev
 ```
+
+# API client
+
+`bun run generate` writes the API client to `src/lib/api` from `apps/api/openapi.yaml` with [Hey API](https://heyapi.dev): a fetch client, Zod schemas that validate responses, and TanStack Query options. Do not edit it by hand. Routes load data with `context.queryClient.ensureQueryData(...)`, and components read it with `useSuspenseQuery(...)`.
+
+`@hey-api/openapi-ts` is pinned to a `next` build because the latest release does not run with TypeScript 7 ([hey-api#4235](https://github.com/hey-api/hey-api/issues/4235)). Move to the next stable release when it ships.
 
 # Building For Production
 
@@ -19,16 +23,7 @@ bun run build
 
 ## Styling
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Remove `@tailwindcss/vite` and `tailwindcss` from `package.json`
+This project uses [Astryx](https://www.npmjs.com/package/@astryxdesign/core) components with the Neutral theme. See `AGENTS.md` for the rules and `bunx astryx help` for the CLI.
 
 ## Routing
 
