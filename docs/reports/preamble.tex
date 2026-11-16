@@ -1,20 +1,20 @@
 % ---------------------------------------------------------------------------
-% Preamble of the ClaimFlow Sprint 1 report (CPE 334 Deliverable 1).
-% Build with XeLaTeX. Ported from the solo-lab report preamble.
+% Shared preamble of every ClaimFlow sprint report. Build with XeLaTeX from
+% the sprint folder (bun run pdf sprint-N). Before \input{../preamble},
+% main.tex defines \sprintname (Sprint 1) and \deliverable (Project
+% Deliverable 1).
 %
-% Fonts: Cambria (text) and Consolas (code) both carry the baht sign, which
-% the documents and test names contain. Latin Modern does not set it well in
-% every weight.
+% Fonts: Times New Roman and Courier New ship with Windows and macOS and both
+% carry the arrows and comparison signs the sources use. A glyph neither has
+% shows as "Missing character" in main.log; check-report counts those.
 % ---------------------------------------------------------------------------
 \usepackage{fontspec}
-\setmainfont{Cambria}
-\setmonofont{Consolas}[Scale=MatchLowercase]
-\usepackage{newunicodechar}
-\newfontfamily\symbolfont{Segoe UI Symbol}
-\newunicodechar{→}{{\symbolfont →}}
-\newunicodechar{≥}{{\symbolfont ≥}}
-\newunicodechar{≤}{{\symbolfont ≤}}
-\newunicodechar{✓}{{\symbolfont ✓}}
+\setmainfont{Times New Roman}
+\setmonofont{Courier New}
+
+% Student names and IDs, from docs/reports/.env through bun run identity.
+\InputIfFileExists{build/identity.tex}{}{%
+  \errmessage{build/identity.tex is missing: run bun run identity <sprint>}}
 
 \usepackage[a4paper, margin=2cm]{geometry}
 \usepackage{graphicx}
@@ -35,8 +35,8 @@
 \definecolor{brand}{HTML}{1B5E3F}
 \definecolor{todored}{HTML}{C62828}
 \usepackage[colorlinks=true, urlcolor=blue!55!black, linkcolor=brand,
-            pdftitle={ClaimFlow Sprint 1 report},
-            pdfauthor={Kiatisak Markmeeshap; Supawit Marayat}]{hyperref}
+            pdftitle={ClaimFlow \sprintname\space report},
+            pdfauthor={\studentOneName; \studentTwoName}]{hyperref}
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{5pt}
@@ -48,7 +48,7 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\fancyfoot[L]{\footnotesize ClaimFlow, Sprint 1 report}
+\fancyfoot[L]{\footnotesize ClaimFlow, \sprintname\space report}
 \fancyfoot[R]{\footnotesize page \thepage}
 \renewcommand{\headrulewidth}{0pt}
 \fancypagestyle{plain}{\fancyhf{}\fancyfoot[R]{\footnotesize page \thepage}%
@@ -56,7 +56,7 @@
 
 % ---- Evidence that is not there yet ---------------------------------------
 
-% Red inline text. check_report.py counts every \todo and \pending.
+% Red inline text. check-report counts every \todo and \pending.
 \newcommand{\todo}[1]{\textcolor{todored}{\textbf{[TODO: #1]}}}
 
 % A red box where a capture or section is still waiting for something.
@@ -127,7 +127,7 @@
     {\begin{figure}[H]\centering\figmissing{#1}{#2}\caption{#2}\end{figure}}}
 
 % \diagramfull{file}{caption}: one Mermaid diagram of a captured document,
-% photographed on its own at 3x by scripts/capture_diagrams.py, at full text width.
+% photographed on its own at 3x by scripts/capture-diagrams.ts, at full text width.
 \newcommand{\diagramfull}[2]{%
   \IfFileExists{#1}%
     {\begin{figure}[H]\centering
@@ -171,7 +171,7 @@
   \begin{center}
     {\Large\bfseries CPE 334 --- Introduction to Software Engineering\par}
     \vspace{3pt}
-    {\large Project Deliverable 1: Sprint 1 report\par}
+    {\large \deliverable: \sprintname\space report\par}
     \vspace{10pt}
     {\Huge\bfseries\color{brand} ClaimFlow\par}
     {\large Theme 5, Department Expense Reimbursement System\par}

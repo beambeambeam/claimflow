@@ -1,0 +1,29 @@
+{
+  "name": "@claimflow/reports",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pdf": "varlock run -- bun scripts/pdf.ts",
+    "identity": "varlock run -- bun scripts/identity.ts",
+    "check-report": "bun scripts/check-report.ts",
+    "render-docs": "bun scripts/render-docs.ts",
+    "slice-tall": "bun scripts/slice-tall.ts",
+    "capture-diagrams": "bun scripts/capture-diagrams.ts",
+    "gen-part-lists": "bun scripts/gen-part-lists.ts",
+    "render-reviews": "bun scripts/render-reviews.ts",
+    "capture-board": "bun scripts/capture-board.ts",
+    "collect-team": "bun scripts/collect-team.ts",
+    "gen-team-table": "bun scripts/gen-team-table.ts",
+    "go-test": "bun scripts/go-test.ts",
+    "gen-ac-table": "bun scripts/gen-ac-table.ts",
+    "capture-demo": "varlock run -- bun scripts/capture-demo.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "sharp": "^0.35.5",
+    "typescript": "catalog:",
+    "varlock": "catalog:",
+    "zod": "catalog:"
+  }
+}

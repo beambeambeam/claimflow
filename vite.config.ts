@@ -4,6 +4,7 @@ import ultraciteOxlintCore from "ultracite/oxlint/core";
 import { defineConfig } from "vite-plus";
 
 import { webIgnorePatterns, webLintOverrides } from "./apps/web/check.config";
+import { reportsLintOverrides } from "./docs/reports/check.config";
 
 // Repository-wide format, lint, and pre-commit rules. App-specific rules live in each app.
 const config = defineConfig({
@@ -22,7 +23,7 @@ const config = defineConfig({
     ],
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     options: { typeAware: true, typeCheck: true },
-    overrides: webLintOverrides,
+    overrides: [...webLintOverrides, ...reportsLintOverrides],
     rules: {
       "no-unmodified-loop-condition": "error",
       "vite-plus/prefer-vite-plus-imports": "error",

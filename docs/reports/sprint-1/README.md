@@ -16,35 +16,14 @@ LaTeX source of the Deliverable 1 PDF: one self-contained document with Parts A�
 
 Parts A–E are the repo documents as GitHub renders them, captured by script and cut to pages, so the PDF and the repo cannot drift. Part F is written in LaTeX from evidence that scripts collect.
 
-## Layout
+## Where things are
 
-```
-docs/reports/sprint-1/
-├── README.md              this plan, the evidence index, the build steps
-├── main.tex               title, contents, navigation table, then \input of every part in order
-├── preamble.tex           packages and macros (\reportpart, \evidence, \pending, \todo, shell)
-├── content/
-│   ├── 00-front.tex
-│   ├── part-a-srs.tex … part-e-contracts.tex    figure lists only, generated from figures/docs/
-│   ├── part-f-1-setup.tex       setup summary: dependencies, env, migrate, seed, run, build, test
-│   ├── part-f-2-demos.tex       three captioned scenarios
-│   ├── part-f-3-tests.tex       commands and output, AC-to-test table, two excerpts, TDD red and green
-│   ├── part-f-4-workflow.tex    two Issue-to-PR chains, history sequence, board, release
-│   └── part-f-5-team.tex        contribution table, AI-use declaration, known limitations
-├── scripts/               capture, cut, generate, check (Python with Playwright and Pillow; Node for the app demo)
-├── content/data/          generated text evidence: AC table, team table, history, TDD output, test excerpts
-└── figures/               every image the report uses, committed; rebuilt by the scripts
-    ├── docs/              rendered documents, cut to pages
-    ├── demo/              application screenshots
-    └── github/            PR, review, history, and board captures
-```
-
-The captures in `figures/` are committed, so the PDF builds from a clean clone without re-running the capture scripts. The full-page renders that `slice_tall.py` cuts into pieces, LaTeX build files, and the PDF stay out of Git (`.gitignore` in this folder). The submitted PDF goes to LEB2.
+`main.tex` inputs `content/00-front.tex`, the generated figure lists `content/part-a…e-*.tex`, and the hand-written `content/part-f-*.tex`. `content/data/` holds generated text evidence; `figures/` holds every image. `report.config.ts` lists what the scripts capture for this sprint; `demo.ts` drives the three demos. Shared scripts, the preamble, setup, and build steps: [`../README.md`](../README.md). The submitted PDF goes to LEB2.
 
 ## Rules of the report
 
 - **One commit for every capture.** Screenshots and test output come from the release commit on `main`. Before the release exists, a draft may capture from `sprint-1`; the front matter then says so in red, and the final build recaptures.
-- **A missing figure never breaks the build.** `\evidence` draws a red "pending" box when its file does not exist. The check script counts those boxes and every `\todo`; the final PDF has none.
+- **A missing figure never breaks the build.** `\evidence` draws a red "pending" box when its file does not exist. `check-report` counts those boxes and every `\todo`; the final PDF has none.
 - **Scripts capture, people do not.** A rerun refreshes the report. The only hand capture is the project board.
 - **Terminal output is text** in a `shell` block, never a screenshot.
 - **Every figure is readable at normal zoom.** A capture taller than one page is cut on a blank row into pieces.
@@ -84,31 +63,11 @@ Squash merges keep one commit per PR on `sprint-1`. The red and green commits of
 
 ## Phases
 
-1. **Skeleton and static evidence** (now). Preamble, `main.tex`, every content file, the scripts, a draft capture of the documents from `sprint-1`, and every `ready` row above. Done when: XeLaTeX builds twice with no error, the contents and the navigation table show page numbers, and the check script lists each remaining pending figure and `\todo` with the row it waits for.
+1. **Skeleton and static evidence** (now). Preamble, `main.tex`, every content file, the scripts, a draft capture of the documents from `sprint-1`, and every `ready` row above. Done when: XeLaTeX builds twice with no error, the contents and the navigation table show page numbers, and `check-report` lists each remaining pending figure and `\todo` with the row it waits for.
 2. **Sprint 1 completes.** #30–#34 merge; the release PR `sprint-1` → `main` merges; the tag exists.
-3. **Release evidence.** Recapture documents from `main`, run the demo script and the test commands on the release commit, capture the board, fill the tag and commit. Done when: the check script reports zero pending figures and zero `\todo`, and every acceptance criterion of #4 is ticked against a page of the PDF.
+3. **Release evidence.** Recapture documents from `main`, run the demo script and the test commands on the release commit, capture the board, fill the tag and commit. Done when: `check-report` reports zero pending figures and zero `\todo`, and every acceptance criterion of #4 is ticked against a page of the PDF.
 4. **Submit** the PDF on LEB2. Nothing is committed afterwards that changes the tagged release.
 
 ## Build
 
-Needs Python with Playwright and Pillow, Chrome or Edge, MiKTeX (`xelatex`), and `gh` for the data scripts. The repository is public, so no script logs in.
-
-```bash
-cd docs/reports/sprint-1
-python scripts/render_docs.py --ref ac5bce5 --label main   # the release commit, cited as main; writes figures/docs/<name>.json
-python scripts/slice_tall.py                     # cut tall captures into pages
-python scripts/capture_diagrams.py --ref ac5bce5 --label main  # each Mermaid diagram alone at 3x, figures/diagrams/
-python scripts/gen_part_lists.py                 # content/part-a..e from figures/docs and figures/diagrams
-python scripts/render_reviews.py                 # figures/github: review and comment anchors of PRs #59 and #56, header of #69
-python scripts/capture_board.py                  # figures/github/board.png, the public project board
-python scripts/collect_team.py && python scripts/gen_team_table.py     # F.5 contribution table
-(cd ../../../apps/api && go test -json -count=1 ./... > /tmp/go.json)  # needs Docker
-python scripts/gen_ac_table.py --gojson /tmp/go.json --commit <sha> --e2e-passed --web-passed [--web-fail <title>]   # F.3 AC-to-test table
-SEED_USER_PASSWORD=... node scripts/capture-demo.cjs                  # demos 1 to 3; local stack must be running
-xelatex -interaction=nonstopmode main.tex && xelatex -interaction=nonstopmode main.tex
-python scripts/check_report.py                   # pending figures, \todo, blank captures, Mermaid, overfull boxes
-```
-
-Write `\todo{release: ...}`, `\todo{1045: ...}`, `\todo{#30: ...}`, `\todo{board: ...}` or `\todo{capture: ...}`: the check script groups them by that prefix, so the open items read as a list of what each one waits for.
-
-`content/data/` holds text evidence that scripts or commands produced (`ac-table.tex`, `team.tex`, `history.txt`, the two TDD outputs, the two test excerpts). It is committed because the commands that produce it need Docker and a Go toolchain; regenerate it on the release commit.
+See [`../README.md`](../README.md); this sprint is `sprint-1`. `content/data/` (`ac-table.tex`, `team.tex`, `history.txt`, the two TDD outputs, the two test excerpts) is committed because the commands behind it need Docker and Go; regenerate it on the release commit.
