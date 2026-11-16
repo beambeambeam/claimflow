@@ -1,5 +1,8 @@
-# Captures and build output are rebuilt by the scripts; only text sources are committed.
-figures/
+# The captures the report uses are committed. The full-page renders are only the
+# input of slice_tall.py, and mermaid-*.png are render_docs.py scratch files.
+figures/docs/*.png
+!figures/docs/*-p[0-9]*.png
+!figures/docs/adr-0001.png
 *.pdf
 *.aux
 *.log

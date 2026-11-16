@@ -1,0 +1,12 @@
+{
+  "name": "plan",
+  "file": "docs/sprints/plan.md",
+  "ref": "main",
+  "url": "https://github.com/beambeambeam/claimflow/blob/ac5bce5/docs/sprints/plan.md",
+  "commit": "ac5bce5",
+  "mermaid_expected": 2,
+  "mermaid_drawn": 2,
+  "width": 2000,
+  "height": 13425,
+  "problems": []
+}

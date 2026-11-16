@@ -33,13 +33,13 @@ docs/reports/sprint-1/
 │   └── part-f-5-team.tex        contribution table, AI-use declaration, known limitations
 ├── scripts/               capture, cut, generate, check (Python with Playwright and Pillow; Node for the app demo)
 ├── content/data/          generated text evidence: AC table, team table, history, TDD output, test excerpts
-└── figures/               every image; not in Git, rebuilt by the scripts
+└── figures/               every image the report uses, committed; rebuilt by the scripts
     ├── docs/              rendered documents, cut to pages
     ├── demo/              application screenshots
     └── github/            PR, review, history, and board captures
 ```
 
-`figures/`, LaTeX build files, and the PDF stay out of Git (`.gitignore` in this folder). The submitted PDF goes to LEB2.
+The captures in `figures/` are committed, so the PDF builds from a clean clone without re-running the capture scripts. The full-page renders that `slice_tall.py` cuts into pieces, LaTeX build files, and the PDF stay out of Git (`.gitignore` in this folder). The submitted PDF goes to LEB2.
 
 ## Rules of the report
 

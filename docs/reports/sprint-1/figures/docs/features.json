@@ -1,0 +1,12 @@
+{
+  "name": "features",
+  "file": "docs/features.md",
+  "ref": "main",
+  "url": "https://github.com/beambeambeam/claimflow/blob/ac5bce5/docs/features.md",
+  "commit": "ac5bce5",
+  "mermaid_expected": 1,
+  "mermaid_drawn": 1,
+  "width": 2000,
+  "height": 9710,
+  "problems": []
+}
