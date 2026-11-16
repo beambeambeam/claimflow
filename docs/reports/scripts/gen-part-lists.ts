@@ -6,7 +6,7 @@
 // (capture-diagrams.ts). A document not captured yet becomes a pending box, so
 // the build never breaks on a missing capture. Run it after every recapture.
 //
-//   bun run gen-part-lists sprint-1
+//   bun run gen-part-lists 01
 import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 

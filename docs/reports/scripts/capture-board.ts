@@ -1,7 +1,7 @@
 // Capture the public project board for Part F.4.
 //
-//   bun run capture-board sprint-1           the board in report.config.ts
-//   bun run capture-board sprint-1 <url>     another view of the board
+//   bun run capture-board 01           the board in report.config.ts
+//   bun run capture-board 01 <url>     another view of the board
 //
 // GitHub Projects paints cards lazily and scrolls inside the board, so the
 // viewport is made tall enough for the tallest column, then the empty space

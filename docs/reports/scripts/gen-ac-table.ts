@@ -10,7 +10,7 @@
 //     manual results are not run here; flags record them;
 //   - a planned test with no actual test names the open issue that lists it.
 //
-//   bun run gen-ac-table sprint-1 --commit ac5bce5 --e2e-passed --web-passed [--web-fail <title>]
+//   bun run gen-ac-table 01 --commit ac5bce5 --e2e-passed --web-passed [--web-fail <title>]
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";

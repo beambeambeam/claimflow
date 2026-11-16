@@ -18,7 +18,7 @@ Parts A–E are the repo documents as GitHub renders them, captured by script an
 
 ## Where things are
 
-`main.tex` inputs `content/00-front.tex`, the generated figure lists `content/part-a…e-*.tex`, and the hand-written `content/part-f-*.tex`. `content/data/` holds generated text evidence; `figures/` holds every image. `report.config.ts` lists what the scripts capture for this sprint; `demo.ts` drives the three demos. Shared scripts, the preamble, setup, and build steps: [`../README.md`](../README.md). The submitted PDF goes to LEB2.
+`main.tex` inputs `content/00-front.tex`, the generated figure lists `content/part-a…e-*.tex`, and the hand-written `content/part-f-*.tex`. `content/data/` holds generated text evidence; `figures/` holds every image. `report.config.ts` lists what the scripts capture for this sprint; `demo.ts` drives the three demos. Shared scripts, the preamble, setup, and build steps: [`../../README.md`](../../README.md). The submitted PDF goes to LEB2.
 
 ## Rules of the report
 
@@ -70,4 +70,4 @@ Squash merges keep one commit per PR on `sprint-1`. The red and green commits of
 
 ## Build
 
-See [`../README.md`](../README.md); this sprint is `sprint-1`. `content/data/` (`ac-table.tex`, `team.tex`, `history.txt`, the two TDD outputs, the two test excerpts) is committed because the commands behind it need Docker and Go; regenerate it on the release commit.
+See [`../../README.md`](../../README.md); this sprint is `01`. `content/data/` (`ac-table.tex`, `team.tex`, `history.txt`, the two TDD outputs, the two test excerpts) is committed because the commands behind it need Docker and Go; regenerate it on the release commit.

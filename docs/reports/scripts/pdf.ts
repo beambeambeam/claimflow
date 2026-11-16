@@ -1,7 +1,7 @@
 // Build <sprint>/main.pdf: write build/identity.tex, then XeLaTeX twice (the
 // second pass fills page numbers and the contents).
 //
-//   bun run pdf sprint-1
+//   bun run pdf 01
 //
 // Needs xelatex on PATH: MiKTeX or TeX Live on Windows, MacTeX on macOS.
 import { spawnSync } from "node:child_process";

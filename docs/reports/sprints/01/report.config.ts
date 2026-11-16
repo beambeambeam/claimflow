@@ -1,4 +1,4 @@
-import type { SprintConfig } from "../scripts/lib/sprint.ts";
+import type { SprintConfig } from "../../scripts/lib/sprint.ts";
 
 // Sprint 1 report (Deliverable 1): what the shared scripts capture and list.
 const config: SprintConfig = {

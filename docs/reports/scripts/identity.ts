@@ -2,7 +2,7 @@
 // student IDs stay out of git. The preamble inputs it; the build stops when it
 // is missing.
 //
-//   bun run identity sprint-1
+//   bun run identity 01
 //
 // Env (docs/reports/.env, loaded by varlock): STUDENT_1_NAME, STUDENT_1_ID,
 // STUDENT_2_NAME, STUDENT_2_ID. Student 1 and 2 are the slots One and Two of

@@ -1,6 +1,6 @@
 // Collect the contribution data of F.5 from GitHub, through gh.
 //
-//   bun run collect-team sprint-1      writes <sprint>/content/data/team.json
+//   bun run collect-team 01      writes <sprint>/content/data/team.json
 //
 // Per merged pull request: author, merger, base, and every review by someone
 // other than the author with its state. Per closed issue: assignees.

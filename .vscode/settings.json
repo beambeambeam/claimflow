@@ -45,12 +45,14 @@
   "go.alternateTools": {
     "golangci-lint-v2": "${workspaceFolder}/apps/api/bin/golangci-lint"
   },
-  "latex-workshop.latex.search.rootFiles.include": ["docs/reports/*/main.tex"],
+  "latex-workshop.latex.search.rootFiles.include": [
+    "docs/reports/sprints/*/main.tex"
+  ],
   "latex-workshop.latex.tools": [
     {
       "name": "identity",
       "command": "bun",
-      "args": ["run", "--cwd", "%DIR%/..", "identity", "%DIR%"]
+      "args": ["run", "--cwd", "%DIR%/../..", "identity", "%DIR%"]
     },
     {
       "name": "xelatex",

@@ -1,7 +1,7 @@
 // One check for a whole sprint report: what is still missing, and what looks wrong.
 //
-//   bun run check-report sprint-1            after bun run pdf sprint-1
-//   bun run check-report sprint-1 --quick    skip the pixel scans
+//   bun run check-report 01            after bun run pdf 01
+//   bun run check-report 01 --quick    skip the pixel scans
 //
 // Reports, in this order:
 //   1. pending figures: every \evidence-family figure whose file does not exist;

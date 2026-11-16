@@ -1,5 +1,9 @@
 {
-  "include": ["scripts/**/*.ts", "*/report.config.ts", "*/demo.ts"],
+  "include": [
+    "scripts/**/*.ts",
+    "sprints/*/report.config.ts",
+    "sprints/*/demo.ts"
+  ],
   "compilerOptions": {
     "target": "ESNext",
     "lib": ["ESNext", "DOM"],

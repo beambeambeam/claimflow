@@ -5,7 +5,7 @@
 // pages and photographs each diagram block on its own at 3x pixel density.
 // The report prints these after the document they belong to.
 //
-//   bun run capture-diagrams sprint-1 --ref ac5bce5 --label main
+//   bun run capture-diagrams 01 --ref ac5bce5 --label main
 //
 // Output: <sprint>/figures/diagrams/<name>-<n>.png and index.json.
 import { mkdirSync, writeFileSync } from "node:fs";

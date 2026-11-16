@@ -1,4 +1,4 @@
-// Demos 1, 2 and 3 of Part F.2, run by bun run capture-demo sprint-1.
+// Demos 1, 2 and 3 of Part F.2, run by bun run capture-demo 01.
 //
 //   demo 1  submit, approve, retrieve: req.anan submits a claim with two line
 //           items (F02-AC-01); rev.malee approves it from the Review Queue
@@ -15,7 +15,7 @@
 //           nothing by itself.
 import type { Page } from "@playwright/test";
 
-import type { Demo } from "../scripts/lib/app.ts";
+import type { Demo } from "../../scripts/lib/app.ts";
 
 const fillItem = async (
   page: Page,

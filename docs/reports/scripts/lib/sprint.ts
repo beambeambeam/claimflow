@@ -37,14 +37,14 @@ export interface Sprint {
 const isConfigModule = (mod: unknown): mod is { default: SprintConfig } =>
   typeof mod === "object" && mod !== null && "default" in mod;
 
-// The sprint folder from a name (sprint-1) or a path (LaTeX Workshop passes
-// the folder of main.tex).
+// The sprint folder from its number under sprints/ (01) or a path (LaTeX
+// Workshop passes the folder of main.tex).
 export const loadSprint = async (arg: string | undefined): Promise<Sprint> => {
   if (arg === undefined || arg === "") {
-    throw new Error("name the sprint first, for example: sprint-1");
+    throw new Error("name the sprint first, for example: 01");
   }
 
-  const dir = path.resolve(REPORTS, arg);
+  const dir = path.resolve(REPORTS, "sprints", arg);
   const file = path.join(dir, "report.config.ts");
 
   if (!existsSync(file)) {

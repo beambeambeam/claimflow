@@ -5,8 +5,8 @@
 // the anchor also expands threads GitHub collapses once resolved. The targets
 // live in the sprint's report.config.ts.
 //
-//   bun run render-reviews sprint-1              everything
-//   bun run render-reviews sprint-1 pr59         one group
+//   bun run render-reviews 01              everything
+//   bun run render-reviews 01 pr59         one group
 //
 // Output: <sprint>/figures/github/<name>.png.
 import { mkdirSync, statSync } from "node:fs";

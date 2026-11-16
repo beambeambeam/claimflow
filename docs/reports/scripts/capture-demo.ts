@@ -2,7 +2,7 @@
 // screenshots to <sprint>/figures/demo. It starts nothing: Postgres with the
 // migrations and `seed` applied, the API, and the web dev server must be up.
 //
-//   bun run capture-demo sprint-1
+//   bun run capture-demo 01
 //
 // Env (docs/reports/.env, loaded by varlock): SEED_USER_PASSWORD, the value
 // used for `seed`; BASE_URL, the web address.

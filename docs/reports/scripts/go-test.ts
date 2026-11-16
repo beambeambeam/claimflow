@@ -1,7 +1,7 @@
 // Run the Go tests of apps/api (needs Docker) and keep the JSON event stream
 // for gen-ac-table.ts. No shell redirection, so the file is UTF-8 everywhere.
 //
-//   bun run go-test sprint-1      writes <sprint>/build/go.json
+//   bun run go-test 01      writes <sprint>/build/go.json
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";

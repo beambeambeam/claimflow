@@ -6,8 +6,8 @@
 // before the shot; a page past Skia's 16384 px texture limit, or one with
 // diagrams, is photographed a viewport at a time and stitched.
 //
-//   bun run render-docs sprint-1 --ref ac5bce5 --label main    every document
-//   bun run render-docs sprint-1 --ref main srs plan           just those
+//   bun run render-docs 01 --ref ac5bce5 --label main    every document
+//   bun run render-docs 01 --ref main srs plan           just those
 //
 // Output: <sprint>/figures/docs/<name>.png and <name>.json, a sidecar with the file, the
 // ref, its commit, and the Mermaid diagrams expected against drawn.

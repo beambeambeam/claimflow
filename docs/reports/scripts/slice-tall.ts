@@ -1,8 +1,8 @@
 // Cut tall captures into page-sized pieces, each cut on a blank row so no line
 // of text is sliced in half.
 //
-//   bun run slice-tall sprint-1             every capture in figures/docs
-//   bun run slice-tall sprint-1 srs plan    just those
+//   bun run slice-tall 01             every capture in figures/docs
+//   bun run slice-tall 01 srs plan    just those
 //
 // Originals stay. Pieces are written beside them as name-p1.png, name-p2.png.
 // A rerun deletes stale pieces first, so a document that got shorter leaves no

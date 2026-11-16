@@ -2,7 +2,7 @@
 // student, then every merged PR once with the other student's review verdicts.
 // Student names and IDs stay out of Git: the table prints the identity macros.
 //
-//   bun run collect-team sprint-1 && bun run gen-team-table sprint-1
+//   bun run collect-team 01 && bun run gen-team-table 01
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 
