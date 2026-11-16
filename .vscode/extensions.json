@@ -1,3 +1,7 @@
 {
-  "recommendations": ["VoidZero.vite-plus-extension-pack", "golang.go"]
+  "recommendations": [
+    "VoidZero.vite-plus-extension-pack",
+    "golang.go",
+    "James-Yu.latex-workshop"
+  ]
 }
