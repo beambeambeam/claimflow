@@ -31,12 +31,12 @@ The API reads its settings only from the environment. [`apps/api/.env.schema`](.
 | `COOKIE_SECURE` | `Secure` and the `__Host-` prefix on the session cookie | No | `false` (plain HTTP) | Default `true` (HTTPS) |
 | `BCRYPT_COST` | bcrypt cost, at least 10 (NFR-01) | No | `12` (default) | Default `12` |
 | `LOG_LEVEL` | `debug`, `info`, `warn`, or `error` | No | `info` (default) | Default `info` |
-| `APP_VERSION` | Version that `/api/v1/health` returns | No | `dev` | The full commit SHA, set at image build |
+| `APP_VERSION` | Version that `/api/v1/health` returns | No | `dev`, or the SHA passed from the shell to `docker compose` | The full commit SHA, set at image build |
 | `WEB_DIR` | Folder of the web build that the API serves outside `/api` | No | Unset: the Vite dev server serves the web app | `/app/web`, set in the image |
 
 The web app has one variable, `API_URL`, which only the dev server's proxy reads ([`apps/web/.env.example`](../../../apps/web/.env.example)). The bundle holds no secrets.
 
-The root [`.env.example`](../../../.env.example) holds what `docker compose` reads: `SEED_USER_PASSWORD`, the host ports `DB_PORT` and `APP_PORT`, and `APP_VERSION`. Compose passes every variable in `.env` to the `migrate` and `app` containers, so any other API variable (for example `LOG_LEVEL`) can be added there. `DATABASE_URL` and `COOKIE_SECURE` are fixed in `docker-compose.yml`.
+The root [`.env.example`](../../../.env.example) holds what `docker compose` reads: `SEED_USER_PASSWORD` and the host ports `DB_PORT` and `APP_PORT`. `APP_VERSION` comes from the shell instead, because a value in `.env` would override the version built into the image. Compose passes every variable in `.env` to the `migrate` and `app` containers, so any other API variable (for example `LOG_LEVEL`) can be added there. `DATABASE_URL` and `COOKIE_SECURE` are fixed in `docker-compose.yml`.
 
 ## Run the whole stack locally (C-03)
 
@@ -44,8 +44,8 @@ Needs Docker with Compose. From a fresh clone:
 
 ```sh
 cp .env.example .env          # then set SEED_USER_PASSWORD to a local value
-docker compose up --build -d  # db, then migrate (migrate up + seed), then app
-curl -s localhost:8080/api/v1/health   # {"status":"ok","version":"dev"}
+APP_VERSION=$(git rev-parse HEAD) docker compose up --build -d  # db, then migrate (migrate up + seed), then app
+curl -s localhost:8080/api/v1/health   # {"status":"ok","version":"<the commit SHA>"}
 curl -s localhost:8080/api/v1/ready    # 200 once the database answers
 ```
 
@@ -90,7 +90,7 @@ The `CI` workflow ([`.github/workflows/ci.yml`](../../../.github/workflows/ci.ym
 | `build` | `bun run build` |
 | `image` | Builds the root image with `APP_VERSION` set to the commit SHA |
 
-All five are required checks in the `main` and `sprint` rulesets (SDS §9.1), so a pull request with a failing check cannot merge.
+All five are required checks in the `main`, `sprint`, and `lab` rulesets (SDS §9.1), so a pull request with a failing check cannot merge. The `lab` ruleset protects `lab-5`.
 
 ## GCP and release procedure
 
