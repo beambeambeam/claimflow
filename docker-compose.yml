@@ -31,18 +31,22 @@ services:
         "-c",
         "varlock run -- /app/api migrate up && varlock run -- /app/api seed",
       ]
+    # Every variable in .env reaches the API (SEED_USER_PASSWORD, LOG_LEVEL, ...). Without .env, `seed` stops
+    # with an error that names SEED_USER_PASSWORD.
+    env_file: &app-env-file
+      - path: .env
+        required: false
     environment: &app-env
       DATABASE_URL: postgres://claimflow:claimflow@db:5432/claimflow?sslmode=disable
       # Local HTTP: no `Secure` cookie.
       COOKIE_SECURE: "false"
-      # Empty, `seed` stops with an error that names it. Set it in .env.
-      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy
 
   app:
     image: claimflow:local
+    env_file: *app-env-file
     environment: *app-env
     ports:
       - "${APP_PORT:-8080}:8080"

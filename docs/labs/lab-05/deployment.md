@@ -36,7 +36,7 @@ The API reads its settings only from the environment. [`apps/api/.env.schema`](.
 
 The web app has one variable, `API_URL`, which only the dev server's proxy reads ([`apps/web/.env.example`](../../../apps/web/.env.example)). The bundle holds no secrets.
 
-The root [`.env.example`](../../../.env.example) holds what `docker compose` reads: `SEED_USER_PASSWORD`, the host ports `DB_PORT` and `APP_PORT`, and `APP_VERSION`.
+The root [`.env.example`](../../../.env.example) holds what `docker compose` reads: `SEED_USER_PASSWORD`, the host ports `DB_PORT` and `APP_PORT`, and `APP_VERSION`. Compose passes every variable in `.env` to the `migrate` and `app` containers, so any other API variable (for example `LOG_LEVEL`) can be added there. `DATABASE_URL` and `COOKIE_SECURE` are fixed in `docker-compose.yml`.
 
 ## Run the whole stack locally (C-03)
 
