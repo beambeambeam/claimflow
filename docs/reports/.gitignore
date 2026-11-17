@@ -1,0 +1,17 @@
+# The captures the report uses are committed. The full-page renders are only
+# the input of slice-tall, and mermaid-*.png are render-docs scratch files.
+sprints/*/figures/docs/*.png
+!sprints/*/figures/docs/*-p[0-9]*.png
+!sprints/*/figures/docs/adr-0001.png
+# build/identity.tex holds names and student IDs from .env; build/go.json is
+# the go-test output.
+build/
+*.pdf
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv

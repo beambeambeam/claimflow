@@ -1,0 +1,12 @@
+{
+  "name": "adr-0001",
+  "file": "docs/adr/0001-finance-officer-reviews-department-head.md",
+  "ref": "main",
+  "url": "https://github.com/beambeambeam/claimflow/blob/ac5bce5/docs/adr/0001-finance-officer-reviews-department-head.md",
+  "commit": "ac5bce5",
+  "mermaid_expected": 0,
+  "mermaid_drawn": 0,
+  "width": 2000,
+  "height": 1605,
+  "problems": []
+}

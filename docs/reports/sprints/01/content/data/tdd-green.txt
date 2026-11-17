@@ -1,0 +1,11 @@
+$ cd apps/api && go test ./internal/claim/ -run 'F02TEST04|F02TEST06|F02TEST08|F02TEST09|F02TEST11|CheckRulesReportsEveryViolation' -v -count=1
+# commit 7b4787d
+    com.docker.desktop.address=npipe://\\.\pipe\docker_cli
+--- PASS: TestF02TEST04ItemCount (0.31s)
+--- PASS: TestF02TEST06AmountRange (0.26s)
+--- PASS: TestF02TEST08Total (0.28s)
+--- PASS: TestF02TEST09MealsLimit (1.44s)
+--- PASS: TestF02TEST11ExpenseDateWindow (0.00s)
+--- PASS: TestCheckRulesReportsEveryViolation (0.00s)
+PASS
+ok  	github.com/beambeambeam/claimflow/apps/api/internal/claim	16.748s

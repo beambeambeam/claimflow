@@ -1,0 +1,44 @@
+\partsection{F.5}{Contributions, AI use, and known limitations}\label{F:5}
+
+\subsubsection*{Contribution table}
+
+From the merged pull requests and closed issues of \path{beambeambeam/claimflow} on GitHub, collected by \path{docs/reports/scripts/collect-team.ts} on 15 November 2026, after the release.
+An equal number of commits is not required; the two students split the work as follows.
+Dependabot pull requests (\#10, \#22) are not counted.
+
+\input{content/data/team}
+
+\begin{center}\small
+\begin{tabular}{@{}>{\bfseries}p{2.7cm}p{13.6cm}@{}}
+\toprule
+Kiatisakk (1005) & Requirements and design documents: SRS (\#18, issue \#1), feature inventory and traceability matrix (\#20, issue \#2), system-level SDS (\#21, issue \#3). Implementation: route permissions and the route inventory test, F-01/04 (\#59, issue \#27); submit a claim, F-02/01 and F-02/02, with the claim rules, the schema and the New Claim form (\#60, issues \#28, \#29). Reviews of Beam's PRs \#23, \#35, \#36, \#56, \#57, \#58, \#63, \#65, with changes requested on \#56 and \#65. The release: the check of \texttt{sprint-1} against the Product DoD (\#68) and the release PR (\#69). This report (issue \#4). \\
+beambeambeam (1045) & Repository, CI and tooling setup (\#8, \#9, \#11 to \#15, \#17, \#19, issue \#7), the sprint plan and the Sprint 1 contracts (\#23, issues \#5, \#6), the sprint workflow rules (\#35), moving issue tracking to GitHub Issues (\#57). Implementation: walking skeleton with contract, database and health checks, F-01/01 (\#36, issue \#24); log in and the current user, F-01/02 (\#56, issue \#25); log out, session expiry and bans, F-01/03 (\#58, issue \#26); My Claims and the claim detail, F-03/01 and F-03/02 (\#63, issues \#30, \#31); the review queue, approve and reject, and the Sprint 1 journey with Playwright, F-04/01 to 03 (\#65, issues \#32, \#33, \#34). Reviews of Kiatisak's PRs \#18, \#20, \#21, \#59, \#60, \#68, \#69, and the merge of the release. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Pair work: none declared in any Sprint 1 pull request (the ``Pair work'' section of PR \#60 says ``None'').
+Both students checked the split above against the merged pull requests (1045 in PR \#64).
+
+\subsubsection*{AI-use declaration}
+
+\textbf{Student \studentOneId{} (\studentOneName).} Claude Code (Anthropic) was used throughout Sprint 1 with Claude Fable 5.2 and Claude Opus 5.5 as orchestrator, and Claude Sonnet 5.5 subagents as implementers and reviewers.
+Tasks: implementation of tickets under test-driven development (the failing test is committed first, see F.3), drafting of code-review comments on the teammate's pull requests, and tooling for this report (the capture, cut and check scripts under \path{docs/reports/scripts/}).
+Every result is gated by the repository checks (formatting, lint, tests, coverage) and reviewed by a person before it is committed, pushed or posted; the review comments in F.4 were read and posted by the student.
+
+\textbf{Student \studentTwoTag{} (\studentTwoName).} Claude Code (Anthropic) was used throughout Sprint 1 with the aihero.dev agent skills (added in PR \#12). Every ticket followed one flow: \texttt{/to-spec} turned the feature into a spec, \texttt{/to-tickets} cut the spec into tickets (the issues of the sprint contracts), \texttt{/implement} built each ticket test-first, and \texttt{/code-review} reviewed the change against the repository standards and the ticket before the pull request was opened. Every result passed the repository checks (formatting, lint, tests, 100\% API coverage) and was read by the student before it was committed or pushed, and Kiatisak reviewed each pull request before it was merged.
+
+\subsubsection*{Known limitations, failed and skipped tests}
+
+Written from the contracts, the pull request descriptions and the open issues at the release commit \texttt{ac5bce5}.
+Issues \#61, \#66, \#67 and \#70 track the open work; the two small known gaps of PR \#60 have no issue of their own.
+
+\begin{itemize}\setlength\itemsep{2pt}
+\item \textbf{The E2E specs do not run in CI} (issue \#66). F01-TEST-24, F02-TEST-21, F03-TEST-12, F04-TEST-23 and F04-TEST-24 pass on a local seeded stack (F.3), but CI has no Playwright job. For that reason the ``pass in CI'' box of \S7 in the F-01, F-02 and F-03 contracts is left open with a known-gap line (Part E); F-04's Playwright item allows a recorded run.
+\item \textbf{The SDS and the code differ in three places} (issue \#67): two \texttt{List} methods where \S3.1 has one, history actions stored as strings, and empty audit fields for the session. SDS revision 0.12 records them as as-built notes; \#67 also holds the smaller review follow-ups of PR \#65. The review of the release PR \#69 added \#70: none of its items blocks the release or changes an acceptance criterion; the one that touches behaviour is the F-04 \S2.2 403 page, which shows only when the next read of the claim also returns 403.
+\item \textbf{Receipt files are not part of Sprint 1} (issue \#61). A line item has a \texttt{Receipt reference} text field; uploads come later.
+\item \textbf{Layout shift in error rows.} In a New Claim line item that shows errors, the columns shift right (PR \#60, known gaps).
+\item \textbf{The F-02 E2E test covers the happy path only;} the rule errors are covered by the API and component tests (PR \#60).
+\item \textbf{Manual checks} were run on \texttt{29fd6fb}, the last code commit before the release, whose code is identical to \texttt{ac5bce5} (the two later commits change \texttt{README.md} and \path{docs/} only): F01-TEST-18 (no tracked \texttt{.env}; gitleaks reports 11 hits, all Go module checksums; \texttt{.env.example} matches \texttt{.env.schema}), F01-TEST-19 (required CI checks on PR \#65), and F04-TEST-19 (restart check: \texttt{req.anan}'s claims, items and history byte-identical before and after), which was run again on \texttt{ac5bce5} (F.3). Results are in \path{docs/traceability.md}.
+\item \textbf{Failed and skipped tests on the release commit.} Go: 0 failed, 0 skipped of 123 top-level tests and 152 subtests. Web: 130 of 130 pass in CI on \texttt{ac5bce5}; on the author's machine a full local run times out on 19 tests under load, and rerun file by file only the first test of \texttt{auth-routing.test.tsx} still fails there (F.3). E2E: 5 of 5 pass locally. No test was disabled, skipped or weakened to obtain these results.
+\end{itemize}

@@ -1,0 +1,34 @@
+{
+  "ref": "main",
+  "commit": "ac5bce5",
+  "docs": {
+    "features": {
+      "file": "docs/features.md",
+      "diagrams": ["features-1.png"]
+    },
+    "system-sds": {
+      "file": "docs/system-sds.md",
+      "diagrams": ["system-sds-1.png", "system-sds-2.png", "system-sds-3.png"]
+    },
+    "plan": {
+      "file": "docs/sprints/plan.md",
+      "diagrams": ["plan-1.png", "plan-2.png"]
+    },
+    "f01": {
+      "file": "docs/sprints/sprint-1/F-01-authentication.md",
+      "diagrams": ["f01-1.png"]
+    },
+    "f02": {
+      "file": "docs/sprints/sprint-1/F-02-submit-claim.md",
+      "diagrams": ["f02-1.png"]
+    },
+    "f03": {
+      "file": "docs/sprints/sprint-1/F-03-my-claims.md",
+      "diagrams": ["f03-1.png"]
+    },
+    "f04": {
+      "file": "docs/sprints/sprint-1/F-04-review-decision.md",
+      "diagrams": ["f04-1.png"]
+    }
+  }
+}
