@@ -94,7 +94,7 @@ jobs:
             apps/api/coverage.out
           retention-days: 7
 
-  # The deployable image (SD-15): the API and the web build. Required by both rulesets (SDS 9.1).
+  # The deployable image (SD-15): the API and the web build. Required by the main, sprint, and lab rulesets (SDS 9.1).
   image:
     runs-on: ubuntu-latest
     steps:
