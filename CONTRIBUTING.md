@@ -25,10 +25,10 @@ feat/claim-submission ──squash──▶ sprint-1 ──merge commit──▶
 2. At the end of the sprint, open one release pull request from `sprint-N` into `main`. Merge it with a merge commit, so `main` keeps each feature's commit subject as a release signal.
 3. Create `sprint-N+1` from `main` after the release.
 
-GitHub rulesets enforce this. On `main` and every `sprint-*` branch:
+GitHub rulesets enforce this. On `main`, every `sprint-*` branch, and every `lab-*` branch (the Lab staging branches):
 
 - Changes need a pull request. Direct pushes, force pushes, and branch deletion are blocked, and nobody can bypass the rules.
-- The `code_quality`, `test`, `api`, and `build` CI jobs must pass.
+- The `code_quality`, `test`, `api`, `build`, and `image` CI jobs must pass.
 - `sprint-*` allows squash merges only and requires linear history. `main` allows merge commits only.
 - A pull request needs 1 approving review. The person who pushed last cannot approve, and a new push dismisses earlier approvals.
 
