@@ -1,0 +1,27 @@
+# The build context is the repository root. Only what the image builds from goes in.
+*
+!package.json
+!bun.lock
+!tsconfig.json
+!apps/web/**
+apps/web/node_modules
+apps/web/dist
+apps/web/coverage
+apps/web/e2e
+apps/web/test-results
+apps/web/.ci-reports
+apps/web/.env
+apps/web/.env.*
+!apps/web/.env.schema
+apps/web/src/**/__test__
+!apps/api/package.json
+!apps/api/go.mod
+!apps/api/go.sum
+!apps/api/*.go
+!apps/api/env/*.go
+!apps/api/internal/**/*.go
+!apps/api/migrations/*.go
+!apps/api/migrations/*.sql
+!apps/api/.env.schema
+apps/api/**/*_test.go
+apps/api/internal/pgtest

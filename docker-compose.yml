@@ -1,4 +1,5 @@
-# Local PostgreSQL for development. Start it with `bun run db:up`.
+# The whole stack from a fresh clone: copy .env.example to .env, fill it in, then `docker compose up --build`.
+# `bun run db:up` starts only `db`, for the dev servers.
 name: claimflow
 services:
   db:
@@ -8,7 +9,8 @@ services:
       POSTGRES_PASSWORD: claimflow
       POSTGRES_DB: claimflow
     ports:
-      - "5432:5432"
+      # Loopback only: the credentials above are fixed, so the database stays off the LAN.
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - db:/var/lib/postgresql/data
     healthcheck:
@@ -16,6 +18,43 @@ services:
       interval: 2s
       timeout: 5s
       retries: 15
+
+  # One-shot: applies the migrations, then seeds the demo users and claims. Both are safe to run again.
+  migrate:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    image: claimflow:local
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "varlock run -- /app/api migrate up && varlock run -- /app/api seed",
+      ]
+    # Every variable in .env reaches the API (SEED_USER_PASSWORD, LOG_LEVEL, ...). Without .env, `seed` stops
+    # with an error that names SEED_USER_PASSWORD.
+    env_file: &app-env-file
+      - path: .env
+        required: false
+    environment: &app-env
+      DATABASE_URL: postgres://claimflow:claimflow@db:5432/claimflow?sslmode=disable
+      # Local HTTP: no `Secure` cookie.
+      COOKIE_SECURE: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    image: claimflow:local
+    env_file: *app-env-file
+    environment: *app-env
+    ports:
+      # Loopback only: plain HTTP without a `Secure` cookie stays on this machine.
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   db:

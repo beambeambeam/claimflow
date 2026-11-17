@@ -17,6 +17,7 @@ Copy `.env.example` to `.env` for local values. Never commit `.env`.
 | `BCRYPT_COST` | `12` | bcrypt cost for password hashes, 10–31 |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
 | `APP_VERSION` | `dev` | Release tag or git SHA that `/health` returns |
+| `WEB_DIR` | unset | Folder of the web build that the API serves outside `/api`, with `index.html` for client routes. The image sets `/app/web`; leave it unset in development, where the Vite server serves the web app |
 | `SEED_USER_PASSWORD` | unset | Password for the seven demo users. Read only by `api seed`, which fails when it is unset. Never commit a value |
 
 ## Database
@@ -94,9 +95,6 @@ Update a tool with `go get -tool -modfile=<file> <module>@<version>`.
 
 ## Docker
 
-```sh
-docker build --tag claimflow-api .
-docker run --rm -p 8080:8080 -e DATABASE_URL=postgres://... claimflow-api
-```
+The image is built from the repository root `Dockerfile`, and it holds the API and the web build that the API serves (SD-15). `docker compose up --build` at the root runs it with PostgreSQL; `docs/labs/lab-05/deployment.md` has the steps.
 
 The image runs the API with `varlock run` on Alpine. The varlock binary needs `libstdc++`, so the image can't be distroless.
