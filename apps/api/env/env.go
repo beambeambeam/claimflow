@@ -26,6 +26,9 @@ type Env struct {
 	BcryptCost int64
 	// Valid values: "debug" | "info" | "warn" | "error"
 	LogLevel string
+	// Folder of the web build (`apps/web/dist`). The API serves it for every path outside `/api` (SD-15).
+	// Unset, the API serves no web build: in development the Vite server does.
+	WebDir *string
 	// Release tag or git SHA. `/health` returns it as `version`.
 	AppVersion string
 	// Password for the 7 seeded demo users. Only `api seed` reads it. Never commit a value.
@@ -64,6 +67,7 @@ func Load() (Env, error) {
 		{"COOKIE_SECURE", &e.CookieSecure, true},
 		{"BCRYPT_COST", &e.BcryptCost, true},
 		{"LOG_LEVEL", &e.LogLevel, true},
+		{"WEB_DIR", &e.WebDir, false},
 		{"APP_VERSION", &e.AppVersion, true},
 		{"SEED_USER_PASSWORD", &e.SeedUserPassword, false},
 	}
