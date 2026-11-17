@@ -2,13 +2,14 @@ package main
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/beambeambeam/claimflow/apps/api/env"
 )
 
 const (
@@ -16,8 +17,21 @@ const (
 	testAsset = "console.log('app')"
 )
 
+// routerWithoutDB is the API router for cfg. Its pool never connects: the web routes need no database.
+func routerWithoutDB(t *testing.T, cfg *env.Env) http.Handler {
+	t.Helper()
+
+	pool, err := pgxpool.New(t.Context(), cfg.DatabaseUrl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+
+	return newRouter(discardLogger(), cfg, pool)
+}
+
 // webRouter is the API router with WEB_DIR set to a web build of index.html, one hashed asset, and one
-// file at the root. A file beside the build must never be served. The web routes need no database.
+// file at the root. A file beside the build must never be served.
 func webRouter(t *testing.T) http.Handler {
 	t.Helper()
 
@@ -43,22 +57,7 @@ func webRouter(t *testing.T) http.Handler {
 	cfg := testEnv(0)
 	cfg.WebDir = &dist
 
-	pool, err := pgxpool.New(t.Context(), cfg.DatabaseUrl)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-
-	return newRouter(discardLogger(), cfg, pool)
-}
-
-func request(t *testing.T, handler http.Handler, method, path string) *httptest.ResponseRecorder {
-	t.Helper()
-
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), method, path, http.NoBody))
-
-	return recorder
+	return routerWithoutDB(t, cfg)
 }
 
 // SD-15: the API serves the web build outside /api, with index.html for client routes.
@@ -125,22 +124,10 @@ func TestWebBuildWithoutIndexIsAServerError(t *testing.T) {
 	cfg := testEnv(0)
 	cfg.WebDir = &dir
 
-	pool, err := pgxpool.New(t.Context(), cfg.DatabaseUrl)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-
-	decodeProblem(t, get(t, newRouter(discardLogger(), cfg, pool), "/claims"), http.StatusInternalServerError, "INTERNAL")
+	decodeProblem(t, get(t, routerWithoutDB(t, cfg), "/claims"), http.StatusInternalServerError, "INTERNAL")
 }
 
 // Without WEB_DIR (development), the API serves no web build.
 func TestNoWebBuildWithoutWebDir(t *testing.T) {
-	pool, err := pgxpool.New(t.Context(), testEnv(0).DatabaseUrl)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-
-	decodeProblem(t, get(t, newRouter(discardLogger(), testEnv(0), pool), "/"), http.StatusNotFound, "NOT_FOUND")
+	decodeProblem(t, get(t, routerWithoutDB(t, testEnv(0)), "/"), http.StatusNotFound, "NOT_FOUND")
 }

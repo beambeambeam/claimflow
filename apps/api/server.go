@@ -116,7 +116,7 @@ func newRouterAt(logger *slog.Logger, cfg *env.Env, pool claim.Pool, now func() 
 	router.Use(httperr.RequestID(), requestLogger(logger), httperr.Handle(logger), crossOriginGuard(),
 		auth.Session(authService, cfg.CookieSecure), auth.RequireSession(contractPublicRoutes()), requestValidation(contractSpec(), validatedOperations))
 	if cfg.WebDir != nil {
-		router.NoRoute(webBuild(os.DirFS(*cfg.WebDir)))
+		router.NoRoute(serveWebBuild(os.DirFS(*cfg.WebDir)))
 	} else {
 		router.NoRoute(httperr.NotFound)
 	}

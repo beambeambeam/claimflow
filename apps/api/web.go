@@ -21,10 +21,10 @@ const (
 	immutableCache = "public, max-age=31536000, immutable"
 )
 
-// webBuild serves the web build in files for GET and HEAD outside /api (SD-15). A path that names no file
-// gets index.html, so the client router opens it. An unknown /api route, a missing asset, and any other
+// serveWebBuild serves the web build in files for GET and HEAD outside /api (SD-15). A path that names no
+// file gets index.html, so the client router opens it. An unknown /api route, a missing asset, and any other
 // method stay 404 problems.
-func webBuild(files fs.FS) gin.HandlerFunc {
+func serveWebBuild(files fs.FS) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		urlPath := c.Request.URL.Path
 		isAPI := urlPath == "/api" || strings.HasPrefix(urlPath, "/api/")
@@ -38,10 +38,11 @@ func webBuild(files fs.FS) gin.HandlerFunc {
 
 		// Clean drops every "..", so the name stays inside the build.
 		name := strings.TrimPrefix(path.Clean("/"+urlPath), "/")
+		isAsset := strings.HasPrefix(name, webAssets)
 
 		data, err := fs.ReadFile(files, name)
 		if err != nil {
-			if strings.HasPrefix(name, webAssets) {
+			if isAsset {
 				httperr.NotFound(c)
 
 				return
@@ -60,7 +61,7 @@ func webBuild(files fs.FS) gin.HandlerFunc {
 		switch {
 		case name == webIndex:
 			c.Header("Cache-Control", "no-cache")
-		case strings.HasPrefix(name, webAssets):
+		case isAsset:
 			c.Header("Cache-Control", immutableCache)
 		}
 
