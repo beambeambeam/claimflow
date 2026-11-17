@@ -119,6 +119,21 @@ func TestWebBuildLeavesNotFoundAsProblems(t *testing.T) {
 	}
 }
 
+// A build without index.html is a server error, not a page that never loads.
+func TestWebBuildWithoutIndexIsAServerError(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testEnv(0)
+	cfg.WebDir = &dir
+
+	pool, err := pgxpool.New(t.Context(), cfg.DatabaseUrl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+
+	decodeProblem(t, get(t, newRouter(discardLogger(), cfg, pool), "/claims"), http.StatusInternalServerError, "INTERNAL")
+}
+
 // Without WEB_DIR (development), the API serves no web build.
 func TestNoWebBuildWithoutWebDir(t *testing.T) {
 	pool, err := pgxpool.New(t.Context(), testEnv(0).DatabaseUrl)
