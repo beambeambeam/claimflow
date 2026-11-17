@@ -94,11 +94,19 @@ jobs:
             apps/api/coverage.out
           retention-days: 7
 
-  api_image:
+  # The deployable image (SD-15): the API and the web build. Required by both rulesets (SDS 9.1).
+  image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: docker build --tag claimflow-api apps/api
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          build-args: APP_VERSION=${{ github.sha }}
+          tags: claimflow:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   build:
     runs-on: ubuntu-latest
@@ -123,7 +131,7 @@ jobs:
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [code_quality, test, api, api_image, build]
+    needs: [code_quality, test, api, image, build]
     runs-on: ubuntu-latest
     concurrency:
       group: release
