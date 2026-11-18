@@ -27,10 +27,10 @@ feat/claim-submission ──squash──▶ sprint-1 ──merge commit──▶
 
 GitHub rulesets enforce this. On `main`, every `sprint-*` branch, and every `lab-*` branch (the Lab staging branches):
 
-- Changes need a pull request. Direct pushes, force pushes, and branch deletion are blocked, and nobody can bypass the rules.
-- The `code_quality`, `test`, `api`, `build`, and `image` CI jobs must pass.
-- `sprint-*` allows squash merges only and requires linear history. `main` allows merge commits only.
-- A pull request needs 1 approving review. The person who pushed last cannot approve, and a new push dismisses earlier approvals.
+- Changes need a pull request. Direct pushes, force pushes, and branch deletion are blocked. Nobody can bypass the `main` rules. On `sprint-*` and `lab-*`, only the repository admin can bypass, to rebase a staging branch onto `main` before a release.
+- The `code_quality`, `test`, `api`, `build`, and `image` CI jobs must pass, and the branch must be up to date with its base before it merges.
+- `sprint-*` and `lab-*` allow squash merges only and require linear history. `main` allows merge commits only.
+- A pull request needs 1 approving review, and authors cannot approve their own. A new push dismisses earlier approvals.
 
 ## Reviews
 
