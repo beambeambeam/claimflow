@@ -25,7 +25,7 @@ const sessionAttributes = "HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=28800
 func insertCredentialUser(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 	t.Helper()
 
-	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), 10)
+	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), testBcryptCost)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
