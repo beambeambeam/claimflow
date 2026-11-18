@@ -682,20 +682,22 @@ flowchart LR
 
 ### 9.1 Branch rulesets
 
-The three rulesets are active on GitHub and have no bypass actors. The `lab` ruleset protects the Lab staging branches (`lab-5`) with the same rules as `sprint`.
+The three rulesets are active on GitHub. The `lab` ruleset protects the Lab staging branches (`lab-5`) with the same rules as `sprint`. `main` has no bypass actor. On `sprint` and `lab`, the repository admin can bypass, so a staging branch can be rebased onto `main` before a release; every other change goes through a pull request.
 
 | Rule | `main` ruleset (`main`) | `sprint` ruleset (`sprint-*`) and `lab` ruleset (`lab-*`) |
 | --- | --- | --- |
 | Branch deletion | Blocked | Blocked |
 | Force push | Blocked | Blocked |
 | Pull request | Required, 1 approval | Required, 1 approval |
-| Review | Stale approvals dismissed on push; the last pusher cannot approve | Stale approvals dismissed on push; the last pusher cannot approve |
+| Review | Stale approvals dismissed on push | Stale approvals dismissed on push |
 | Merge method | Merge commit only | Squash only |
 | Linear history | – | Required |
 | Required checks | `code_quality`, `test`, `api`, `build`, `image` | `code_quality`, `test`, `api`, `build`, `image` |
+| Up to date before merging | Required | Required |
+| Bypass | None | Repository admin |
 
 - Squash merges into staging make each PR title one commit subject. The merge commit into `main` keeps those subjects, so semantic-release reads one release signal per feature.
-- A PR needs 1 approval from the teammate who did not push last, so authors do not approve their own work. A new push dismisses the approval. The required checks and the review are the gate.
+- A PR needs 1 approval, and GitHub never lets authors approve their own PR. A new push dismisses the approval. The required checks and the review are the gate. Last-push approval is off: with two people, it would block every PR that the other person rebased.
 
 ## 10. Test strategy (system level)
 
@@ -755,4 +757,5 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.10 | 2026-11-07 | F-01/01 (#24) decisions: HeroUI v3 (1.2); `system` package and per-test template databases in `pgtest` (1.4, 10); `db:up` at the root, `migrate up\|down\|status` subcommand with embedded migrations and an advisory lock (2.5); problem `type` is `about:blank`, and `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (4.2) | 1005, 1045 |
 | 0.11 | 2026-11-13 | Web UI: Astryx with the Neutral theme replaces Tailwind and HeroUI; TanStack Form in use through `#/lib/form` (1.2, 1.4.2) | 1005, 1045 |
 | 0.12 | 2026-11-15 | Sprint 1 release. Records the changes that feature PRs made: `OperationPermissions` and the per-operation check (1.4.1, 5.1, PR #59); `validate.go` (1.4.1, PR #60); the stale-version exception in 3.3 (PR #65, F-04 contract 0.4). Adds what Sprint 1 built differently from 3.1 and 8 (the `List` methods, string actions, empty session audit fields), tracked in #67 | 1005 |
+| 0.14 | 2026-11-18 | 9.1 matches the live rulesets: admin bypass on `sprint` and `lab`, up to date before merging on all three, no last-push approval rule (#53) | 1005 |
 | 0.13 | 2026-11-17 | Lab 5 (#53): the root `Dockerfile` and `WEB_DIR` (8, 9); the `migrate` compose service (9); `image` replaces `api_image` and is a required check in the `main`, `sprint`, and `lab` rulesets; the `lab` ruleset is documented (9, 9.1) | 1005 |
