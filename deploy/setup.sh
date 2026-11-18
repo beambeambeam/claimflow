@@ -36,6 +36,15 @@ if [ "$DRY_RUN" != "1" ] && [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
+# Only an accepted release deploys (R-07): HEAD must be the latest commit of main.
+if [ "$DRY_RUN" != "1" ]; then
+  git fetch -q origin main
+  if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+    echo "HEAD is not origin/main. Check out the latest main commit to deploy: git switch main && git pull" >&2
+    exit 1
+  fi
+fi
+
 # Resource names. The deploy workflow (#54) uses the same ones.
 APP="claimflow"
 REPO="$APP"
@@ -44,7 +53,7 @@ DB_NAME="$APP"
 DB_USER="$APP"
 SERVICE="$APP"
 MIGRATE_JOB="$APP-migrate"
-RUNNER="$APP-runner"
+RUNNER="$APP-runtime"
 RUNNER_EMAIL="$RUNNER@$PROJECT_ID.iam.gserviceaccount.com"
 SECRET_DB_URL="$APP-database-url"
 SECRET_SEED_PASSWORD="$APP-seed-password"
@@ -72,14 +81,15 @@ exists() {
   [ "$DRY_RUN" != "1" ] && "$@" >/dev/null 2>&1
 }
 
-# Creates a secret with its first version. The value comes from stdin and is never printed.
+# Creates a secret and its first version in one call, so a run that dies midway never leaves a secret
+# without a version. The value goes through stdin and is never printed.
 create_secret() {
   local name="$1" value="$2"
-  run gcloud secrets create "$name" --replication-policy=automatic --project "$PROJECT_ID"
   if [ "$DRY_RUN" = "1" ]; then
-    echo "[DRY_RUN] gcloud secrets versions add $name --data-file=- (generated value, never printed)"
+    echo "[DRY_RUN] gcloud secrets create $name --replication-policy=automatic --data-file=- (generated value, never printed)"
   else
-    printf '%s' "$value" | gcloud secrets versions add "$name" --data-file=- --project "$PROJECT_ID" >/dev/null
+    echo "+ gcloud secrets create $name --replication-policy=automatic --data-file=- (generated value, never printed)"
+    printf '%s' "$value" | gcloud secrets create "$name" --replication-policy=automatic --data-file=- --project "$PROJECT_ID" >/dev/null
   fi
 }
 
@@ -102,7 +112,7 @@ fi
 if ! exists gcloud sql instances describe "$SQL_INSTANCE" --project "$PROJECT_ID"; then
   run gcloud sql instances create "$SQL_INSTANCE" --database-version=POSTGRES_17 --edition=enterprise \
     --tier=db-f1-micro --region="$REGION" --storage-size=10GB --storage-type=SSD --no-storage-auto-increase \
-    --backup-start-time=03:00 --project "$PROJECT_ID"
+    --no-backup --project "$PROJECT_ID"
 fi
 
 # 4. Database.
