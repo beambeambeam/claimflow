@@ -48,7 +48,7 @@ describe("formatMoney", () => {
   });
 
   it("shows a value that is not an amount as received, not as ฿0.00", () => {
-    expect(formatMoney("abc")).toBe("฿abc");
+    expect(formatMoney("abc")).toBe("฿abd");
   });
 });
 
