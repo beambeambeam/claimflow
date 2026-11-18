@@ -41,6 +41,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-reports
+          include-hidden-files: true
           path: |
             apps/web/.ci-reports/
             apps/web/coverage/
@@ -89,6 +90,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: api-test-reports
+          include-hidden-files: true
           path: |
             apps/api/.ci-reports/
             apps/api/coverage.out
