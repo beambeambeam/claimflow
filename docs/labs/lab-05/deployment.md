@@ -2,7 +2,7 @@
 
 How ClaimFlow is built, configured, and run, locally and on GCP. The handout is [`lab-5-cloud-deployment.md`](../../project-specifications/lab-5-cloud-deployment.md); the design is [SDS](../../system-sds.md) §8, §9, and §9.1.
 
-It covers the image, the local stack, and CI (#53), and the GCP resources (#54). The release procedure comes with the deploy workflow (#54).
+It covers the image, the local stack, and CI (#53), the GCP resources, and the release procedure (#54).
 
 ## Stack and changes from the reference
 
@@ -134,4 +134,35 @@ Last, open `$URL` in a browser and sign in as a demo user, for example `req.anan
 
 ## Release procedure
 
-Filled in by #54: the deploy workflow, rollback, and how to find the commit that is running.
+Only `main` deploys, and every merge into `main` deploys (R-07). semantic-release tags a version only when the merge brings a `feat`, `fix`, `perf`, or breaking (`!`) commit (`CONTRIBUTING.md`, Release signals). A feature goes through a reviewed PR into the staging branch (`lab-5`); a release PR then merges staging into `main` with a merge commit.
+
+### Automatic deploy
+
+[`.github/workflows/deploy.yml`](../../../.github/workflows/deploy.yml) ("Deploy demo") starts when the `CI` workflow succeeds on a push to `main`. It runs in the GitHub environment `demo`, which allows only `main` and holds four variables: `GCP_PROJECT_ID`, `GCP_REGION`, `WIF_PROVIDER`, and `WIF_SERVICE_ACCOUNT`. There is no secret in GitHub.
+
+1. Signs in to Google Cloud with Workload Identity Federation as `claimflow-deployer`. The provider accepts only this repository, `refs/heads/main`, `deploy.yml`, and `environment:demo`.
+2. Skips the run when its commit is no longer the head of `main`, so an older commit whose CI finished late never replaces a newer one. Otherwise builds the root image with `APP_VERSION` set to the commit SHA and pushes it as `claimflow:<SHA>`.
+3. [`deploy/release.sh`](../../../deploy/release.sh) resolves the tag to its digest, runs the `claimflow-migrate` job (migrate, then seed) with that image, and stops the release if the job fails. It then updates the `claimflow` service to the digest with `COOKIE_SECURE=true`, `GIN_MODE=release`, and a startup probe on `/api/v1/ready`, so a revision that cannot reach the database never becomes ready and traffic stays on the previous one. Last, it sends all traffic to the new revision.
+4. [`deploy/smoke.sh`](../../../deploy/smoke.sh) checks the public URL, read-only: `/api/v1/health` reports the SHA, `/api/v1/ready` is 200, `/` serves the web build, and an unknown `/api` route is a JSON 404. A failed check fails the run.
+5. The run summary records the commit, the image digest, the revision, and the URL.
+
+| Role | Granted on | Allows |
+| --- | --- | --- |
+| Cloud Run Developer | Project | Update the service and the migrate job. #52 planned Cloud Run Admin; Developer is enough and grants less |
+| Artifact Registry Writer | Repository `claimflow` | Push images |
+| Service Account User | `claimflow-runtime` | Run the service and the job as the runtime account |
+
+### Find the running commit
+
+- `curl -s https://claimflow-5bcxewbqkq-as.a.run.app/api/v1/health` returns `version`, the commit SHA.
+- The Deploy demo run summary lists the commit, the digest, and the revision; Cloud Run → `claimflow` → Revisions shows the same digest.
+- The image in Artifact Registry carries the SHA as its tag. Images are tagged with the SHA only, not the version.
+- From a version to its commit: `git rev-list -n 1 vG.X.Y.Z` prints the SHA of a semantic-release tag (the GitHub release page shows it too). That SHA is the image tag and the `version` that `/api/v1/health` returns.
+
+### Roll back, then roll forward
+
+1. GitHub → Actions → **Deploy demo** → **Run workflow** on `main`, with `image_tag` set to the full SHA of an earlier release (an image tag in Artifact Registry).
+2. The run skips the build and the migration (migrations are additive, so the older image works on the newer schema), points the service at that image, and smoke-tests it against that SHA.
+3. To roll forward, run it again with the newer SHA, or merge the fix into `main`.
+
+Data stays in Cloud SQL through every rollback and redeploy (R-04).
