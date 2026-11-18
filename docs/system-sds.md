@@ -630,7 +630,7 @@ Configuration is declared in each app's varlock `.env.schema`:
 - `bun run codegen` regenerates `apps/api/env/env.go`.
 - The API validates its config at startup (`config.go`) and refuses to start if a value is missing or invalid.
 - Sensitive values are marked `@sensitive`, so varlock redacts them in logs.
-- `.env` files are git-ignored. Each app commits a `.env.example` that lists every variable with a safe example value (NFR-04, NFR-10). `apps/api/.env.example` is still to be added.
+- `.env` files are git-ignored. Each app commits a `.env.example` that lists every variable with a safe example value (NFR-04, NFR-10). The root `.env.example` holds the few values `docker compose up` reads.
 
 | Variable (apps/api) | Example | Required | Sensitive |
 | --- | --- | --- | --- |
@@ -642,6 +642,7 @@ Configuration is declared in each app's varlock `.env.schema`:
 | `LOG_LEVEL` | `info` | default `info` | no |
 | `SEED_USER_PASSWORD` | – | seed only | **yes** |
 | `APP_VERSION` | git SHA / release tag, set at build | no | no |
+| `WEB_DIR` | `/app/web` in the image; unset in development | no | no |
 
 Business limits (amount caps, the high-value threshold, the 8-hour session lifetime, the return limit) come from the SRS, so they are constants in code and not configuration.
 
@@ -669,32 +670,34 @@ flowchart LR
 
 | Concern | Design |
 | --- | --- |
-| Image | One image. The existing multi-stage `apps/api/Dockerfile` gets a web build stage (`vp build`). The Go stage builds the API, and the Alpine runtime (varlock, runs as `nobody`, port 8080) contains the binary and the web `dist/`. Migrations are a `migrate` subcommand of the same binary. |
+| Image | One image from the root `Dockerfile`, built with the repository root as context. A web stage runs `vp build`, the Go stage builds the API, and the Alpine runtime (varlock, runs as `nobody`, port 8080) contains the binary and the web `dist/` at `/app/web` (`WEB_DIR`). The build argument `APP_VERSION` sets the version. Migrations and the seed are subcommands of the same binary. |
 | Web delivery | The Gin router serves `dist/` for every path outside `/api`, falling back to `index.html` for client-side routes. Hashed assets get `Cache-Control: public, max-age=31536000, immutable`, and `index.html` gets `no-cache`. One origin means the session cookie works without CORS. |
-| Local | `docker compose up` runs `postgres:17` (named volume, so data survives restarts – NFR-05) and the image (NFR-10). |
+| Local | `docker compose up --build` runs `postgres:17` (named volume, so data survives restarts – NFR-05), a one-shot `migrate` service (`migrate up`, then `seed`), and the image as `app` (NFR-10). |
 | Cloud runtime | **Cloud Run** (stateless) + **Cloud SQL for PostgreSQL 17** (durable). Sessions are stored in the DB, so instance restarts do not log users out. The startup probe calls `/ready`, so a revision gets traffic only once it can reach the database. |
 | Migrations | `goose up` runs as a Cloud Run job before the new revision gets traffic. The app never changes the schema on startup. |
 | Logs | `slog` JSON on stdout with Cloud Logging field names (`severity`, `message`), one line per request with `requestId`, method, route, status, and latency. Sensitive values are never logged. |
 | Release identity | Images are tagged with the semantic-release tag `vG.X.Y.Z` (G = generation, from `release.config.js`) and the git SHA. `/health` returns `version`. |
-| CI gate | The existing `CI` workflow runs format, lint, web tests, Go tests with **100% coverage**, govulncheck, and the image build on every PR. It also checks that the generated code is up to date: it runs `generate` and fails on any diff. GitHub rulesets `main` and `sprint` (Section 9.1) make the `code_quality`, `test`, `api`, and `build` jobs required checks. The `api_image` job is not required yet; add it to both rulesets before Lab 5. |
+| CI gate | The existing `CI` workflow runs format, lint, web tests, Go tests with **100% coverage**, govulncheck, and the image build on every PR. It also checks that the generated code is up to date: it runs `generate` and fails on any diff. GitHub rulesets `main`, `sprint`, and `lab` (Section 9.1) make the `code_quality`, `test`, `api`, `build`, and `image` jobs required checks. `image` builds the root image. |
 | Branches | Repo convention: `<type>/<short-kebab-name>` (e.g. `feat/claim-submission`). Each sprint has a **staging branch** (`sprint-1`, `sprint-2`, `sprint-3`). Feature PRs target the current sprint's staging branch and are squash-merged; at the end of the sprint one release PR merges it into `main` with a merge commit, which triggers semantic-release. `CONTRIBUTING.md` documents the flow. |
 
 ### 9.1 Branch rulesets
 
-Both rulesets are active on GitHub and have no bypass actors.
+The three rulesets are active on GitHub. The `lab` ruleset protects the Lab staging branches (`lab-5`) with the same rules as `sprint`. `main` has no bypass actor. On `sprint` and `lab`, the repository admin can bypass, so a staging branch can be rebased onto `main` before a release; every other change goes through a pull request.
 
-| Rule | `main` ruleset (`main`) | `sprint` ruleset (`sprint-*`) |
+| Rule | `main` ruleset (`main`) | `sprint` ruleset (`sprint-*`) and `lab` ruleset (`lab-*`) |
 | --- | --- | --- |
 | Branch deletion | Blocked | Blocked |
 | Force push | Blocked | Blocked |
 | Pull request | Required, 1 approval | Required, 1 approval |
-| Review | Stale approvals dismissed on push; the last pusher cannot approve | Stale approvals dismissed on push; the last pusher cannot approve |
+| Review | Stale approvals dismissed on push | Stale approvals dismissed on push |
 | Merge method | Merge commit only | Squash only |
 | Linear history | – | Required |
-| Required checks | `code_quality`, `test`, `api`, `build` | `code_quality`, `test`, `api`, `build` |
+| Required checks | `code_quality`, `test`, `api`, `build`, `image` | `code_quality`, `test`, `api`, `build`, `image` |
+| Up to date before merging | Required | Required |
+| Bypass | None | Repository admin |
 
 - Squash merges into staging make each PR title one commit subject. The merge commit into `main` keeps those subjects, so semantic-release reads one release signal per feature.
-- A PR needs 1 approval from the teammate who did not push last, so authors do not approve their own work. A new push dismisses the approval. The required checks and the review are the gate.
+- A PR needs 1 approval, and GitHub never lets authors approve their own PR. A new push dismisses the approval. The required checks and the review are the gate. Last-push approval is off: with two people, it would block every PR that the other person rebased.
 
 ## 10. Test strategy (system level)
 
@@ -754,3 +757,5 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.10 | 2026-11-07 | F-01/01 (#24) decisions: HeroUI v3 (1.2); `system` package and per-test template databases in `pgtest` (1.4, 10); `db:up` at the root, `migrate up\|down\|status` subcommand with embedded migrations and an advisory lock (2.5); problem `type` is `about:blank`, and `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (4.2) | 1005, 1045 |
 | 0.11 | 2026-11-13 | Web UI: Astryx with the Neutral theme replaces Tailwind and HeroUI; TanStack Form in use through `#/lib/form` (1.2, 1.4.2) | 1005, 1045 |
 | 0.12 | 2026-11-15 | Sprint 1 release. Records the changes that feature PRs made: `OperationPermissions` and the per-operation check (1.4.1, 5.1, PR #59); `validate.go` (1.4.1, PR #60); the stale-version exception in 3.3 (PR #65, F-04 contract 0.4). Adds what Sprint 1 built differently from 3.1 and 8 (the `List` methods, string actions, empty session audit fields), tracked in #67 | 1005 |
+| 0.14 | 2026-11-18 | 9.1 matches the live rulesets: admin bypass on `sprint` and `lab`, up to date before merging on all three, no last-push approval rule (#53) | 1005 |
+| 0.13 | 2026-11-17 | Lab 5 (#53): the root `Dockerfile` and `WEB_DIR` (8, 9); the `migrate` compose service (9); `image` replaces `api_image` and is a required check in the `main`, `sprint`, and `lab` rulesets; the `lab` ruleset is documented (9, 9.1) | 1005 |

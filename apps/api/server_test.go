@@ -46,9 +46,14 @@ type problem struct {
 func get(t *testing.T, handler http.Handler, path string) *httptest.ResponseRecorder {
 	t.Helper()
 
+	return request(t, handler, http.MethodGet, path)
+}
+
+func request(t *testing.T, handler http.Handler, method, path string) *httptest.ResponseRecorder {
+	t.Helper()
+
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody)
-	handler.ServeHTTP(recorder, request)
+	handler.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), method, path, http.NoBody))
 
 	return recorder
 }
