@@ -1,0 +1,104 @@
+# Deploys `main` to Cloud Run after CI passes on it (Student Guide Episodes 7 and 8; SDS §9).
+#
+# - Automatic: when the `CI` workflow succeeds on a push to `main`, build the image for that commit, tag
+#   it with the full SHA, run the migrate-and-seed job, update the service by digest, and smoke-test it.
+# - Rollback: run this workflow by hand with `image_tag` set to the full SHA of an image that already
+#   exists. No build and no migration (migrations are additive); the service runs that image again.
+#
+# Signs in with Workload Identity Federation: no key file. The provider only accepts this repository,
+# `refs/heads/main`, this file, and the `demo` environment, which holds the four variables below.
+# docs/labs/lab-05/deployment.md has the release procedure.
+name: Deploy demo
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Rollback: full 40-character commit SHA of an image in Artifact Registry. Empty deploys the main head."
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+# One release at a time; never interrupt a migration or a service update.
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # A push to main whose CI passed, or a manual run. The `demo` environment only allows `main`.
+    if: >-
+      github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: demo
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      IMAGE_TAG: ${{ inputs.image_tag || github.event.workflow_run.head_sha || github.sha }}
+      ROLLBACK: ${{ github.event_name == 'workflow_dispatch' && inputs.image_tag != '' }}
+    steps:
+      - name: Validate settings
+        env:
+          WIF_PROVIDER: ${{ vars.WIF_PROVIDER }}
+          WIF_SERVICE_ACCOUNT: ${{ vars.WIF_SERVICE_ACCOUNT }}
+        run: |
+          test -n "$PROJECT_ID" && test -n "$REGION" && test -n "$WIF_PROVIDER" && test -n "$WIF_SERVICE_ACCOUNT"
+          [[ "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]] || { echo "image_tag must be a full 40-character commit SHA." >&2; exit 1; }
+
+      # The commit being released, so the image and the scripts match it.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.ROLLBACK == 'true' && github.sha || env.IMAGE_TAG }}
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud without a key
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Log in to Artifact Registry
+        if: env.ROLLBACK != 'true'
+        run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+      - uses: docker/setup-buildx-action@v3
+        if: env.ROLLBACK != 'true'
+      - name: Build and push the image
+        if: env.ROLLBACK != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: APP_VERSION=${{ env.IMAGE_TAG }}
+          tags: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/claimflow/claimflow:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Migrate, then update the service by digest
+        run: bash deploy/release.sh
+
+      - name: Smoke test the public URL
+        run: bash deploy/smoke.sh "$SERVICE_URL" "$IMAGE_TAG"
+
+      - name: Record the release
+        run: |
+          {
+            echo "### ClaimFlow demo deployment"
+            echo "- Commit: \`$IMAGE_TAG\`"
+            echo "- Image: \`$DEPLOYED_IMAGE\`"
+            echo "- Revision: \`$REVISION\`"
+            echo "- Rollback: $ROLLBACK"
+            echo "- URL: $SERVICE_URL"
+            echo "- Smoke test: passed"
+          } >> "$GITHUB_STEP_SUMMARY"
