@@ -5,7 +5,9 @@
 #
 # 1. Resolves the tag to its digest, so the service runs exactly the image that was built for the commit.
 # 2. Runs the migrate-and-seed job with that image and waits; a failure stops the release here.
-# 3. Updates the service to the digest and sends all traffic to the new revision.
+# 3. Updates the service to the digest, with the settings every release must carry (#54): COOKIE_SECURE=true,
+#    GIN_MODE=release, and a startup probe on /api/v1/ready, so a revision that cannot reach the database
+#    never becomes ready and traffic stays on the previous one. Then sends all traffic to the new revision.
 # In GitHub Actions it exports SERVICE_URL, DEPLOYED_IMAGE, and REVISION for the next steps.
 set -euo pipefail
 
@@ -30,7 +32,10 @@ else
   echo "Rollback: the schema stays as it is (migrations are additive); no migration and no seed."
 fi
 
-gcloud run services update "$SERVICE" --image="$DIGEST_IMAGE" --project="$PROJECT_ID" --region="$REGION" --quiet
+gcloud run services update "$SERVICE" --image="$DIGEST_IMAGE" \
+  --update-env-vars=COOKIE_SECURE=true,GIN_MODE=release \
+  --startup-probe=httpGet.path=/api/v1/ready,httpGet.port=8080,periodSeconds=5,timeoutSeconds=3,failureThreshold=24 \
+  --project="$PROJECT_ID" --region="$REGION" --quiet
 gcloud run services update-traffic "$SERVICE" --to-latest --project="$PROJECT_ID" --region="$REGION" --quiet
 
 SERVICE_URL="$(gcloud run services describe "$SERVICE" --project="$PROJECT_ID" --region="$REGION" --format='value(status.url)')"

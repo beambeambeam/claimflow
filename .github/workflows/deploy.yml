@@ -53,29 +53,47 @@ jobs:
           WIF_PROVIDER: ${{ vars.WIF_PROVIDER }}
           WIF_SERVICE_ACCOUNT: ${{ vars.WIF_SERVICE_ACCOUNT }}
         run: |
-          test -n "$PROJECT_ID" && test -n "$REGION" && test -n "$WIF_PROVIDER" && test -n "$WIF_SERVICE_ACCOUNT"
+          : "${PROJECT_ID:?GCP_PROJECT_ID is not set}" "${REGION:?GCP_REGION is not set}"
+          : "${WIF_PROVIDER:?WIF_PROVIDER is not set}" "${WIF_SERVICE_ACCOUNT:?WIF_SERVICE_ACCOUNT is not set}"
           [[ "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]] || { echo "image_tag must be a full 40-character commit SHA." >&2; exit 1; }
 
-      # The commit being released, so the image and the scripts match it.
+      # `concurrency` runs one deploy at a time but does not keep commit order: when two pushes land close
+      # together and the older commit's CI finishes last, its deploy would replace the newer one. Deploy a
+      # commit only while it is still the head of main.
+      - name: Skip a commit that is no longer the head of main
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          if [[ "$head" != "$IMAGE_TAG" ]]; then
+            echo "::notice::Skipped: $IMAGE_TAG is no longer the head of main ($head); that commit deploys instead."
+            echo "SKIP=true" >> "$GITHUB_ENV"
+          fi
+
+      # A deploy checks out the released commit; a rollback uses the scripts on main and runs the earlier image.
       - uses: actions/checkout@v7
+        if: env.SKIP != 'true'
         with:
           ref: ${{ env.ROLLBACK == 'true' && github.sha || env.IMAGE_TAG }}
           persist-credentials: false
 
       - name: Authenticate to Google Cloud without a key
+        if: env.SKIP != 'true'
         uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ vars.WIF_PROVIDER }}
           service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v3
+        if: env.SKIP != 'true'
 
       - name: Log in to Artifact Registry
-        if: env.ROLLBACK != 'true'
+        if: env.SKIP != 'true' && env.ROLLBACK != 'true'
         run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
       - uses: docker/setup-buildx-action@v3
-        if: env.ROLLBACK != 'true'
+        if: env.SKIP != 'true' && env.ROLLBACK != 'true'
       - name: Build and push the image
-        if: env.ROLLBACK != 'true'
+        if: env.SKIP != 'true' && env.ROLLBACK != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -86,12 +104,15 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Migrate, then update the service by digest
+        if: env.SKIP != 'true'
         run: bash deploy/release.sh
 
       - name: Smoke test the public URL
+        if: env.SKIP != 'true'
         run: bash deploy/smoke.sh "$SERVICE_URL" "$IMAGE_TAG"
 
       - name: Record the release
+        if: env.SKIP != 'true'
         run: |
           {
             echo "### ClaimFlow demo deployment"
