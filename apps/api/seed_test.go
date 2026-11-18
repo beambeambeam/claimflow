@@ -114,7 +114,7 @@ func TestSeedIsIdempotent(t *testing.T) {
 	databaseURL := pool.Config().ConnString()
 
 	for range 2 {
-		if err := seed(t.Context(), databaseURL, seedPassword, 10, io.Discard); err != nil {
+		if err := seed(t.Context(), databaseURL, seedPassword, testBcryptCost, io.Discard); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
 	}
@@ -166,7 +166,7 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 		return claims, items, history
 	}
 
-	if err := seed(t.Context(), databaseURL, seedPassword, 10, io.Discard); err != nil {
+	if err := seed(t.Context(), databaseURL, seedPassword, testBcryptCost, io.Discard); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -231,7 +231,7 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 		}
 	}
 
-	if err := seed(t.Context(), databaseURL, seedPassword, 10, io.Discard); err != nil {
+	if err := seed(t.Context(), databaseURL, seedPassword, testBcryptCost, io.Discard); err != nil {
 		t.Fatalf("second seed: %v", err)
 	}
 
@@ -246,7 +246,7 @@ func TestSeedCommandRefusesEmptyPassword(t *testing.T) {
 	pool := pgtest.New(t)
 
 	var out bytes.Buffer
-	err := seedCommand(t.Context(), pool.Config().ConnString(), "", 10, &out)
+	err := seedCommand(t.Context(), pool.Config().ConnString(), "", testBcryptCost, &out)
 	if err == nil {
 		t.Fatal("seedCommand with empty password: err = nil, want error")
 	}
@@ -271,7 +271,7 @@ func TestSeedCommandSeedsWithPassword(t *testing.T) {
 	pool := pgtest.New(t)
 
 	var out bytes.Buffer
-	if err := seedCommand(t.Context(), pool.Config().ConnString(), seedPassword, 10, &out); err != nil {
+	if err := seedCommand(t.Context(), pool.Config().ConnString(), seedPassword, testBcryptCost, &out); err != nil {
 		t.Fatalf("seedCommand: %v", err)
 	}
 	if got, want := out.String(), "seeded 7 users and 6 claims\n"; got != want {

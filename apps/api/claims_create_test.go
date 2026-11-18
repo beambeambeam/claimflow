@@ -39,7 +39,7 @@ func seedDemoUsers(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 
 	err := pgx.BeginFunc(t.Context(), pool, func(tx pgx.Tx) error {
-		_, _, err := seedUserRows(t.Context(), db.New(tx), seedPassword, 10)
+		_, _, err := seedUserRows(t.Context(), db.New(tx), seedPassword, testBcryptCost)
 
 		return err
 	})

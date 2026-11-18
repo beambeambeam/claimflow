@@ -17,12 +17,16 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/beambeambeam/claimflow/apps/api/env"
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
 )
 
 const testVersion = "v1.2.3-test"
+
+// testBcryptCost keeps hashing fast in tests, which run under -race. Only F01-TEST-10 uses the NFR-01 cost.
+const testBcryptCost = bcrypt.MinCost
 
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
@@ -209,7 +213,7 @@ func testEnv(port int) *env.Env {
 		GinMode:     gin.TestMode,
 		Port:        int64(port),
 		DatabaseUrl: "postgres://claimflow@127.0.0.1:1/claimflow",
-		BcryptCost:  10,
+		BcryptCost:  int64(testBcryptCost),
 		LogLevel:    "info",
 		AppVersion:  testVersion,
 	}
