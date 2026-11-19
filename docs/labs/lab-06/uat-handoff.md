@@ -6,7 +6,16 @@ Items marked **TODO** are not confirmed yet. The Product Team fills them in befo
 
 ## 1. Handoff
 
-### 1.1 Product and version
+### 1.1 Teams
+
+| Role | Team | Repository | GitHub logins |
+| --- | --- | --- | --- |
+| Product Team | ClaimFlow | <https://github.com/beambeambeam/claimflow> | `Kiatisakk`, `beambeambeam` |
+| UAT Team | Queue and Service Management System | <https://github.com/MacOverlorD/Queue_and_Service_Management_System_37-39> | `MacOverlorD`, `TauForge` |
+
+Student names and IDs are in the PDF only. Coordination happens in the private Discord channel `#qa`. **TODO**: UAT session dates (first run, defect fixes, retest), before the 22 November 2026 deadline.
+
+### 1.2 Product and version
 
 | Item | Value |
 | --- | --- |
@@ -14,7 +23,7 @@ Items marked **TODO** are not confirmed yet. The Product Team fills them in befo
 | Repository | <https://github.com/beambeambeam/claimflow> |
 | Sprint 1 release | Tag `v0.0.3.0`, commit `ac5bce5a0c827f0ef9c6d0841b00f0d0c5839801` (`chore: release Sprint 1 (#69)`) |
 | Deployed commit | `eed7b278b046450c894337b02341271fd0987c56` (head of `main`), read from `/api/v1/health` on 2026-11-19 |
-| Cloud Run revision | **TODO**: revision name from the Deploy demo run summary or Cloud Run → `claimflow` → Revisions |
+| Cloud Run revision | `claimflow-00007-5vx`, serving 100% of traffic (Deploy demo run 44533229870, 2026-11-19 13:26 UTC) |
 | URL | <https://claimflow-5bcxewbqkq-as.a.run.app> |
 | Version check | Open <https://claimflow-5bcxewbqkq-as.a.run.app/api/v1/health>. It returns `{"status":"ok","version":"<commit SHA>"}` |
 
@@ -22,7 +31,7 @@ The deployed commit is newer than the Sprint 1 tag. Between `v0.0.3.0` and `eed7
 
 Every merge into `main` deploys (Lab 5). The Product Team tells the UAT Team before any merge into `main` during the UAT window. Record the `version` from `/api/v1/health` at the start of each test session. If it changes during a session, stop, tell the Product Team, and record the new version.
 
-### 1.2 Scope accepted for test
+### 1.3 Scope accepted for test
 
 In scope: Sprint 1 features F-01 to F-04 ([feature inventory](../../features.md)).
 
@@ -40,9 +49,9 @@ Not in scope (Sprint 2 and 3). Do not report these as defects:
 - Filter and search (F-09), decision summaries (F-10), Finance Queue.
 - Sign-up, password change, and account management. Only seeded accounts exist.
 
-### 1.3 Accounts
+### 1.4 Accounts
 
-The seed creates seven synthetic accounts. All seven have the same password. The Product Team gives it to the UAT Team through the private course handoff (**TODO**: channel and date). It is not in this document or in Git.
+The seed creates seven synthetic accounts. All seven have the same password. The Product Team posts it in the private Discord channel `#qa`, which only the two teams can read (**TODO**: date posted). It is not in this document or in Git.
 
 | Account label | Display name | Role (header label) | Position | Assigned reviewer | Used in |
 | --- | --- | --- | --- | --- | --- |
@@ -64,7 +73,7 @@ What each role may do in Sprint 1:
 
 A member never reviews their own claim (BR-01): a reviewer's own claim goes to their own assigned reviewer.
 
-### 1.4 Data setup
+### 1.5 Data setup
 
 - No setup by the UAT Team. Each deploy runs the seed, which creates the seven accounts and six sample claims (`CLM-2026-900001` to `CLM-2026-900006`).
 - The cases do not use the sample claims, because an earlier tester may have decided them. Each case creates the claims it needs in its first steps.
@@ -73,7 +82,7 @@ A member never reviews their own claim (BR-01): a reviewer's own claim goes to t
 - Dates are relative to **D**, the day you run the case in Asia/Bangkok time. `D-3` is three days before D. Enter dates as `YYYY-MM-DD`. Do not run UAT-02 within 10 minutes of midnight Bangkok time, because D changes.
 - Money is in Thai baht (THB) with 2 decimals. Enter `1250.50`; the app shows `฿1,250.50`.
 
-### 1.5 Reset and cleanup
+### 1.6 Reset and cleanup
 
 - Claims cannot be deleted in Sprint 1, and the claim history is append-only (BR-11). Claims made during UAT stay in the database. This is expected and does not affect a rerun, because each run uses a new title.
 - Claims that a case leaves in `Submitted` (UAT-02, 03, 04) stay in a reviewer's queue. Leave them. The queue is oldest first, 20 rows per page: use **Next** to find a newer claim.
@@ -81,16 +90,16 @@ A member never reviews their own claim (BR-01): a reviewer's own claim goes to t
 - A session ends 8 hours after login. If the app shows the Login screen during a case, log in again with the same account and continue.
 - The Product Team does not reset the shared database during the UAT window. **TODO**: agree a reset with the UAT Team only if both teams decide it is necessary.
 
-### 1.6 Case order
+### 1.7 Case order
 
 Every case is independent: it creates its own data and can run in any order, by either tester. Suggested order: UAT-07, UAT-01, UAT-02, UAT-03, UAT-04, UAT-05, UAT-06. UAT-06 has two sessions; start Session 1 early and run Session 2 at least 1 hour later.
 
-### 1.7 Recording results and reporting findings
+### 1.8 Recording results and reporting findings
 
 - For each case record: case ID, tester name and team, date and time, tested version (the `version` from `/api/v1/health`), the inputs you used, the actual result of each step, and PASS, FAIL, or BLOCKED (with the reason).
 - Write what you saw in the actual result. Do not copy the expected result.
 - Take a screenshot at each step marked 📷.
-- Report each failure with the case ID and step number. **TODO**: agreed channel for findings (GitHub Issue on `beambeambeam/claimflow`, or a shared document) and the UAT session dates.
+- Report each failure with the case ID and step number. **TODO**: agreed channel for findings (GitHub Issue on `beambeambeam/claimflow`, or a shared document).
 
 ## 2. Coverage
 
@@ -331,8 +340,7 @@ Inputs: wrong password `uat-wrong-password`; unknown username `nobody.uat`; user
 
 | Item | Owner |
 | --- | --- |
-| Cloud Run revision name of the deployed commit (§1.1) | Product Team |
-| Private channel and date for the shared password (§1.3) | Product Team with the UAT Team |
-| Partner team, testers, and UAT session dates (§1.7) | Both teams |
-| Channel for findings (§1.7) | Both teams |
-| Reset of the shared database, only if both teams decide it is necessary (§1.5) | Product Team |
+| Date the password was posted in `#qa` (§1.4) | Product Team |
+| UAT session dates: first run, defect fixes, retest (§1.1) | Both teams |
+| Channel for findings (§1.8) | Both teams |
+| Reset of the shared database, only if both teams decide it is necessary (§1.6) | Product Team |
