@@ -85,7 +85,7 @@ A member never reviews their own claim (BR-01): a reviewer's own claim goes to t
 ### 1.6 Reset and cleanup
 
 - Claims cannot be deleted in Sprint 1, and the claim history is append-only (BR-11). Claims made during UAT stay in the database. This is expected and does not affect a rerun, because each run uses a new title.
-- Claims that a case leaves in `Submitted` (UAT-02, 03, 04) stay in a reviewer's queue. Leave them. The queue is oldest first, 20 rows per page: use **Next** to find a newer claim.
+- Claims that a case leaves in `Submitted` (UAT-02, 03, 04) stay in a reviewer's queue. Leave them. The queue is oldest first, 20 rows per page: use the › arrow next to `Page X of Y` (tooltip `Go to next page`) to find a newer claim.
 - Always log out at the end of a case, and before you log in as another account in the same browser. Or use a separate private window for each account.
 - A session ends 8 hours after login. If the app shows the Login screen during a case, log in again with the same account and continue.
 - The Product Team does not reset the shared database during the UAT window. The cases do not need a reset.
@@ -109,9 +109,9 @@ The categories are the four that the handout requires (§3.1).
 | --- | --- | --- | --- |
 | UAT-01 | Normal domain journey | FR-02, FR-03, FR-04, FR-05, FR-06, FR-07, BR-08, BR-17 | F02-AC-01, F02-AC-13, F03-AC-01, F03-AC-05, F03-AC-10, F04-AC-01, F04-AC-03, F04-AC-04, F04-AC-18, F04-AC-20 |
 | UAT-02 | Business rule and boundary | BR-05, BR-06, BR-07, BR-12, NFR-08 | F02-AC-03 (UI part), F02-AC-04, F02-AC-05, F02-AC-06, F02-AC-07, F02-AC-11, F02-AC-13 |
-| UAT-03 | Forbidden ownership | NFR-02, FR-04, FR-05, BR-02 | F01-AC-18, F03-AC-02, F03-AC-06, F03-AC-07, F03-AC-11, F04-AC-01, F04-AC-08, F04-AC-17 |
+| UAT-03 | Forbidden ownership | NFR-02, FR-04, FR-05, BR-02 | F01-AC-18, F03-AC-02, F03-AC-06, F03-AC-07, F03-AC-11, F04-AC-01, F04-AC-08 (UI part), F04-AC-17 |
 | UAT-04 | Forbidden role and self-approval | NFR-02, BR-01, BR-15, FR-05 | F01-AC-20, F02-AC-14, F03-AC-04, F04-AC-02, F04-AC-07 |
-| UAT-05 | Business rule: reject reason | BR-04, BR-03, FR-06, FR-07, NFR-08 | F04-AC-05, F04-AC-06, F04-AC-11 (UI part), F04-AC-18 |
+| UAT-05 | Business rule and boundary | BR-04, BR-03, FR-06, FR-07, NFR-08 | F04-AC-05, F04-AC-06, F04-AC-11 (UI part), F04-AC-18 |
 | UAT-06 | State, history, and persistence | FR-04, FR-07, NFR-05, BR-03, BR-11 | F03-AC-05, F03-AC-11, F04-AC-04, F04-AC-16 (user view), F04-AC-20 |
 | UAT-07 | Login and session | FR-01, NFR-03 | F01-AC-02, F01-AC-03, F01-AC-07, F01-AC-18, F01-AC-19, F01-AC-20 |
 
@@ -148,7 +148,7 @@ Expected total: 1,250.50 + 980.25 = **2,230.75 THB**.
 | 3 | Click **Submit** 📷 | Confirmation page: heading `Claim CLM-2026-<6 digits> submitted`, a blue **Submitted** badge, `Total ฿2,230.75`, buttons **View claim**, **View my claims**, **New claim**. Record the claim number |
 | 4 | Click **View my claims** | The new claim is the first row: claim number, the title, `฿2,230.75`, **Submitted**, submitted date D (for example `19 Nov 2026`) |
 | 5 | Open the claim 📷 | Claim Detail: claim number, **Submitted** badge, title, `฿2,230.75`. Summary: purpose, Requester `Anan K.`, Assigned reviewer `Malee S.`, Submitted D. Line items in order 1, 2 with the inputs. History: one entry, `Submitted`, `– → Submitted`, `Anan K.`, date and time. No **Approve** or **Reject** button |
-| 6 | Log out. Log in as `rev.malee`. Click **Review Queue** | The claim is in the queue with Requester `Anan K.`, the title, and `฿2,230.75` (use **Next** if needed). Every row is a `Submitted` claim; no row has Requester `Malee S.` |
+| 6 | Log out. Log in as `rev.malee`. Click **Review Queue** | The claim is in the queue with Requester `Anan K.`, the title, and `฿2,230.75` (if it is not on the first page, use the › arrow next to `Page X of Y`). Every row is a `Submitted` claim; no row has Requester `Malee S.` |
 | 7 | Open the claim from the queue | Claim Detail with **Approve** and **Reject** buttons |
 | 8 | Click **Approve** | Dialog `Approve claim CLM-2026-…?` with an optional comment field, **Approve**, and **Cancel** |
 | 9 | Enter the approve comment. Click **Approve** 📷 | Toast `Claim approved.` The badge changes to green **Approved**. **Approve** and **Reject** are gone. History has a second entry: `Approved`, `Submitted → Approved`, `Malee S.`, date and time, `UAT-01 approved` |
@@ -185,8 +185,8 @@ Expected baseline total: 20,000.00 + 20,000.00 + 1,500.00 + 8,500.00 = **50,000.
 | 3 | Click **Submit** 📷 | No confirmation. Under Item 3 Amount: `A Meals item cannot be more than 1,500.00 THB.` Above **Submit**: `Claim total cannot be more than 50,000.00 THB.` All values stay as entered |
 | 4 | Set Item 3 Amount `1500.00`, Item 1 Expense date `D-91`, Item 2 Expense date `D+1`. Click **Submit** 📷 | No confirmation. Under Item 1 Expense date: `Expense date cannot be more than 90 days before the claim was first submitted.` Under Item 2 Expense date: `Expense date cannot be in the future.` No total message |
 | 5 | Set Item 1 Expense date `D-90` and Item 2 Expense date `D-5`. Set Item 4 Amount `0.00`. Click **Submit** | No confirmation. Under Item 4 Amount: `Amount must be between 0.01 and 20,000.00 THB.` |
-| 6 | Set Item 4 Amount `8500.00` and Item 2 Amount `20000.01`. Click **Submit** | No confirmation. Under Item 2 Amount: `Amount must be between 0.01 and 20,000.00 THB.` Above **Submit**: `Claim total cannot be more than 50,000.00 THB.` (total 50,000.01) |
-| 7 | Set Item 2 Amount `1.005`. Click **Submit** | Under Item 2 Amount: `Enter an amount with 2 decimals, e.g. 1250.00.` No confirmation |
+| 6 | Set Item 4 Amount `8500.00` and Item 2 Amount `1.005`. Click **Submit** | No confirmation. Under Item 2 Amount: `Enter an amount with 2 decimals, e.g. 1250.00.` The running total counts only valid amounts: `Total ฿30,000.00` |
+| 7 | Set Item 2 Amount `20000.01`. Click **Submit** | No confirmation. Under Item 2 Amount: `Amount must be between 0.01 and 20,000.00 THB.` Above **Submit**: `Claim total cannot be more than 50,000.00 THB.` (total 50,000.01) |
 | 8 | Set Item 2 Amount `20000.00`. Check that all fields equal the baseline. Click **Submit** 📷 | Running total `Total ฿50,000.00`. Confirmation `Claim CLM-2026-<6 digits> submitted`, **Submitted**, `Total ฿50,000.00`. Record the claim number |
 | 9 | Click **New claim**. Click **Add line item** until it is disabled. Count the rows. Then click **Remove** until it is disabled. Do not submit | **Add line item** is disabled at 20 rows. **Remove** is disabled when 1 row is left |
 | 10 | Open **My Claims** | Exactly one claim with the title `UAT-02 run <n> …`, total `฿50,000.00`, **Submitted**. The refused attempts in steps 3 to 7 made no claim |
@@ -196,8 +196,8 @@ Expected baseline total: 20,000.00 + 20,000.00 + 1,500.00 + 8,500.00 = **50,000.
 
 | Field | Value |
 | --- | --- |
-| Category | Forbidden role and ownership |
-| References | NFR-02, FR-04, FR-05, BR-02; F01-AC-18, F03-AC-02, F03-AC-06, F03-AC-07, F03-AC-11, F04-AC-01, F04-AC-08, F04-AC-17 |
+| Category | Forbidden ownership |
+| References | NFR-02, FR-04, FR-05, BR-02; F01-AC-18, F03-AC-02, F03-AC-06, F03-AC-07, F03-AC-11, F04-AC-01, F04-AC-08 (UI part), F04-AC-17 |
 | Purpose | Another requester, an unrelated reviewer, and an anonymous visitor cannot see a claim. The claim stays unchanged, and the assigned reviewer can still decide it |
 | Roles | Requester `req.anan` (owner), Requester `req.ploy`, Reviewer `rev.somchai` (not assigned), Reviewer `rev.malee` (assigned), anonymous |
 | Preconditions | Logged out. Version recorded |
@@ -223,7 +223,7 @@ Cleanup: the claim stays `Submitted` in `rev.malee`'s queue. Leave it.
 
 | Field | Value |
 | --- | --- |
-| Category | Forbidden role and ownership |
+| Category | Forbidden role and self-approval |
 | References | NFR-02, BR-01, BR-15, FR-05; F01-AC-20, F02-AC-14, F03-AC-04, F04-AC-02, F04-AC-07 |
 | Purpose | A reviewer cannot decide their own claim, which goes to their own reviewer. A Finance Officer cannot create claims, has no My Claims list, and cannot open claims that are not assigned to them |
 | Roles | Reviewer `rev.malee` (claim owner), Finance Officer `fin.wanida`, Reviewer `rev.prasert` (Malee's reviewer) |
@@ -316,7 +316,7 @@ If the version in step 5 is different from step 3, the claim survived a redeploy
 
 | Field | Value |
 | --- | --- |
-| Category | Supporting case: access control at login |
+| Category | Login and session |
 | References | FR-01, NFR-03; F01-AC-02, F01-AC-03, F01-AC-07, F01-AC-18, F01-AC-19, F01-AC-20 |
 | Purpose | Only valid credentials open a session, a failed login does not show which part was wrong, each role lands on its own page, and logout ends the session |
 | Roles | Anonymous, Requester `req.anan`, Reviewer `rev.malee` |
