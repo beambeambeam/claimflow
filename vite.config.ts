@@ -6,6 +6,9 @@ import { defineConfig } from "vite-plus";
 import { webIgnorePatterns, webLintOverrides } from "./apps/web/check.config";
 import { reportsLintOverrides } from "./docs/reports/check.config";
 
+// Agent skills are vendored by `bunx skills` and must match skills-lock.json.
+const skillsIgnorePatterns = [".agents/skills/**"];
+
 // Repository-wide format, lint, and pre-commit rules. App-specific rules live in each app.
 const config = defineConfig({
   fmt: {
@@ -13,6 +16,7 @@ const config = defineConfig({
     ignorePatterns: [
       ...(ultraciteOxfmt.ignorePatterns ?? []),
       ...webIgnorePatterns,
+      ...skillsIgnorePatterns,
     ],
   },
   lint: {
@@ -20,6 +24,7 @@ const config = defineConfig({
     ignorePatterns: [
       ...(ultraciteOxlintCore.ignorePatterns ?? []),
       ...webIgnorePatterns,
+      ...skillsIgnorePatterns,
     ],
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     options: { typeAware: true, typeCheck: true },
