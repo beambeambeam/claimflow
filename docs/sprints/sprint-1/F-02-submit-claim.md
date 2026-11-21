@@ -85,7 +85,7 @@ Fixed clock for the date cases: `2026-11-05T10:00:00+07:00`.
 | Total | `20000.00 + 20000.00 + 10000.00` / `20000.00 + 20000.00 + 10000.01` | 201 / 422 (`total`, BR-06) |
 | Meals | `MEALS "1500.00"` / `MEALS "1500.01"` / `TRAVEL "1500.01"` | 201 / 422 (BR-12) / 201 |
 | Category | `"FOOD"` | 400 (`items[0].category`) |
-| Blank text | `title`, `purpose`, `items[0].description`, or `items[0].receiptRef` of `"   "` | 400 (that field, rule `pattern`) |
+| Blank text | `title`, `purpose`, `items[0].description`, or `items[0].receiptRef` of `"   "`, or of Unicode whitespace such as U+00A0, U+3000, U+FEFF, or U+2028 | 400 (that field, rule `pattern`) |
 | Expense date | `2026-11-06` / `2026-11-05` / `2026-08-07` (90 days) / `2026-08-06` (91 days) | 422 / 201 / 201 / 422 (BR-07) |
 | Bangkok midnight | Clock `2026-11-05T17:30:00Z` (= 6 Nov 00:30 Bangkok); date `2026-11-06` | 201 |
 | Client total | `"total": "1.00"` with items summing 1,250.00 | 201, `total = "1250.00"` |
@@ -311,4 +311,4 @@ The Product DoD applies. For F-02 the evidence is:
 | 0.2 | 2026-11-06 | Review fix (PR #23): workflow shows session, then contract validation, then route permission (SDS §1.3) | 1005, 1045 |
 | 0.3 | 2026-11-14 | §1.4 adds the message for a bad or calendar-impossible expense date (400, shape); §7 records the known gap that F02-TEST-21 runs in CI only after F-04/03 (#34) sets up Playwright | 1005 |
 | 0.4 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The CI item stays open because F02-TEST-21 does not run in CI. The known gap now says that #34 set up Playwright for local runs only and #66 adds the CI job. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |
-| 0.5 | 2026-11-21 | UAT fix (#86): text of only whitespace is a shape error (400), in the contract and the form. F02-AC-12, §1.3, and §1.5 name the case | 1005 |
+| 0.5 | 2026-11-21 | UAT fix (#86): text of only whitespace, including Unicode whitespace, is a shape error (400), in the contract and the form. F02-AC-12, §1.3, and §1.5 name the case | 1045 |
