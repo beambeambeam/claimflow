@@ -69,18 +69,18 @@ export const zClaimAction = z.enum([
 
 export const zLineItemInput = z.object({
   category: zExpenseCategory,
-  description: z.string().min(1).max(200),
+  description: z.string().min(1).max(200).regex(/\S/),
   expenseDate: z.iso.date(),
   amount: zMoney,
-  receiptRef: z.string().min(1).max(50)
+  receiptRef: z.string().min(1).max(50).regex(/\S/)
 });
 
 /**
- * The line-item count and every business limit are checked by the claim module (422), not by this schema. Unknown fields, including `total`, are ignored (BR-08).
+ * The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Unknown fields, including `total`, are ignored (BR-08).
  */
 export const zClaimInput = z.object({
-  title: z.string().min(1).max(120),
-  purpose: z.string().min(1).max(1000),
+  title: z.string().min(1).max(120).regex(/\S/),
+  purpose: z.string().min(1).max(1000).regex(/\S/),
   items: z.array(zLineItemInput)
 });
 

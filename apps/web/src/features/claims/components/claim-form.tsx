@@ -31,16 +31,19 @@ const emptyItem = {
   receiptRef: "",
 };
 
+// Text made only of whitespace counts as empty, as the contract's pattern says.
+const notBlank = /\S/u;
+
 // The shape checks of the generated schema, with the field messages of F-02 §1.4. The form keeps every value as text,
 // so each field is piped into the schema of the same field.
 const claimSchema = z.object({
   title: z
     .string()
-    .min(1, "Enter a title (up to 120 characters).")
+    .regex(notBlank, "Enter a title (up to 120 characters).")
     .pipe(zClaimInput.shape.title),
   purpose: z
     .string()
-    .min(1, "Enter a purpose (up to 1,000 characters).")
+    .regex(notBlank, "Enter a purpose (up to 1,000 characters).")
     .pipe(zClaimInput.shape.purpose),
   items: z.array(
     z.object({
@@ -50,7 +53,7 @@ const claimSchema = z.object({
         .pipe(zLineItemInput.shape.category),
       description: z
         .string()
-        .min(1, "Enter a description (up to 200 characters).")
+        .regex(notBlank, "Enter a description (up to 200 characters).")
         .pipe(zLineItemInput.shape.description),
       expenseDate: z
         .string()
@@ -62,7 +65,7 @@ const claimSchema = z.object({
         .pipe(zLineItemInput.shape.amount),
       receiptRef: z
         .string()
-        .min(1, "Enter the receipt reference (up to 50 characters).")
+        .regex(notBlank, "Enter the receipt reference (up to 50 characters).")
         .pipe(zLineItemInput.shape.receiptRef),
     })
   ),
