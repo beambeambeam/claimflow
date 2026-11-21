@@ -169,6 +169,36 @@ describe("F02-TEST-19 (F02-AC-13): New Claim form", () => {
     expect(bodies).toEqual([]);
   });
 
+  it("refuses text fields of only spaces the same as empty ones and sends no request", async () => {
+    const user = renderForm();
+
+    await user.type(screen.getByLabelText("Title"), "   ");
+    await user.type(screen.getByLabelText("Purpose"), "   ");
+    await fillItem(user, 0, { amount: "250.00", description: "   " });
+    await user.clear(screen.getByLabelText("Receipt reference"));
+    await user.type(screen.getByLabelText("Receipt reference"), "   ");
+    await user.click(getButton("Submit"));
+
+    await screen.findAllByText("Enter a title (up to 120 characters).");
+    screen.getAllByText("Enter a purpose (up to 1,000 characters).");
+    screen.getAllByText("Enter a description (up to 200 characters).");
+    screen.getAllByText("Enter the receipt reference (up to 50 characters).");
+    expect(bodies).toEqual([]);
+  });
+
+  it("refuses a title and purpose of Unicode spaces, as the API does", async () => {
+    const user = renderForm();
+
+    await user.type(screen.getByLabelText("Title"), "\u00A0\u00A0");
+    await user.type(screen.getByLabelText("Purpose"), "\u3000");
+    await fillItem(user, 0, { amount: "250.00", description: "Train" });
+    await user.click(getButton("Submit"));
+
+    await screen.findAllByText("Enter a title (up to 120 characters).");
+    screen.getAllByText("Enter a purpose (up to 1,000 characters).");
+    expect(bodies).toEqual([]);
+  });
+
   it("asks for the date again after it is cleared", async () => {
     const user = renderForm();
 
