@@ -31,7 +31,8 @@ const emptyItem = {
   receiptRef: "",
 };
 
-// Text made only of whitespace counts as empty, as the contract's pattern says.
+// Text made only of whitespace counts as empty. JavaScript `\s` is the same whitespace set that the contract's pattern
+// lists, so the form and the API agree.
 const notBlank = /\S/u;
 
 // The shape checks of the generated schema, with the field messages of F-02 §1.4. The form keeps every value as text,

@@ -414,6 +414,10 @@ func TestF02TEST18ShapeViolationsAre400(t *testing.T) {
 		{"purpose of spaces", body(`"Title"`, `" \t "`, validItem), fieldError{"purpose", "pattern", "Enter a purpose (up to 1,000 characters)."}},
 		{"description of spaces", body(`"Title"`, `"Purpose"`, itemWith("description", `"   "`)), fieldError{"items[0].description", "pattern", "Enter a description (up to 200 characters)."}},
 		{"receiptRef of spaces", body(`"Title"`, `"Purpose"`, itemWith("receiptRef", `"   "`)), fieldError{"items[0].receiptRef", "pattern", "Enter the receipt reference (up to 50 characters)."}},
+		{"title of no-break spaces", body(`"\u00a0\u00a0"`, `"Purpose"`, validItem), fieldError{"title", "pattern", "Enter a title (up to 120 characters)."}},
+		{"purpose of an ideographic space", body(`"Title"`, `"\u3000"`, validItem), fieldError{"purpose", "pattern", "Enter a purpose (up to 1,000 characters)."}},
+		{"description of a byte order mark", body(`"Title"`, `"Purpose"`, itemWith("description", `"\ufeff"`)), fieldError{"items[0].description", "pattern", "Enter a description (up to 200 characters)."}},
+		{"receiptRef of a line separator", body(`"Title"`, `"Purpose"`, itemWith("receiptRef", `"\u2028"`)), fieldError{"items[0].receiptRef", "pattern", "Enter the receipt reference (up to 50 characters)."}},
 		{"impossible date", body(`"Title"`, `"Purpose"`, itemWith("expenseDate", `"2026-02-31"`)), fieldError{"items[0].expenseDate", "format", "Enter a date as YYYY-MM-DD."}},
 		{"bad date format", body(`"Title"`, `"Purpose"`, itemWith("expenseDate", `"05/11/2026"`)), fieldError{"items[0].expenseDate", "format", "Enter a date as YYYY-MM-DD."}},
 	}

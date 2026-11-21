@@ -483,7 +483,7 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-          pattern: '\S'
+          pattern: &notBlank '[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]'
         expenseDate:
           type: string
           format: date
@@ -493,22 +493,22 @@ components:
           type: string
           minLength: 1
           maxLength: 50
-          pattern: '\S'
+          pattern: *notBlank
     ClaimInput:
       type: object
-      description: The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Unknown fields, including `total`, are ignored (BR-08).
+      description: The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Whitespace is the JavaScript `\s` set, written out in the pattern because Go RE2 `\s` is ASCII only. Unknown fields, including `total`, are ignored (BR-08).
       required: [title, purpose, items]
       properties:
         title:
           type: string
           minLength: 1
           maxLength: 120
-          pattern: '\S'
+          pattern: *notBlank
         purpose:
           type: string
           minLength: 1
           maxLength: 1000
-          pattern: '\S'
+          pattern: *notBlank
         items:
           type: array
           items:

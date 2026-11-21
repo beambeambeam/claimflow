@@ -61,7 +61,7 @@ export type LineItemInput = {
 };
 
 /**
- * The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Unknown fields, including `total`, are ignored (BR-08).
+ * The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Whitespace is the JavaScript `\s` set, written out in the pattern because Go RE2 `\s` is ASCII only. Unknown fields, including `total`, are ignored (BR-08).
  */
 export type ClaimInput = {
   title: string;
