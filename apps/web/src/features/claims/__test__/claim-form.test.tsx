@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -231,6 +231,22 @@ describe("F02-TEST-19 (F02-AC-13): New Claim form", () => {
       expect(getButton("Submit").getAttribute("aria-busy")).toBe("true");
     });
     await screen.findByText("Claim CLM-2026-000123 submitted");
+  });
+
+  it("sends one request when Submit is double-clicked", async () => {
+    const user = renderForm();
+
+    await user.type(screen.getByLabelText("Title"), "Bangkok workshop travel");
+    await user.type(screen.getByLabelText("Purpose"), "Train fares and hotel");
+    await fillItem(user, 0, { amount: "250.00", description: "Train" });
+    // A fast double-click lands its second click before React renders the first one's pending state.
+    act(() => {
+      getButton("Submit").click();
+      getButton("Submit").click();
+    });
+
+    await screen.findByText("Claim CLM-2026-000123 submitted");
+    expect(bodies).toHaveLength(1);
   });
 
   it("shows each server error under its field, keeps the values, and re-enables Submit after a 422", async () => {
