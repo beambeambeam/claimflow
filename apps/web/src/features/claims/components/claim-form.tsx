@@ -89,27 +89,31 @@ export const ClaimForm = () => {
   const form = useAppForm({
     defaultValues: { title: "", purpose: "", items: [emptyItem] },
     validators: { onSubmit: claimSchema },
-    onSubmit: ({ value }) => {
-      // The submit validator has checked the values, so this parse returns them in the API's types.
-      create.mutate(
-        { body: claimSchema.parse(value) },
-        {
-          onError: (error) => {
-            if (!isProblem(error)) {
-              return;
-            }
-
-            // Each server error goes under its input, as `items[1].expenseDate`; the values stay as typed.
-            form.setErrorMap({
-              onSubmit: { fields: problemFieldErrors(error) },
-            });
-          },
+    // Awaiting the request keeps `isSubmitting` true until it settles, so `submit` ignores clicks in the meantime.
+    onSubmit: async ({ value }) => {
+      try {
+        // The submit validator has checked the values, so this parse returns them in the API's types.
+        await create.mutateAsync({ body: claimSchema.parse(value) });
+      } catch (error) {
+        if (!isProblem(error)) {
+          return;
         }
-      );
+
+        // Each server error goes under its input, as `items[1].expenseDate`; the values stay as typed.
+        form.setErrorMap({
+          onSubmit: { fields: problemFieldErrors(error) },
+        });
+      }
     },
   });
 
   const submit = () => {
+    // F02-AC-13: a second click lands before the busy Submit renders. `handleSubmit` sets `isSubmitting` before it
+    // awaits anything, so this check stops a double-click from sending the claim twice.
+    if (form.state.isSubmitting) {
+      return;
+    }
+
     // Earlier server errors would keep the form from submitting; the server answers again for these values.
     form.setErrorMap({ onSubmit: { fields: {} } });
     void form.handleSubmit();
@@ -238,14 +242,18 @@ export const ClaimForm = () => {
         />
       ) : null}
 
-      <HStack>
-        <Button
-          isLoading={create.isPending}
-          label="Submit"
-          type="submit"
-          variant="primary"
-        />
-      </HStack>
+      <form.Subscribe selector={(state) => state.isSubmitting}>
+        {(isSubmitting) => (
+          <HStack>
+            <Button
+              isLoading={isSubmitting}
+              label="Submit"
+              type="submit"
+              variant="primary"
+            />
+          </HStack>
+        )}
+      </form.Subscribe>
     </VStack>
   );
 };
