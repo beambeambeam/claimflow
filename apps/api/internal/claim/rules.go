@@ -64,7 +64,7 @@ const (
 
 // ShapeMessages are the messages of the 400 errors that name a field of ClaimInput (contract §1.4), keyed by the field
 // path with every array index written as []. The schema checks shape only: types, required fields, string lengths,
-// the money format, the category enum, and the date format.
+// non-blank text, the money format, the category enum, and the date format.
 var ShapeMessages = map[string]string{
 	"title":               "Enter a title (up to 120 characters).",
 	"purpose":             "Enter a purpose (up to 1,000 characters).",
