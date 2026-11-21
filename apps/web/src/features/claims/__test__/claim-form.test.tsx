@@ -118,7 +118,8 @@ const addRows = async (user: User, count: number): Promise<void> => {
   await addRows(user, count - 1);
 };
 
-describe("F02-TEST-19 (F02-AC-13): New Claim form", () => {
+// Most cases type a whole claim with user-event, which can take longer than the 5 s default in a full parallel run.
+describe("F02-TEST-19 (F02-AC-13): New Claim form", { timeout: 30_000 }, () => {
   it("starts with one empty row, a ฿0.00 total, and Remove disabled", () => {
     renderForm();
 
@@ -143,7 +144,7 @@ describe("F02-TEST-19 (F02-AC-13): New Claim form", () => {
     expect(getButton("Add line item").getAttribute("aria-disabled")).not.toBe(
       "true"
     );
-  }, 30_000);
+  });
 
   it("shows the running total from the amounts in the right format only", async () => {
     const user = renderForm();
@@ -234,6 +235,14 @@ describe("F02-TEST-19 (F02-AC-13): New Claim form", () => {
   });
 
   it("sends one request when Submit is double-clicked", async () => {
+    server.use(
+      http.post(claimsUrl, async ({ request }) => {
+        bodies.push(zClaimInput.parse(await request.json()));
+        await delay(300);
+
+        return HttpResponse.json({ data: submittedClaim }, { status: 201 });
+      })
+    );
     const user = renderForm();
 
     await user.type(screen.getByLabelText("Title"), "Bangkok workshop travel");
@@ -244,6 +253,8 @@ describe("F02-TEST-19 (F02-AC-13): New Claim form", () => {
       getButton("Submit").click();
       getButton("Submit").click();
     });
+
+    expect(getButton("Submit").getAttribute("aria-busy")).toBe("true");
 
     await screen.findByText("Claim CLM-2026-000123 submitted");
     expect(bodies).toHaveLength(1);
@@ -309,7 +320,7 @@ describe("F02-TEST-19 (F02-AC-13): New Claim form", () => {
     // The next submit sends the same values again, and the server may accept them now.
     await user.click(getButton("Submit"));
     await screen.findByText("Claim CLM-2026-000123 submitted");
-  }, 30_000);
+  });
 
   it("keeps the values and offers Try again with the request ID after a server error", async () => {
     server.use(
