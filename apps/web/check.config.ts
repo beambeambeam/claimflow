@@ -19,12 +19,9 @@ export const webLintOverrides: OxlintOverride[] = [
   {
     files: [`${root}/**`],
     plugins: ultraciteOxlintReact.plugins,
-    rules: {
-      ...ultraciteOxlintReact.rules,
-      ...ultraciteOxlintTanstack.rules,
-    },
+    rules: ultraciteOxlintReact.rules,
   },
-  ...(ultraciteOxlintTanstack.overrides ?? []).map((override) => ({
+  ...ultraciteOxlintTanstack.overrides.map((override) => ({
     ...override,
     files: override.files.map((pattern) => `${root}/${pattern}`),
   })),
