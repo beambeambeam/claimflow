@@ -69,18 +69,18 @@ export const zClaimAction = z.enum([
 
 export const zLineItemInput = z.object({
   category: zExpenseCategory,
-  description: z.string().min(1).max(200),
+  description: z.string().min(1).max(200).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/),
   expenseDate: z.iso.date(),
   amount: zMoney,
-  receiptRef: z.string().min(1).max(50)
+  receiptRef: z.string().min(1).max(50).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/)
 });
 
 /**
- * The line-item count and every business limit are checked by the claim module (422), not by this schema. Unknown fields, including `total`, are ignored (BR-08).
+ * The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Whitespace is the JavaScript `\s` set, written out in the pattern because Go RE2 `\s` is ASCII only. Unknown fields, including `total`, are ignored (BR-08).
  */
 export const zClaimInput = z.object({
-  title: z.string().min(1).max(120),
-  purpose: z.string().min(1).max(1000),
+  title: z.string().min(1).max(120).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/),
+  purpose: z.string().min(1).max(1000).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/),
   items: z.array(zLineItemInput)
 });
 

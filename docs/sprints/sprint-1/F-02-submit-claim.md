@@ -53,7 +53,7 @@ sequenceDiagram
 | BR-17 | `assigned_reviewer_id` is copied from the requester's `reviewer_id` at first submission and never changed afterwards. | `claim.Service` |
 | FR-07 | One history row: action `SUBMIT`, from `NULL`, to `SUBMITTED`, actor = requester. | `claim.Service` |
 
-Limits are named constants in `internal/claim/rules.go`. Business limits are not in the contract schema, so every limit error comes back as a 422 with its rule ID (NFR-08). The contract checks only shape: types, required fields, string lengths, the money format, the category enum, and the date format.
+Limits are named constants in `internal/claim/rules.go`. Business limits are not in the contract schema, so every limit error comes back as a 422 with its rule ID (NFR-08). The contract checks only shape: types, required fields, string lengths, non-blank text, the money format, the category enum, and the date format.
 
 ### 1.4 Validation messages (NFR-08)
 
@@ -85,6 +85,7 @@ Fixed clock for the date cases: `2026-11-05T10:00:00+07:00`.
 | Total | `20000.00 + 20000.00 + 10000.00` / `20000.00 + 20000.00 + 10000.01` | 201 / 422 (`total`, BR-06) |
 | Meals | `MEALS "1500.00"` / `MEALS "1500.01"` / `TRAVEL "1500.01"` | 201 / 422 (BR-12) / 201 |
 | Category | `"FOOD"` | 400 (`items[0].category`) |
+| Blank text | `title`, `purpose`, `items[0].description`, or `items[0].receiptRef` of `"   "`, or of Unicode whitespace such as U+00A0, U+3000, U+FEFF, or U+2028 | 400 (that field, rule `pattern`) |
 | Expense date | `2026-11-06` / `2026-11-05` / `2026-08-07` (90 days) / `2026-08-06` (91 days) | 422 / 201 / 201 / 422 (BR-07) |
 | Bangkok midnight | Clock `2026-11-05T17:30:00Z` (= 6 Nov 00:30 Bangkok); date `2026-11-06` | 201 |
 | Client total | `"total": "1.00"` with items summing 1,250.00 | 201, `total = "1250.00"` |
@@ -257,7 +258,7 @@ A 422 lists **every** broken rule, one `errors[]` entry per field, each with `fi
 | F02-AC-09 | BR-15 | `fin.wanida` calls `POST /claims` → 403 and no claim is stored. `claim.Service.Create` for an actor whose `reviewer_id` is NULL → `ErrForbidden`. |
 | F02-AC-10 | BR-17 | After a claim is submitted, changing the requester's `reviewer_id` does not change the claim's `assigned_reviewer_id`. |
 | F02-AC-11 | NFR-08 | A request that breaks two rules on two fields → one 422 with two `errors[]` entries. Each entry has `field`, `rule`, and the exact `message` from §1.4. |
-| F02-AC-12 | FR-02, NFR-08 | Missing `title`, a `title` over 120 characters, a `purpose` over 1,000, a `description` over 200, a `receiptRef` over 50, and a bad date format each → 400 with `errors[].field` naming the field. |
+| F02-AC-12 | FR-02, NFR-08 | Missing `title`, a `title` over 120 characters, a `purpose` over 1,000, a `description` over 200, a `receiptRef` over 50, a `title`, `purpose`, `description`, or `receiptRef` of only whitespace, and a bad date format each → 400 with `errors[].field` naming the field. |
 | F02-AC-13 | FR-02, NFR-08 | On the New Claim form: rows can be added up to 20 and removed down to 1; the running total shows `฿` with 2 decimals; shape errors show under the field with no request; server `errors[]` show under the matching field and the input is kept; **Submit** is disabled while sending; success shows the claim number and a Submitted badge. |
 | F02-AC-14 | BR-15 | A Finance Officer who opens `/claims/new` sees "You can't create claims." and no form. |
 
@@ -310,3 +311,4 @@ The Product DoD applies. For F-02 the evidence is:
 | 0.2 | 2026-11-06 | Review fix (PR #23): workflow shows session, then contract validation, then route permission (SDS §1.3) | 1005, 1045 |
 | 0.3 | 2026-11-14 | §1.4 adds the message for a bad or calendar-impossible expense date (400, shape); §7 records the known gap that F02-TEST-21 runs in CI only after F-04/03 (#34) sets up Playwright | 1005 |
 | 0.4 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The CI item stays open because F02-TEST-21 does not run in CI. The known gap now says that #34 set up Playwright for local runs only and #66 adds the CI job. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |
+| 0.5 | 2026-11-21 | UAT fix (#86): text of only whitespace, including Unicode whitespace, is a shape error (400), in the contract and the form. F02-AC-12, §1.3, and §1.5 name the case | 1045 |
