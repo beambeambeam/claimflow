@@ -1,5 +1,6 @@
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
+import { Grid } from "@astryxdesign/core/Grid";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { useMutation } from "@tanstack/react-query";
@@ -144,9 +145,15 @@ export const ClaimForm = () => {
         {(items) => (
           <VStack gap={4} hAlign="stretch">
             {items.state.value.map((_, index) => (
-              // Rows have no id of their own, and removing one re-reads every value by position.
+              // Rows have no id of their own, and removing one re-reads every value by position. Each field has a grid
+              // track of its own, so an error under one field does not move the others.
               // oxlint-disable-next-line react/no-array-index-key
-              <HStack gap={2} key={index} vAlign="start" wrap="wrap">
+              <Grid
+                align="start"
+                columns={{ minWidth: 160, max: 6 }}
+                gap={2}
+                key={index}
+              >
                 <form.AppField name={`items[${index}].category`}>
                   {(field) => (
                     <field.SelectField
@@ -174,15 +181,17 @@ export const ClaimForm = () => {
                 <form.AppField name={`items[${index}].receiptRef`}>
                   {(field) => <field.TextField label="Receipt reference" />}
                 </form.AppField>
-                <Button
-                  isDisabled={items.state.value.length === 1}
-                  label="Remove"
-                  onClick={() => {
-                    items.removeValue(index);
-                  }}
-                  variant="ghost"
-                />
-              </HStack>
+                <HStack>
+                  <Button
+                    isDisabled={items.state.value.length === 1}
+                    label="Remove"
+                    onClick={() => {
+                      items.removeValue(index);
+                    }}
+                    variant="ghost"
+                  />
+                </HStack>
+              </Grid>
             ))}
             <HStack>
               <Button
