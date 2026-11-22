@@ -9,6 +9,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
@@ -45,7 +47,7 @@ func (h Handler) Login(ctx context.Context, request api.LoginRequestObject) (api
 		return nil, fmt.Errorf("login fields: %w", httperr.InvalidFields(fields))
 	}
 
-	user, token, err := h.service.Login(ctx, request.Body.Username, request.Body.Password)
+	user, token, err := h.service.Login(ctx, request.Body.Username, request.Body.Password, clientOf(ctx))
 	if errors.Is(err, ErrInvalidCredentials) {
 		return nil, errInvalidCredentials
 	}
@@ -85,6 +87,17 @@ func (h Handler) Logout(ctx context.Context, _ api.LogoutRequestObject) (api.Log
 	cookie := clearedCookie(h.cookieSecure)
 
 	return api.Logout204Response{Headers: api.Logout204ResponseHeaders{SetCookie: &cookie}}, nil
+}
+
+// clientOf returns the client of a request. The strict server passes the gin context, which knows the client address
+// and headers; any other context has no client.
+func clientOf(ctx context.Context) Client {
+	c, ok := ctx.(*gin.Context)
+	if !ok {
+		return Client{}
+	}
+
+	return Client{IP: c.ClientIP(), UserAgent: c.Request.UserAgent()}
 }
 
 // cookieName returns the session cookie name. The __Host- prefix requires Secure, so it is used only with it.

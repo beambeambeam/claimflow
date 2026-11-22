@@ -10,8 +10,9 @@ WHERE u.username = sqlc.arg(username)
   AND NOT (u.banned AND (u.ban_expires IS NULL OR u.ban_expires > sqlc.arg(now)::timestamptz));
 
 -- name: CreateSession :exec
-INSERT INTO session (id, user_id, token, expires_at)
-VALUES (sqlc.arg(id), sqlc.arg(user_id), sqlc.arg(token), sqlc.arg(expires_at));
+-- CreateSession stores a session with the client IP and user agent of the login, for audit (SDS §8).
+INSERT INTO session (id, user_id, token, expires_at, ip_address, user_agent)
+VALUES (sqlc.arg(id), sqlc.arg(user_id), sqlc.arg(token), sqlc.arg(expires_at), sqlc.narg(ip_address), sqlc.narg(user_agent));
 
 -- name: GetSessionUser :one
 -- GetSessionUser returns the user of a session that has not expired at the given time, if the user is not banned.
