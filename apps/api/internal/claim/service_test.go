@@ -108,7 +108,7 @@ func TestF02TEST03HistoryFailureRollsBackClaimAndLineItems(t *testing.T) {
 		t.Fatalf("create trigger: %v", err)
 	}
 
-	if _, err := newService(pool).Create(t.Context(), Actor{ID: requesterID}, validInput(), true); err == nil {
+	if _, err := newService(pool).Create(t.Context(), Actor{ID: requesterID}, validInput()); err == nil {
 		t.Fatal("Create succeeded, want the history failure")
 	}
 
@@ -124,7 +124,7 @@ func TestF02TEST15CreateWithoutReviewerIsForbidden(t *testing.T) {
 	pool := pgtest.New(t)
 	requesterID := member(t, pool, "lonely", "requester", uuid.Nil)
 
-	_, err := newService(pool).Create(t.Context(), Actor{ID: requesterID}, validInput(), true)
+	_, err := newService(pool).Create(t.Context(), Actor{ID: requesterID}, validInput())
 	if !errors.Is(err, ErrForbidden) {
 		t.Fatalf("Create error = %v, want ErrForbidden", err)
 	}
@@ -144,7 +144,7 @@ func TestF02TEST16AssignedReviewerStaysAfterReviewerChange(t *testing.T) {
 	anan := member(t, pool, "req.anan", "requester", malee)
 	service := newService(pool)
 
-	created, err := service.Create(t.Context(), Actor{ID: anan}, validInput(), true)
+	created, err := service.Create(t.Context(), Actor{ID: anan}, validInput())
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestCreateStoresSubmittedClaim(t *testing.T) {
 	malee := member(t, pool, "rev.malee", "reviewer", uuid.Nil)
 	anan := member(t, pool, "req.anan", "requester", malee)
 
-	got, err := newService(pool).Create(t.Context(), Actor{ID: anan}, validInput(), true)
+	got, err := newService(pool).Create(t.Context(), Actor{ID: anan}, validInput())
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -201,21 +201,6 @@ func TestCreateStoresSubmittedClaim(t *testing.T) {
 
 	if len(got.AllowedActions) != 0 {
 		t.Fatalf("allowed actions = %v, want none", got.AllowedActions)
-	}
-}
-
-// Sprint 1 always submits; saving a draft is F-05.
-func TestCreateDraftIsNotSupportedYet(t *testing.T) {
-	pool := pgtest.New(t)
-	malee := member(t, pool, "rev.malee", "reviewer", uuid.Nil)
-	anan := member(t, pool, "req.anan", "requester", malee)
-
-	if _, err := newService(pool).Create(t.Context(), Actor{ID: anan}, validInput(), false); !errors.Is(err, ErrDraftNotSupported) {
-		t.Fatalf("Create draft error = %v, want ErrDraftNotSupported", err)
-	}
-
-	if got := count(t, pool, "claims"); got != 0 {
-		t.Fatalf("claims = %d, want 0", got)
 	}
 }
 

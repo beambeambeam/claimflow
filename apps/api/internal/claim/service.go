@@ -24,8 +24,6 @@ var (
 	ErrInvalidTransition = errors.New("claim: invalid transition")
 	// ErrConflict means the claim changed since the caller read it: the version is not the current one (BR-13).
 	ErrConflict = errors.New("claim: changed since it was read")
-	// ErrDraftNotSupported means Create was asked to save a draft, which F-05 adds in Sprint 2.
-	ErrDraftNotSupported = errors.New("claim: drafts are not supported yet")
 )
 
 // bangkok is the zone of every business date and of the claim number year (AS-06). Thailand has no daylight saving time.
@@ -51,12 +49,8 @@ func NewService(pool Pool, now func() time.Time) Service {
 // Create stores a claim and submits it in one transaction: the claim, its line items, and one SUBMIT history entry
 // (F02-AC-01, F02-AC-02). The assigned reviewer is copied from the actor's reviewer at this moment and never changes
 // afterwards (BR-17). An actor with no reviewer gets ErrForbidden (BR-15). The total is the sum of the items; the
-// input has no total (BR-08). Saving a draft is F-05, so submit must be true for now.
-func (s Service) Create(ctx context.Context, actor Actor, in Input, submit bool) (Claim, error) {
-	if !submit {
-		return Claim{}, ErrDraftNotSupported
-	}
-
+// input has no total (BR-08). Saving a draft is F-05, which adds its own call.
+func (s Service) Create(ctx context.Context, actor Actor, in Input) (Claim, error) {
 	now := s.now()
 
 	var created Claim

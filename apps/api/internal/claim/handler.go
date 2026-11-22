@@ -57,7 +57,7 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 		return nil, errUnauthenticated
 	}
 
-	created, err := h.service.Create(ctx, Actor{ID: user.ID}, input(request.Body), true)
+	created, err := h.service.Create(ctx, Actor{ID: user.ID}, input(request.Body))
 	if errors.Is(err, ErrForbidden) {
 		return nil, httperr.ErrForbidden
 	}
