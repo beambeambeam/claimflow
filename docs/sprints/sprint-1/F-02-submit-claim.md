@@ -5,7 +5,7 @@
 - **Requirements:** FR-02, FR-03, FR-07, BR-05, BR-06, BR-07, BR-08, BR-12, BR-15, BR-17, NFR-06, NFR-08
 - **Depends on:** F-01
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claims`, `line_items`, `claim_history`; §2.3 money; §2.4 time; §3; §4.3 `POST /claims`; §5.2; §7.1 New Claim
-- **Version:** 0.6 · **Last updated:** 2026-11-22
+- **Version:** 0.7 · **Last updated:** 2026-11-22
 
 ---
 
@@ -119,7 +119,7 @@ Fixed clock for the date cases: `2026-11-05T10:00:00+07:00`.
 | --- | --- |
 | Shape error (client) | Message under the field (§1.4). No request. |
 | 422 / 400 from server | Each `errors[]` entry shown under its field. Form values kept. |
-| 403 | "You can't create claims." page with no form. |
+| 403 | "You can't create claims." page with the sentence "Your account has no assigned reviewer, so it cannot submit claims." and no form. |
 | Success | Confirmation: "Claim CLM-2026-000123 submitted", a **Submitted** badge (blue), the total, and links **View my claims** and **New claim**. |
 | 5xx / network | Inline error with **Try again** and `requestId`. Form values kept. |
 
@@ -260,7 +260,7 @@ A 422 lists **every** broken rule, one `errors[]` entry per field, each with `fi
 | F02-AC-11 | NFR-08 | A request that breaks two rules on two fields → one 422 with two `errors[]` entries. Each entry has `field`, `rule`, and the exact `message` from §1.4. |
 | F02-AC-12 | FR-02, NFR-08 | Missing `title`, a `title` over 120 characters, a `purpose` over 1,000, a `description` over 200, a `receiptRef` over 50, a `title`, `purpose`, `description`, or `receiptRef` of only whitespace, and a bad date format each → 400 with `errors[].field` naming the field. |
 | F02-AC-13 | FR-02, NFR-08 | On the New Claim form: rows can be added up to 20 and removed down to 1; the running total shows `฿` with 2 decimals; shape errors show under the field with no request; server `errors[]` show under the matching field and the input is kept; **Submit** is disabled while sending; success shows the claim number and a Submitted badge. |
-| F02-AC-14 | BR-15 | A Finance Officer who opens `/claims/new` sees "You can't create claims." and no form. |
+| F02-AC-14 | BR-15 | A Finance Officer who opens `/claims/new` sees "You can't create claims.", the sentence "Your account has no assigned reviewer, so it cannot submit claims.", and no form. |
 
 ## 6. Software Test Specification
 
@@ -287,7 +287,7 @@ Levels as in F-01 §6. Module tests call `claim.Service` against `pgtest` Postgr
 | F02-TEST-17 | F02-AC-11 | Integration | Item 1 date in the future; item 2 `MEALS` 1,600.00 | `POST /claims` | 422 with exactly two entries: `items[0].expenseDate` BR-07 and `items[1].amount` BR-12, messages from §1.4 |
 | F02-TEST-18 | F02-AC-12 | Integration | One request per shape violation in F02-AC-12 | `POST /claims` | 400 for each; `errors[].field` names the field |
 | F02-TEST-19 | F02-AC-13 | Component | MSW `POST /claims` returns 201, then 422 | Add rows to 20, remove to 1, type amounts, submit bad format, submit, get 422 | Add disabled at 20, Remove disabled at 1; total `฿1,250.00`; client message with no request; server messages under fields with values kept; button disabled while pending; confirmation with claim number |
-| F02-TEST-20 | F02-AC-14 | Component | MSW `/auth/me` as `fin.wanida` | Open `/claims/new` | "You can't create claims." and no form |
+| F02-TEST-20 | F02-AC-14 | Component | MSW `/auth/me` as `fin.wanida` | Open `/claims/new` | "You can't create claims.", the no-reviewer sentence, and no form |
 | F02-TEST-21 | F02-AC-01, F02-AC-13 | E2E | Seeded database | Log in as `req.anan`, fill the form with 2 items, submit | Confirmation shows `CLM-…` and Submitted |
 
 ## 7. Feature Definition of Done
@@ -313,3 +313,4 @@ The Product DoD applies. For F-02 the evidence is:
 | 0.4 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The CI item stays open because F02-TEST-21 does not run in CI. The known gap now says that #34 set up Playwright for local runs only and #66 adds the CI job. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |
 | 0.5 | 2026-11-21 | UAT fix (#86): text of only whitespace, including Unicode whitespace, is a shape error (400), in the contract and the form. F02-AC-12, §1.3, and §1.5 name the case | 1045 |
 | 0.6 | 2026-11-22 | §7: the test item is checked. Product DoD 0.3 item 4 accepts the F02-TEST-21 run on a local seeded stack, so the known gap and #66 are removed. No AC or test changed | beambeambeam |
+| 0.7 | 2026-11-22 | Follow-up (#70): §2.2, F02-AC-14, and F02-TEST-20 give the no-reviewer sentence of the can't-create page | beambeambeam |

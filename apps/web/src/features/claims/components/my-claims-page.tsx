@@ -3,16 +3,17 @@ import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
 import { Pagination } from "@astryxdesign/core/Pagination";
-import { Skeleton } from "@astryxdesign/core/Skeleton";
 import { Table } from "@astryxdesign/core/Table";
 import type { TableColumn } from "@astryxdesign/core/Table";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { DateText } from "#/components/date-text";
 import { LoadError } from "#/components/load-error";
 import { Money } from "#/components/money";
 import { StatusBadge } from "#/components/status-badge";
+import { TextSkeleton } from "#/components/text-skeleton";
 import { can } from "#/features/auth/permissions";
 import { listClaimsOptions } from "#/lib/api/@tanstack/react-query.gen";
 import type { ClaimSummary, CurrentUser } from "#/lib/api/types.gen";
@@ -62,11 +63,12 @@ const skeletonColumns: TableColumn<{ id: number }>[] = columns.map(
     key,
     header,
     align,
-    renderCell: () => <Skeleton height={16} />,
+    renderCell: () => <TextSkeleton type="body" />,
   })
 );
 
-// My Claims (F-03 §2.1): the session user's claims, newest first, one page at a time.
+// My Claims (F-03 §2.1): the session user's claims, newest first, one page at a time. A page past the last one is
+// replaced by the last page, so the table never shows an empty page above the pager.
 export const MyClaimsPage = ({
   user,
   page,
@@ -74,12 +76,22 @@ export const MyClaimsPage = ({
 }: {
   user: CurrentUser;
   page: number;
-  onPageChange: (page: number) => void;
+  onPageChange: (page: number, options?: { replace: boolean }) => void;
 }) => {
   const claims = useQuery({
     ...listClaimsOptions({ query: { scope: "mine", page, pageSize } }),
     retry: false,
   });
+
+  const total = claims.data?.total ?? 0;
+  const lastPage = Math.ceil(total / pageSize);
+  const pastLastPage = total > 0 && page > lastPage;
+
+  useEffect(() => {
+    if (pastLastPage) {
+      onPageChange(lastPage, { replace: true });
+    }
+  }, [lastPage, onPageChange, pastLastPage]);
 
   const forbidden = isProblem(claims.error) && claims.error.status === 403;
 
@@ -103,7 +115,7 @@ export const MyClaimsPage = ({
       );
     }
 
-    if (claims.isPending) {
+    if (claims.isPending || pastLastPage) {
       return <Table columns={skeletonColumns} data={skeletonRows} idKey="id" />;
     }
 

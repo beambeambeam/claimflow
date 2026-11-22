@@ -266,15 +266,18 @@ func TestSeedCommandRefusesEmptyPassword(t *testing.T) {
 	}
 }
 
-// TestSeedCommandSeedsWithPassword: with SEED_USER_PASSWORD set, `api seed` runs the seed and reports the count.
+// TestSeedCommandSeedsWithPassword: with SEED_USER_PASSWORD set, `api seed` runs the seed and reports the users it
+// stored and the claims it added. A second run adds no claim, and says so.
 func TestSeedCommandSeedsWithPassword(t *testing.T) {
 	pool := pgtest.New(t)
 
-	var out bytes.Buffer
-	if err := seedCommand(t.Context(), pool.Config().ConnString(), seedPassword, testBcryptCost, &out); err != nil {
-		t.Fatalf("seedCommand: %v", err)
-	}
-	if got, want := out.String(), "seeded 7 users and 6 claims\n"; got != want {
-		t.Fatalf("output = %q, want %q", got, want)
+	for _, want := range []string{"seeded 7 users and 6 new claims\n", "seeded 7 users and 0 new claims\n"} {
+		var out bytes.Buffer
+		if err := seedCommand(t.Context(), pool.Config().ConnString(), seedPassword, testBcryptCost, &out); err != nil {
+			t.Fatalf("seedCommand: %v", err)
+		}
+		if got := out.String(); got != want {
+			t.Fatalf("output = %q, want %q", got, want)
+		}
 	}
 }

@@ -2,7 +2,7 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.16 (draft for Deliverable 1)
+- **Version:** 0.17 (draft for Deliverable 1)
 - **Last updated:** 2026-11-22
 - **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
@@ -347,7 +347,7 @@ func (s *Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version in
 
 - `Claim` includes `AllowedActions`, the actions this actor may take on this claim right now (Section 5.2).
 - Errors are typed: `ErrNotFound`, `ErrForbidden`, `ErrInvalidTransition{Rule}`, `ErrConflict`, and `ValidationError{Fields}`. The handler maps each one to a problem response (Section 4.2).
-- **As built in Sprint 1.** `List` is two methods, `ListMine` and `ListReview`, each with `page` and `pageSize`; the `Query` type comes with the filters of F-09. `Act` takes the action as a string (`claim.ActionApprove`, `claim.ActionReject`), and `AllowedActions` holds strings. `ErrInvalidTransition` is a plain error, and its rule ID is in `rules.go`. `Edit` and `Delete` come in Sprint 2. #67 tracks the difference.
+- **As built in Sprint 1.** `Query` holds the scope (`ScopeMine` or `ScopeReview`), `Page`, and `PageSize`; F-09 adds its filters. `ErrInvalidTransition` is a plain error, and its rule ID is in `rules.go`. `Create` has no `submit` flag: it always submits, and F-05 adds drafts with its own design. `Edit` and `Delete` come in Sprint 2.
 - Each submit-type action (`submit`, `approve`, `reject`, `return`, `withdraw`, `final-approve`, `final-reject`) is a call to `Act`. Every action endpoint becomes a short handler that makes one call.
 
 ### 3.2 Lifecycle table
@@ -576,7 +576,7 @@ The "not own" check uses `requester_id` directly, so self-approval is blocked ev
 | --- | --- |
 | Credentials | Username + password. The username is lowercased, then the `user` row and its `credential` `account` row are loaded. The password is checked against `account.password` with `bcrypt.CompareHashAndPassword`. |
 | Failed login | 401 with the generic message "Invalid username or password." A banned user (`banned = true` and `ban_expires` NULL or in the future) gets the same response, so the response does not show which accounts exist or are banned. To limit timing differences, an unknown username is still compared against a dummy hash. |
-| Session creation | 32 bytes from `crypto/rand`, base64url-encoded, becomes the cookie value. Its SHA-256 is stored in `session.token` with `expires_at = now + 8h`, `ip_address`, and `user_agent`. Sprint 1 leaves `ip_address` and `user_agent` empty (#67). The 8-hour lifetime is a constant, not configuration (NFR-03). |
+| Session creation | 32 bytes from `crypto/rand`, base64url-encoded, becomes the cookie value. Its SHA-256 is stored in `session.token` with `expires_at = now + 8h`, `ip_address`, and `user_agent`. `ip_address` is gin's `ClientIP`, which reads `X-Forwarded-For` behind Cloud Run, so it is an audit hint and never an access check. An empty value is stored as NULL. The 8-hour lifetime is a constant, not configuration (NFR-03). |
 | Cookie | `__Host-sid=<token>`; `HttpOnly`; `Secure`; `SameSite=Lax`; `Path=/`; no `Domain`; `Max-Age=28800`. The `__Host-` prefix makes the browser enforce `Secure`, `Path=/`, and no `Domain`. Local development over plain HTTP (`COOKIE_SECURE=false`) uses the name `sid` without `Secure`. |
 | Request handling | The `auth.Session` Gin middleware hashes the cookie, loads an unexpired session of a user who is not banned through `auth.Service`, and stores the user in the request context. A request with no such session continues without a user. `auth.RequireSession` then returns 401 for it on every matched route except the public ones, the operations that `openapi.yaml` marks `security: []` (login, health, ready). The check fails closed: a route added outside the contract, or one whose key does not match the Gin route, needs a session. A request that matches no route still gets 404. Handlers read the user with `auth.UserFrom`; route-level permissions (Section 5.1) build on the same value. |
 | Current user | `GET /auth/me`. The `_auth` route's `beforeLoad` calls `queryClient.ensureQueryData` for it, puts the user in router context, and redirects anonymous users to `/login?redirect=<path>` before any protected screen renders. |
@@ -758,6 +758,7 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.11 | 2026-11-13 | Web UI: Astryx with the Neutral theme replaces Tailwind and HeroUI; TanStack Form in use through `#/lib/form` (1.2, 1.4.2) | 1005, 1045 |
 | 0.12 | 2026-11-15 | Sprint 1 release. Records the changes that feature PRs made: `OperationPermissions` and the per-operation check (1.4.1, 5.1, PR #59); `validate.go` (1.4.1, PR #60); the stale-version exception in 3.3 (PR #65, F-04 contract 0.4). Adds what Sprint 1 built differently from 3.1 and 8 (the `List` methods, string actions, empty session audit fields), tracked in #67 | 1005 |
 | 0.16 | 2026-11-22 | E2E (10): Playwright runs against a local seeded stack before each release, not in CI, per Product DoD 0.3 item 4 (#66) | beambeambeam |
+| 0.17 | 2026-11-22 | Sprint 1 follow-ups (#67, #70): §3.1 "As built" note says `Create` has no `submit` flag; session creation stores `ip_address` from gin's `ClientIP` and the `User-Agent` | beambeambeam |
 | 0.15 | 2026-11-19 | Release identity (9): images carry the SHA only; a version maps to its SHA (#54) | 1005 |
 | 0.14 | 2026-11-18 | 9.1 matches the live rulesets: admin bypass on `sprint` and `lab`, up to date before merging on all three, no last-push approval rule (#53) | 1005 |
 | 0.13 | 2026-11-17 | Lab 5 (#53): the root `Dockerfile` and `WEB_DIR` (8, 9); the `migrate` compose service (9); `image` replaces `api_image` and is a required check in the `main`, `sprint`, and `lab` rulesets; the `lab` ruleset is documented (9, 9.1) | 1005 |

@@ -35,7 +35,7 @@ export const zCurrentUserEnvelope = z.object({
 /**
  * An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
  */
-export const zMoney = z.string().regex(/^\d{1,6}\.\d{2}$/);
+export const zMoney = z.string().regex(/^\d{1,6}\.\d{2}$/).register(z.globalRegistry, { message: 'Enter an amount with 2 decimals, e.g. 1250.00.' });
 
 export const zExpenseCategory = z.enum([
   'TRAVEL',
@@ -44,7 +44,7 @@ export const zExpenseCategory = z.enum([
   'SUPPLIES',
   'TRAINING',
   'OTHER'
-]);
+]).register(z.globalRegistry, { message: 'Choose a category.' });
 
 export const zClaimStatus = z.enum([
   'DRAFT',
@@ -69,19 +69,19 @@ export const zClaimAction = z.enum([
 
 export const zLineItemInput = z.object({
   category: zExpenseCategory,
-  description: z.string().min(1).max(200).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/),
-  expenseDate: z.iso.date(),
+  description: z.string().min(1).max(200).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/).register(z.globalRegistry, { message: 'Enter a description (up to 200 characters).' }),
+  expenseDate: z.iso.date().register(z.globalRegistry, { message: 'Enter a date as YYYY-MM-DD.' }),
   amount: zMoney,
-  receiptRef: z.string().min(1).max(50).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/)
-});
+  receiptRef: z.string().min(1).max(50).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/).register(z.globalRegistry, { message: 'Enter the receipt reference (up to 50 characters).' })
+}).register(z.globalRegistry, { message: 'Enter the line item.' });
 
 /**
- * The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Whitespace is the JavaScript `\s` set, written out in the pattern because Go RE2 `\s` is ASCII only. Unknown fields, including `total`, are ignored (BR-08).
+ * The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Whitespace is the JavaScript `\s` set, written out in the pattern because Go RE2 `\s` is ASCII only. Unknown fields, including `total`, are ignored (BR-08). The `x-message` of a schema is the message of a 400 field error on it, and the web form shows the same text.
  */
 export const zClaimInput = z.object({
-  title: z.string().min(1).max(120).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/),
-  purpose: z.string().min(1).max(1000).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/),
-  items: z.array(zLineItemInput)
+  title: z.string().min(1).max(120).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/).register(z.globalRegistry, { message: 'Enter a title (up to 120 characters).' }),
+  purpose: z.string().min(1).max(1000).regex(/[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/).register(z.globalRegistry, { message: 'Enter a purpose (up to 1,000 characters).' }),
+  items: z.array(zLineItemInput).register(z.globalRegistry, { message: 'A claim needs 1 to 20 line items.' })
 });
 
 export const zMemberSummary = z.object({
@@ -134,7 +134,7 @@ export const zClaim = z.object({
  * The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
  */
 export const zClaimDecision = z.object({
-  comment: z.string().optional()
+  comment: z.string().register(z.globalRegistry, { maxLength: 500 }).optional()
 });
 
 export const zClaimEnvelope = z.object({

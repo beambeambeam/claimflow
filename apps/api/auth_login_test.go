@@ -219,6 +219,34 @@ func TestF01TEST11SessionStoresHashOfCookieValue(t *testing.T) {
 	}
 }
 
+// TestLoginStoresClientAuditFields is outside the F01-TEST list. Login stores the client IP and user agent in the
+// session row for audit (SDS §8).
+func TestLoginStoresClientAuditFields(t *testing.T) {
+	pool := pgtest.New(t)
+	insertCredentialUser(t, pool)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/login",
+		strings.NewReader(loginBody(t, "req.anan", "correct-password")))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("User-Agent", "claimflow-test/1.0")
+	request.RemoteAddr = "203.0.113.7:51234"
+	newRouter(discardLogger(), testEnv(0), pool).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", recorder.Code, recorder.Body)
+	}
+
+	var ip, userAgent *string
+	if err := pool.QueryRow(t.Context(), `SELECT ip_address, user_agent FROM session`).Scan(&ip, &userAgent); err != nil {
+		t.Fatalf("read session: %v", err)
+	}
+
+	if ip == nil || *ip != "203.0.113.7" || userAgent == nil || *userAgent != "claimflow-test/1.0" {
+		t.Fatalf("ip_address = %v, user_agent = %v, want 203.0.113.7 and claimflow-test/1.0", ip, userAgent)
+	}
+}
+
 // TestLoginRejectsMalformedOrOutOfRangeRequests is outside the F01-TEST list. A body that does not decode,
 // or breaks the LoginRequest bounds (username 1–50 characters, password 1–72 bytes), gets a 400 BAD_REQUEST problem.
 // errors names each invalid field. A body that does not decode names no field, so it has no errors member.

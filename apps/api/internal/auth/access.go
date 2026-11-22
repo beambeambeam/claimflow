@@ -11,10 +11,11 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
 
-// Permissions maps a resource to the actions granted on it.
+// Permissions maps a resource to the actions granted on it: the route permissions of GLOSSARY.md, which are not the
+// Allowed Actions of one claim.
 type Permissions map[string][]string
 
-// Permission is one action on one resource, such as claim:create.
+// Permission is one route permission: one action on one resource, such as claim:create.
 type Permission struct {
 	Resource string
 	Action   string
@@ -53,7 +54,7 @@ func RequirePermission(resource, action string) gin.HandlerFunc {
 	mustBeInStatement(Permission{Resource: resource, Action: action})
 
 	return func(c *gin.Context) {
-		if err := Authorize(c.Request.Context(), resource, action); err != nil {
+		if _, err := Authorize(c.Request.Context(), resource, action); err != nil {
 			httperr.Report(c, err)
 			c.Abort()
 
@@ -79,7 +80,7 @@ func OperationPermissions(byOperation map[string]Permission) api.StrictMiddlewar
 		}
 
 		return func(c *gin.Context, request any) (any, error) {
-			if err := Authorize(c.Request.Context(), permission.Resource, permission.Action); err != nil {
+			if _, err := Authorize(c.Request.Context(), permission.Resource, permission.Action); err != nil {
 				return nil, err
 			}
 
@@ -88,19 +89,19 @@ func OperationPermissions(byOperation map[string]Permission) api.StrictMiddlewar
 	}
 }
 
-// Authorize returns nil when the user in ctx may take action on resource. It is the check behind RequirePermission
+// Authorize returns the user in ctx when they may take action on resource. It is the check behind RequirePermission
 // and OperationPermissions, for a handler whose permission depends on its request. The error is the 401 or 403 problem.
-func Authorize(ctx context.Context, resource, action string) error {
+func Authorize(ctx context.Context, resource, action string) (User, error) {
 	user, ok := UserFrom(ctx)
 	if !ok {
-		return errUnauthenticated
+		return User{}, errUnauthenticated
 	}
 
 	if !PermissionsOf(user.Role).Allows(resource, action) {
-		return httperr.ErrForbidden
+		return User{}, httperr.ErrForbidden
 	}
 
-	return nil
+	return user, nil
 }
 
 // mustBeInStatement panics when permission is not in the statement.

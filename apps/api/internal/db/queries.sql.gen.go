@@ -52,8 +52,8 @@ func (q *Queries) CountReviewClaims(ctx context.Context, reviewerID uuid.NullUUI
 }
 
 const createSession = `-- name: CreateSession :exec
-INSERT INTO session (id, user_id, token, expires_at)
-VALUES ($1, $2, $3, $4)
+INSERT INTO session (id, user_id, token, expires_at, ip_address, user_agent)
+VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type CreateSessionParams struct {
@@ -61,14 +61,19 @@ type CreateSessionParams struct {
 	UserID    uuid.UUID
 	Token     []byte
 	ExpiresAt pgtype.Timestamptz
+	IpAddress pgtype.Text
+	UserAgent pgtype.Text
 }
 
+// CreateSession stores a session with the client IP and user agent of the login, for audit (SDS §8).
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
 	_, err := q.db.Exec(ctx, createSession,
 		arg.ID,
 		arg.UserID,
 		arg.Token,
 		arg.ExpiresAt,
+		arg.IpAddress,
+		arg.UserAgent,
 	)
 	return err
 }

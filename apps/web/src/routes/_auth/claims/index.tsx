@@ -19,8 +19,8 @@ const MyClaimsRoute = () => {
 
   return (
     <MyClaimsPage
-      onPageChange={(next) => {
-        void navigate({ search: { page: next } });
+      onPageChange={(next, options) => {
+        void navigate({ search: { page: next }, replace: options?.replace });
       }}
       page={page}
       user={user}
