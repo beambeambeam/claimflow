@@ -412,11 +412,13 @@ components:
       description: An amount in THB with exactly 2 decimals, such as `1250.00`. Decoded into `money.Satang`.
       pattern: '^\d{1,6}\.\d{2}$'
       example: "1250.00"
+      x-message: Enter an amount with 2 decimals, e.g. 1250.00.
       x-go-type: money.Satang
       x-go-type-import:
         path: github.com/beambeambeam/claimflow/apps/api/internal/money
     ExpenseCategory:
       type: string
+      x-message: Choose a category.
       enum: [TRAVEL, ACCOMMODATION, MEALS, SUPPLIES, TRAINING, OTHER]
       x-enum-varnames:
         [
@@ -475,6 +477,7 @@ components:
         ]
     LineItemInput:
       type: object
+      x-message: Enter the line item.
       required: [category, description, expenseDate, amount, receiptRef]
       properties:
         category:
@@ -484,9 +487,11 @@ components:
           minLength: 1
           maxLength: 200
           pattern: &notBlank '[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]'
+          x-message: Enter a description (up to 200 characters).
         expenseDate:
           type: string
           format: date
+          x-message: Enter a date as YYYY-MM-DD.
         amount:
           $ref: "#/components/schemas/Money"
         receiptRef:
@@ -494,9 +499,10 @@ components:
           minLength: 1
           maxLength: 50
           pattern: *notBlank
+          x-message: Enter the receipt reference (up to 50 characters).
     ClaimInput:
       type: object
-      description: The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Whitespace is the JavaScript `\s` set, written out in the pattern because Go RE2 `\s` is ASCII only. Unknown fields, including `total`, are ignored (BR-08).
+      description: The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Whitespace is the JavaScript `\s` set, written out in the pattern because Go RE2 `\s` is ASCII only. Unknown fields, including `total`, are ignored (BR-08). The `x-message` of a schema is the message of a 400 field error on it, and the web form shows the same text.
       required: [title, purpose, items]
       properties:
         title:
@@ -504,13 +510,16 @@ components:
           minLength: 1
           maxLength: 120
           pattern: *notBlank
+          x-message: Enter a title (up to 120 characters).
         purpose:
           type: string
           minLength: 1
           maxLength: 1000
           pattern: *notBlank
+          x-message: Enter a purpose (up to 1,000 characters).
         items:
           type: array
+          x-message: A claim needs 1 to 20 line items.
           items:
             $ref: "#/components/schemas/LineItemInput"
     MemberSummary:
@@ -642,7 +651,7 @@ components:
             $ref: "#/components/schemas/HistoryEntry"
         allowedActions:
           type: array
-          description: The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the owner in Sprint 1.
+          description: The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the requester in Sprint 1.
           items:
             type: string
     ClaimDecision:
@@ -651,7 +660,8 @@ components:
       properties:
         comment:
           type: string
-          description: Optional for approve (at most 500 characters). The reason for reject (5–500 characters).
+          description: Optional for approve (at most 500 characters). The reason for reject (5–500 characters). `x-max-length` is the BR-04 upper bound, which the web counter shows.
+          x-max-length: 500
     ClaimEnvelope:
       type: object
       required: [data]

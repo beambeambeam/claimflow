@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -18,7 +17,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
-	"github.com/beambeambeam/claimflow/apps/api/internal/claim"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
 
@@ -40,48 +38,40 @@ var defineCalendarDate = sync.OnceFunc(func() {
 const maxRequestBody = 1 << 20
 
 // validatedOperations lists the operations whose JSON request body is checked against the contract schema before the
-// handler runs (SDS §1.3, "OpenAPI request validation"), with the message of each field. The others check their own
-// bounds in the handler. A shape error is a 400 that names every broken field; business limits are the module's 422.
-// The key is the operation name that oapi-codegen gives the embedded spec, as in operationPermissions.
-var validatedOperations = map[string]map[string]string{
-	"CreateClaim": claim.ShapeMessages,
-}
+// handler runs (SDS §1.3, "OpenAPI request validation"). The others check their own bounds in the handler. A shape
+// error is a 400 that names every broken field; business limits are the module's 422. Each entry is the operation name
+// that oapi-codegen gives the embedded spec, as in operationPermissions.
+var validatedOperations = []string{"CreateClaim"}
 
-// defaultShapeMessage is the message of a field that has no entry in its operation's messages.
+// messageExtension is the schema extension that holds the message of a 400 field error on that schema. The web form
+// reads the same extension, so both show one text.
+const messageExtension = "x-message"
+
+// defaultShapeMessage is the message of a field whose schema has no message extension.
 const defaultShapeMessage = "Enter a valid value."
-
-// indexPattern matches an array index in a field path, such as [0].
-var indexPattern = regexp.MustCompile(`\[\d+\]`)
 
 // requestValidation checks the JSON body of each operation in validated against its schema in spec, and answers a
 // body that does not match with a 400 whose errors[] has one entry per broken field: field path such as
-// items[0].amount, the schema keyword that failed as the rule, and the message of that field. A body that is not JSON,
+// items[0].amount, the schema keyword that failed as the rule, and the message extension of that field's schema. A body that is not JSON,
 // or whose whole value has the wrong type, is a 400 with no field. It runs after the session check and before the
 // route permission, as the contract's workflow says.
-func requestValidation(spec *openapi3.T, validated map[string]map[string]string) gin.HandlerFunc {
+func requestValidation(spec *openapi3.T, validated []string) gin.HandlerFunc {
 	defineCalendarDate()
 
-	type check struct {
-		schema   *openapi3.Schema
-		messages map[string]string
-	}
-
-	checks := map[string]check{}
+	checks := map[string]*openapi3.Schema{}
 
 	for path, item := range spec.Paths.Map() {
 		for method, operation := range item.Operations() {
-			messages, ok := validated[operation.OperationID]
-			if !ok {
+			if !slices.Contains(validated, operation.OperationID) {
 				continue
 			}
 
-			schema := operation.RequestBody.Value.Content.Get("application/json").Schema.Value
-			checks[ginRoute(method, path)] = check{schema: schema, messages: messages}
+			checks[ginRoute(method, path)] = operation.RequestBody.Value.Content.Get("application/json").Schema.Value
 		}
 	}
 
 	return func(c *gin.Context) {
-		found, ok := checks[c.Request.Method+" "+c.FullPath()]
+		schema, ok := checks[c.Request.Method+" "+c.FullPath()]
 		if !ok {
 			c.Next()
 
@@ -104,14 +94,14 @@ func requestValidation(spec *openapi3.T, validated map[string]map[string]string)
 			return
 		}
 
-		err = found.schema.VisitJSON(value, openapi3.MultiErrors())
+		err = schema.VisitJSON(value, openapi3.MultiErrors())
 		if err == nil {
 			c.Next()
 
 			return
 		}
 
-		if fields := shapeErrors(err, found.messages); len(fields) > 0 {
+		if fields := shapeErrors(err, schema); len(fields) > 0 {
 			reject(c, httperr.InvalidFields(fields))
 
 			return
@@ -127,23 +117,20 @@ func reject(c *gin.Context, problem *httperr.Error) {
 	c.Abort()
 }
 
-// shapeErrors turns the schema errors of err into one entry per field, in field order. An error that names no field
-// is dropped.
-func shapeErrors(err error, messages map[string]string) []api.FieldError {
+// shapeErrors turns the schema errors of err, from a check against root, into one entry per field, in field order. An
+// error that names no field is dropped.
+func shapeErrors(err error, root *openapi3.Schema) []api.FieldError {
 	var fields []api.FieldError
 
 	for _, found := range flatten(err) {
-		field := fieldPath(found.JSONPointer())
+		pointer := found.JSONPointer()
+
+		field := fieldPath(pointer)
 		if field == "" {
 			continue
 		}
 
-		message, ok := messages[indexPattern.ReplaceAllString(field, "[]")]
-		if !ok {
-			message = defaultShapeMessage
-		}
-
-		fields = append(fields, api.FieldError{Field: field, Rule: found.SchemaField, Message: message})
+		fields = append(fields, api.FieldError{Field: field, Rule: found.SchemaField, Message: fieldMessage(root, pointer)})
 	}
 
 	slices.SortStableFunc(fields, func(a, b api.FieldError) int { return strings.Compare(a.Field, b.Field) })
@@ -169,6 +156,33 @@ func flatten(err error) []*openapi3.SchemaError {
 	}
 
 	return nil
+}
+
+// fieldMessage returns the message extension of the schema that pointer names inside root, or the default when that
+// schema has none or pointer leaves root. A missing member is named by its own path, so its message is its own.
+func fieldMessage(root *openapi3.Schema, pointer []string) string {
+	schema := root
+
+	for _, part := range pointer {
+		var next *openapi3.SchemaRef
+		if _, err := strconv.Atoi(part); err == nil {
+			next = schema.Items
+		} else {
+			next = schema.Properties[part]
+		}
+
+		if next == nil {
+			return defaultShapeMessage
+		}
+
+		schema = next.Value
+	}
+
+	if message, ok := schema.Extensions[messageExtension].(string); ok {
+		return message
+	}
+
+	return defaultShapeMessage
 }
 
 // fieldPath writes a JSON pointer as the field path of a problem: items[0].amount for [items 0 amount].

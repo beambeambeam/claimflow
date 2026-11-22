@@ -18,6 +18,8 @@ import {
   rejectClaimMutation,
 } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim } from "#/lib/api/types.gen";
+import { zClaimDecision } from "#/lib/api/zod.gen";
+import { contractMaxLength } from "#/lib/contract";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 // The text and button variants of each decision (F-04 §2.2): `trigger` opens the dialog, `variant` confirms it. A reject needs a reason; an approve may have a comment.
@@ -47,8 +49,8 @@ type Decision = keyof typeof decisions;
 const isDecision = (name: string): name is Decision =>
   Object.hasOwn(decisions, name);
 
-// The limit of BR-04. The server checks it; the counter only shows it.
-const commentLimit = 500;
+// The limit of BR-04, from the contract. The server checks it; the counter only shows it.
+const commentLimit = contractMaxLength(zClaimDecision.shape.comment.unwrap());
 
 const DecisionDialog = ({
   claim,

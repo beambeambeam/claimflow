@@ -1,6 +1,6 @@
 // Money and date formatting (SDS §7.2).
 
-export const amountPattern = /^\d{1,6}\.\d{2}$/u;
+const amountPattern = /^\d{1,6}\.\d{2}$/u;
 
 const satangPerBaht = 100;
 

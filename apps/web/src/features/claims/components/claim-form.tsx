@@ -10,8 +10,9 @@ import { categoryLabels } from "#/features/claims/labels";
 import { createClaimMutation } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim } from "#/lib/api/types.gen";
 import { zClaimInput, zLineItemInput } from "#/lib/api/zod.gen";
+import { contractField } from "#/lib/contract";
 import { useAppForm } from "#/lib/form";
-import { amountPattern, formatBaht, parseSatang } from "#/lib/format";
+import { formatBaht, parseSatang } from "#/lib/format";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 import { ClaimConfirmation } from "./claim-confirmation";
@@ -31,43 +32,18 @@ const emptyItem = {
   receiptRef: "",
 };
 
-// Text made only of whitespace counts as empty. JavaScript `\s` is the same whitespace set that the contract's pattern
-// lists, so the form and the API agree.
-const notBlank = /\S/u;
-
-// The shape checks of the generated schema, with the field messages of F-02 §1.4. The form keeps every value as text,
-// so each field is piped into the schema of the same field.
+// The shape checks of the generated schema, with the contract's field messages (F-02 §1.4). The form keeps every value
+// as text, so each field is checked by the schema of the same field.
 const claimSchema = z.object({
-  title: z
-    .string()
-    .regex(notBlank, "Enter a title (up to 120 characters).")
-    .pipe(zClaimInput.shape.title),
-  purpose: z
-    .string()
-    .regex(notBlank, "Enter a purpose (up to 1,000 characters).")
-    .pipe(zClaimInput.shape.purpose),
+  title: contractField(zClaimInput.shape.title),
+  purpose: contractField(zClaimInput.shape.purpose),
   items: z.array(
     z.object({
-      category: z
-        .string()
-        .min(1, "Choose a category.")
-        .pipe(zLineItemInput.shape.category),
-      description: z
-        .string()
-        .regex(notBlank, "Enter a description (up to 200 characters).")
-        .pipe(zLineItemInput.shape.description),
-      expenseDate: z
-        .string()
-        .min(1, "Enter a date as YYYY-MM-DD.")
-        .pipe(zLineItemInput.shape.expenseDate),
-      amount: z
-        .string()
-        .regex(amountPattern, "Enter an amount with 2 decimals, e.g. 1250.00.")
-        .pipe(zLineItemInput.shape.amount),
-      receiptRef: z
-        .string()
-        .regex(notBlank, "Enter the receipt reference (up to 50 characters).")
-        .pipe(zLineItemInput.shape.receiptRef),
+      category: contractField(zLineItemInput.shape.category),
+      description: contractField(zLineItemInput.shape.description),
+      expenseDate: contractField(zLineItemInput.shape.expenseDate),
+      amount: contractField(zLineItemInput.shape.amount),
+      receiptRef: contractField(zLineItemInput.shape.receiptRef),
     })
   ),
 });
