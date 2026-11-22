@@ -121,6 +121,7 @@ const DecisionDialog = ({
     ? problemFieldErrors(send.error).comment?.message
     : undefined;
 
+  // Astryx has no dialog width tokens: `width` is in pixels, and the dialog clamps it to the viewport.
   return (
     <Dialog
       aria-labelledby={titleId}

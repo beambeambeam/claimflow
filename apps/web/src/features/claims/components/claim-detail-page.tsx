@@ -4,7 +4,6 @@ import {
   MetadataList,
   MetadataListItem,
 } from "@astryxdesign/core/MetadataList";
-import { Skeleton } from "@astryxdesign/core/Skeleton";
 import { Table } from "@astryxdesign/core/Table";
 import type { TableColumn } from "@astryxdesign/core/Table";
 import { Heading, Text } from "@astryxdesign/core/Text";
@@ -15,6 +14,7 @@ import { DateText } from "#/components/date-text";
 import { LoadError } from "#/components/load-error";
 import { Money } from "#/components/money";
 import { StatusBadge, statusLabels } from "#/components/status-badge";
+import { TextSkeleton } from "#/components/text-skeleton";
 import { actionLabels, categoryLabels } from "#/features/claims/labels";
 import { getClaimOptions } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim, HistoryEntry, LineItem } from "#/lib/api/types.gen";
@@ -49,7 +49,7 @@ const skeletonColumns: TableColumn<{ id: number }>[] = itemColumns.map(
     key,
     header,
     align,
-    renderCell: () => <Skeleton height={16} />,
+    renderCell: () => <TextSkeleton type="body" />,
   })
 );
 
@@ -147,8 +147,8 @@ const ClaimView = ({
 const ClaimSkeleton = () => (
   <VStack gap={6} hAlign="stretch">
     <VStack gap={2}>
-      <Skeleton height={32} width={240} />
-      <Skeleton height={20} width={320} />
+      <TextSkeleton type="heading-1" width="15ch" />
+      <TextSkeleton type="large" width="60%" />
     </VStack>
     <Table columns={skeletonColumns} data={skeletonRows} idKey="id" />
   </VStack>

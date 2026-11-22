@@ -3,7 +3,6 @@ import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
 import { Pagination } from "@astryxdesign/core/Pagination";
-import { Skeleton } from "@astryxdesign/core/Skeleton";
 import { Table } from "@astryxdesign/core/Table";
 import type { TableColumn } from "@astryxdesign/core/Table";
 import { Heading, Text } from "@astryxdesign/core/Text";
@@ -14,6 +13,7 @@ import { DateText } from "#/components/date-text";
 import { LoadError } from "#/components/load-error";
 import { Money } from "#/components/money";
 import { StatusBadge } from "#/components/status-badge";
+import { TextSkeleton } from "#/components/text-skeleton";
 import { can } from "#/features/auth/permissions";
 import { listClaimsOptions } from "#/lib/api/@tanstack/react-query.gen";
 import type { ClaimSummary, CurrentUser } from "#/lib/api/types.gen";
@@ -63,7 +63,7 @@ const skeletonColumns: TableColumn<{ id: number }>[] = columns.map(
     key,
     header,
     align,
-    renderCell: () => <Skeleton height={16} />,
+    renderCell: () => <TextSkeleton type="body" />,
   })
 );
 
