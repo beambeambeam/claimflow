@@ -347,7 +347,7 @@ func (s *Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version in
 
 - `Claim` includes `AllowedActions`, the actions this actor may take on this claim right now (Section 5.2).
 - Errors are typed: `ErrNotFound`, `ErrForbidden`, `ErrInvalidTransition{Rule}`, `ErrConflict`, and `ValidationError{Fields}`. The handler maps each one to a problem response (Section 4.2).
-- **As built in Sprint 1.** `List` is two methods, `ListMine` and `ListReview`, each with `page` and `pageSize`; the `Query` type comes with the filters of F-09. `Act` takes the action as a string (`claim.ActionApprove`, `claim.ActionReject`), and `AllowedActions` holds strings. `ErrInvalidTransition` is a plain error, and its rule ID is in `rules.go`. `Create` has no `submit` flag: it always submits, and F-05 adds drafts with its own design. `Edit` and `Delete` come in Sprint 2. #67 tracks the difference.
+- **As built in Sprint 1.** `Query` holds the scope (`ScopeMine` or `ScopeReview`), `Page`, and `PageSize`; F-09 adds its filters. `ErrInvalidTransition` is a plain error, and its rule ID is in `rules.go`. `Create` has no `submit` flag: it always submits, and F-05 adds drafts with its own design. `Edit` and `Delete` come in Sprint 2.
 - Each submit-type action (`submit`, `approve`, `reject`, `return`, `withdraw`, `final-approve`, `final-reject`) is a call to `Act`. Every action endpoint becomes a short handler that makes one call.
 
 ### 3.2 Lifecycle table

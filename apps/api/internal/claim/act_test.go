@@ -39,7 +39,7 @@ func TestF04TEST06CommentRuleBR04(t *testing.T) {
 
 	cases := []struct {
 		name    string
-		action  string
+		action  Action
 		comment string
 		message string // empty: the decision is taken
 	}{
@@ -125,7 +125,10 @@ func TestF04TEST15ConcurrentDecisionsOneWins(t *testing.T) {
 	created, reviewer := submittedClaim(t, pool)
 	service := newService(pool)
 
-	actions := []struct{ action, comment string }{
+	actions := []struct {
+		action  Action
+		comment string
+	}{
 		{ActionApprove, ""},
 		{ActionReject, "Receipt is missing."},
 	}
@@ -155,7 +158,7 @@ func TestF04TEST15ConcurrentDecisionsOneWins(t *testing.T) {
 	close(start)
 	done.Wait()
 
-	var wins []string
+	var wins []Action
 
 	for i, err := range results {
 		switch {
@@ -175,7 +178,7 @@ func TestF04TEST15ConcurrentDecisionsOneWins(t *testing.T) {
 		t.Fatalf("Get: %v", err)
 	}
 
-	wantStatus := map[string]db.ClaimStatus{ActionApprove: db.ClaimStatusAPPROVED, ActionReject: db.ClaimStatusREJECTED}[wins[0]]
+	wantStatus := map[Action]db.ClaimStatus{ActionApprove: db.ClaimStatusAPPROVED, ActionReject: db.ClaimStatusREJECTED}[wins[0]]
 	if after.Status != wantStatus || after.Version != created.Version+1 || len(after.History) != 2 {
 		t.Fatalf("claim = %+v, want %s, version %d, 2 history entries", after, wantStatus, created.Version+1)
 	}

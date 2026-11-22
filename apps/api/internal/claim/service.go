@@ -107,9 +107,23 @@ func (s Service) Get(ctx context.Context, actor Actor, id uuid.UUID) (Claim, err
 	return found, nil
 }
 
-// ListMine returns one page, 1-based, of the actor's own claims in every status, newest first: created time
-// descending, then id descending (F-03 §1.4). A page past the last one has no claims and the correct total.
-func (s Service) ListMine(ctx context.Context, actor Actor, page, pageSize int) (Page, error) {
+// List returns one page of the claims in q's scope (SDS §3.1). ScopeMine is the actor's own claims in every status,
+// newest first: created time descending, then id descending (F-03 §1.4). ScopeReview is the SUBMITTED claims assigned
+// to the actor, oldest submission first: submitted time ascending, then id ascending (F-04 §3); decided claims leave
+// it. A page past the last one has no claims and the correct total.
+func (s Service) List(ctx context.Context, actor Actor, q Query) (Page, error) {
+	switch q.Scope {
+	case ScopeMine:
+		return s.listMine(ctx, actor, q)
+	case ScopeReview:
+		return s.listReview(ctx, actor, q)
+	default:
+		return Page{}, fmt.Errorf("claim: unknown scope %q", q.Scope)
+	}
+}
+
+// listMine is List for ScopeMine.
+func (s Service) listMine(ctx context.Context, actor Actor, q Query) (Page, error) {
 	queries := db.New(s.pool)
 
 	total, err := queries.CountRequesterClaims(ctx, actor.ID)
@@ -117,7 +131,7 @@ func (s Service) ListMine(ctx context.Context, actor Actor, page, pageSize int) 
 		return Page{}, fmt.Errorf("count claims: %w", err)
 	}
 
-	return listPage(int(total), page, pageSize, func(offset, limit int32) ([]Summary, error) {
+	return listPage(int(total), q, func(offset, limit int32) ([]Summary, error) {
 		rows, err := queries.ListRequesterClaims(ctx, db.ListRequesterClaimsParams{RequesterID: actor.ID, PageOffset: offset, PageLimit: limit})
 		if err != nil { // coverage-ignore
 			return nil, fmt.Errorf("list claims: %w", err)
@@ -132,10 +146,8 @@ func (s Service) ListMine(ctx context.Context, actor Actor, page, pageSize int) 
 	})
 }
 
-// ListReview returns one page, 1-based, of the SUBMITTED claims assigned to the actor, oldest submission first:
-// submitted time ascending, then id ascending (F-04 §3). Decided claims leave the queue. A page past the last one has
-// no claims and the correct total.
-func (s Service) ListReview(ctx context.Context, actor Actor, page, pageSize int) (Page, error) {
+// listReview is List for ScopeReview.
+func (s Service) listReview(ctx context.Context, actor Actor, q Query) (Page, error) {
 	queries := db.New(s.pool)
 	reviewer := uuid.NullUUID{UUID: actor.ID, Valid: true}
 
@@ -144,7 +156,7 @@ func (s Service) ListReview(ctx context.Context, actor Actor, page, pageSize int
 		return Page{}, fmt.Errorf("count review claims: %w", err)
 	}
 
-	return listPage(int(total), page, pageSize, func(offset, limit int32) ([]Summary, error) {
+	return listPage(int(total), q, func(offset, limit int32) ([]Summary, error) {
 		rows, err := queries.ListReviewClaims(ctx, db.ListReviewClaimsParams{ReviewerID: reviewer, PageOffset: offset, PageLimit: limit})
 		if err != nil { // coverage-ignore
 			return nil, fmt.Errorf("list review claims: %w", err)
@@ -152,6 +164,8 @@ func (s Service) ListReview(ctx context.Context, actor Actor, page, pageSize int
 
 		summaries := make([]Summary, 0, len(rows))
 		for i := range rows {
+			// Both queries select the same columns. Go converts between struct types only when their fields match,
+			// so a change to either query that breaks this stops the build.
 			summaries = append(summaries, summarize((*db.ListRequesterClaimsRow)(&rows[i])))
 		}
 
@@ -159,15 +173,15 @@ func (s Service) ListReview(ctx context.Context, actor Actor, page, pageSize int
 	})
 }
 
-// listPage builds one page from total, the number of claims on every page, and fetch, which reads a window of them.
+// listPage builds the page of q from total, the number of claims on every page, and fetch, which reads a window of them.
 // A page past the last one is not fetched.
-func listPage(total, page, pageSize int, fetch func(offset, limit int32) ([]Summary, error)) (Page, error) {
-	if total == 0 || page-1 > (total-1)/pageSize {
+func listPage(total int, q Query, fetch func(offset, limit int32) ([]Summary, error)) (Page, error) {
+	if total == 0 || q.Page-1 > (total-1)/q.PageSize {
 		return Page{Claims: []Summary{}, Total: total}, nil
 	}
 
-	claims, err := fetch(int32((page-1)*pageSize), int32(pageSize)) //nolint:gosec // below the total, which is an int32; the handler limits the size to 100
-	if err != nil {                                                 // coverage-ignore
+	claims, err := fetch(int32((q.Page-1)*q.PageSize), int32(q.PageSize)) //nolint:gosec // below the total, which is an int32; the handler limits the size to 100
+	if err != nil {                                                       // coverage-ignore
 		return Page{}, err
 	}
 
@@ -194,10 +208,7 @@ func summarize(row *db.ListRequesterClaimsRow) Summary {
 // F-04 §1.4: a missing claim is ErrNotFound; a claim the actor may not decide is ErrForbidden; a status that does not
 // allow the action is ErrInvalidTransition; a comment that breaks BR-04 is a ValidationError; a changed version is
 // ErrConflict (BR-13). It returns the decided claim.
-//
-// A claim that is no longer SUBMITTED, read with a version other than the caller's, is ErrConflict: another decision
-// has won since the caller read the claim (BR-13). The caller's screen is stale, so its action is not "invalid".
-func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int, action, comment string) (Claim, error) {
+func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int, a Action, comment string) (Claim, error) {
 	now := s.now()
 
 	var decided Claim
@@ -205,49 +216,13 @@ func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		queries := db.New(tx)
 
-		found, err := load(ctx, queries, id)
+		step, err := checkAct(ctx, queries, actor, id, version, a, comment)
 		if err != nil {
 			return err
 		}
 
-		step, err := check(actor.ID, found.subject(), action)
-		if errors.Is(err, ErrInvalidTransition) && version != found.Version {
-			return ErrConflict
-		}
-
-		if err != nil {
+		if err := record(ctx, queries, actor, id, version, step, comment, now); err != nil {
 			return err
-		}
-
-		if err := checkComment(action, comment); err != nil {
-			return err
-		}
-
-		changed, err := queries.DecideClaim(ctx, db.DecideClaimParams{
-			Status:  step.to,
-			Now:     timestamptz(now),
-			ID:      id,
-			Version: int32(version), //nolint:gosec // the handler reads a 31-bit version
-		})
-		if err != nil { // coverage-ignore
-			return fmt.Errorf("decide claim: %w", err)
-		}
-
-		if changed == 0 {
-			return ErrConflict
-		}
-
-		err = queries.InsertClaimHistory(ctx, db.InsertClaimHistoryParams{
-			ClaimID:    id,
-			ActorID:    actor.ID,
-			Action:     step.history,
-			FromStatus: db.NullClaimStatus{ClaimStatus: step.from, Valid: true},
-			ToStatus:   step.to,
-			Comment:    optionalComment(comment),
-			Now:        timestamptz(now),
-		})
-		if err != nil {
-			return fmt.Errorf("insert history: %w", err)
 		}
 
 		decided, err = load(ctx, queries, id)
@@ -261,6 +236,65 @@ func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int
 	_, decided.AllowedActions = Allowed(actor.ID, decided.subject())
 
 	return decided, nil
+}
+
+// checkAct runs the checks of Act before its first write and returns what the action does.
+//
+// A claim that is no longer SUBMITTED, read with a version other than the caller's, is ErrConflict: another decision
+// has won since the caller read the claim (BR-13). The caller's screen is stale, so its action is not "invalid".
+func checkAct(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUID, version int, a Action, comment string) (transition, error) {
+	found, err := load(ctx, queries, id)
+	if err != nil {
+		return transition{}, err
+	}
+
+	step, err := check(actor.ID, found.subject(), a)
+	if errors.Is(err, ErrInvalidTransition) && version != found.Version {
+		return transition{}, ErrConflict
+	}
+
+	if err != nil {
+		return transition{}, err
+	}
+
+	if err := checkComment(a, comment); err != nil {
+		return transition{}, err
+	}
+
+	return step, nil
+}
+
+// record writes a decision: the claim moves by step if its version is still version, and one history entry is added.
+// A changed version is ErrConflict (BR-13).
+func record(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUID, version int, step transition, comment string, now time.Time) error {
+	changed, err := queries.DecideClaim(ctx, db.DecideClaimParams{
+		Status:  step.to,
+		Now:     timestamptz(now),
+		ID:      id,
+		Version: int32(version), //nolint:gosec // the handler reads a 31-bit version
+	})
+	if err != nil { // coverage-ignore
+		return fmt.Errorf("decide claim: %w", err)
+	}
+
+	if changed == 0 {
+		return ErrConflict
+	}
+
+	err = queries.InsertClaimHistory(ctx, db.InsertClaimHistoryParams{
+		ClaimID:    id,
+		ActorID:    actor.ID,
+		Action:     step.history,
+		FromStatus: db.NullClaimStatus{ClaimStatus: step.from, Valid: true},
+		ToStatus:   step.to,
+		Comment:    optionalComment(comment),
+		Now:        timestamptz(now),
+	})
+	if err != nil {
+		return fmt.Errorf("insert history: %w", err)
+	}
+
+	return nil
 }
 
 // optionalComment trims comment and stores an empty one as NULL.
@@ -367,41 +401,53 @@ func load(ctx context.Context, queries *db.Queries, id uuid.UUID) (Claim, error)
 		DecidedAt:        optionalTime(row.DecidedAt),
 		CreatedAt:        row.CreatedAt.Time,
 		UpdatedAt:        row.UpdatedAt.Time,
-		Items:            make([]LineItem, 0, len(items)),
-		History:          make([]HistoryEntry, 0, len(history)),
-		AllowedActions:   []string{},
+		Items:            lineItems(items),
+		History:          historyEntries(history),
+		AllowedActions:   []Action{},
 	}
 
 	if row.ReviewerID.Valid {
 		claim.AssignedReviewer = &Member{ID: row.ReviewerID.UUID, Name: row.ReviewerName.String, Position: row.ReviewerPosition.String}
 	}
 
-	for _, item := range items {
-		claim.Items = append(claim.Items, LineItem{
-			LineNo:      int(item.LineNo),
-			Category:    item.Category,
-			Description: item.Description,
-			ExpenseDate: item.ExpenseDate.Time,
-			Amount:      item.AmountSatang,
-			ReceiptRef:  item.ReceiptRef,
-		})
-	}
-
-	for i := range history {
-		entry := &history[i]
-
-		claim.History = append(claim.History, HistoryEntry{
-			ID:         entry.ID,
-			Action:     entry.Action,
-			FromStatus: optionalStatus(entry.FromStatus),
-			ToStatus:   entry.ToStatus,
-			Actor:      Member{ID: entry.ActorID, Name: entry.ActorName, Position: entry.ActorPosition},
-			Comment:    optionalText(entry.Comment),
-			CreatedAt:  entry.CreatedAt.Time,
-		})
-	}
-
 	return claim, nil
+}
+
+// lineItems maps the line item rows of a claim, in line order.
+func lineItems(rows []db.ListClaimLineItemsRow) []LineItem {
+	items := make([]LineItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, LineItem{
+			LineNo:      int(row.LineNo),
+			Category:    row.Category,
+			Description: row.Description,
+			ExpenseDate: row.ExpenseDate.Time,
+			Amount:      row.AmountSatang,
+			ReceiptRef:  row.ReceiptRef,
+		})
+	}
+
+	return items
+}
+
+// historyEntries maps the history rows of a claim, oldest first.
+func historyEntries(rows []db.ListClaimHistoryRow) []HistoryEntry {
+	entries := make([]HistoryEntry, 0, len(rows))
+	for i := range rows {
+		row := &rows[i]
+
+		entries = append(entries, HistoryEntry{
+			ID:         row.ID,
+			Action:     row.Action,
+			FromStatus: optionalStatus(row.FromStatus),
+			ToStatus:   row.ToStatus,
+			Actor:      Member{ID: row.ActorID, Name: row.ActorName, Position: row.ActorPosition},
+			Comment:    optionalText(row.Comment),
+			CreatedAt:  row.CreatedAt.Time,
+		})
+	}
+
+	return entries
 }
 
 // timestamptz wraps t as a non-null database timestamp.

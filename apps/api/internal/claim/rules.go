@@ -90,28 +90,12 @@ func checkRules(in Input, now time.Time) error {
 
 	nowInBangkok := now.In(bangkok)
 	today := time.Date(nowInBangkok.Year(), nowInBangkok.Month(), nowInBangkok.Day(), 0, 0, 0, 0, time.UTC)
-	oldest := today.AddDate(0, 0, -MaxExpenseAgeDays)
 
 	var total money.Satang
 
-	for i, item := range in.Items {
-		total += item.Amount
-
-		switch {
-		case item.Amount < MinAmount || item.Amount > MaxAmount:
-			fields = append(fields, FieldError{Field: itemField(i, "amount"), Rule: ruleItemLimits, Message: "Amount must be between 0.01 and 20,000.00 THB."})
-		case item.Category == db.ExpenseCategoryMEALS && item.Amount > MaxMealsAmount:
-			fields = append(fields, FieldError{Field: itemField(i, "amount"), Rule: ruleMeals, Message: "A Meals item cannot be more than 1,500.00 THB."})
-		}
-
-		date := time.Date(item.ExpenseDate.Year(), item.ExpenseDate.Month(), item.ExpenseDate.Day(), 0, 0, 0, 0, time.UTC)
-
-		switch {
-		case date.After(today):
-			fields = append(fields, FieldError{Field: itemField(i, "expenseDate"), Rule: ruleDate, Message: "Expense date cannot be in the future."})
-		case date.Before(oldest):
-			fields = append(fields, FieldError{Field: itemField(i, "expenseDate"), Rule: ruleDate, Message: "Expense date cannot be more than 90 days before the claim was first submitted."})
-		}
+	for i := range in.Items {
+		total += in.Items[i].Amount
+		fields = append(fields, checkItem(i, &in.Items[i], today)...)
 	}
 
 	if total > MaxTotal {
@@ -125,6 +109,30 @@ func checkRules(in Input, now time.Time) error {
 	return nil
 }
 
+// checkItem runs the rules of line item i: its amount (BR-05, BR-12) and its expense date (BR-07) against today, the
+// Bangkok date of the first submission.
+func checkItem(i int, item *LineItemInput, today time.Time) []FieldError {
+	var fields []FieldError
+
+	switch {
+	case item.Amount < MinAmount || item.Amount > MaxAmount:
+		fields = append(fields, FieldError{Field: itemField(i, "amount"), Rule: ruleItemLimits, Message: "Amount must be between 0.01 and 20,000.00 THB."})
+	case item.Category == db.ExpenseCategoryMEALS && item.Amount > MaxMealsAmount:
+		fields = append(fields, FieldError{Field: itemField(i, "amount"), Rule: ruleMeals, Message: "A Meals item cannot be more than 1,500.00 THB."})
+	}
+
+	date := time.Date(item.ExpenseDate.Year(), item.ExpenseDate.Month(), item.ExpenseDate.Day(), 0, 0, 0, 0, time.UTC)
+
+	switch {
+	case date.After(today):
+		fields = append(fields, FieldError{Field: itemField(i, "expenseDate"), Rule: ruleDate, Message: "Expense date cannot be in the future."})
+	case date.Before(today.AddDate(0, 0, -MaxExpenseAgeDays)):
+		fields = append(fields, FieldError{Field: itemField(i, "expenseDate"), Rule: ruleDate, Message: "Expense date cannot be more than 90 days before the claim was first submitted."})
+	}
+
+	return fields
+}
+
 // itemField names a field of line item i the way the problem's errors do, such as items[1].amount.
 func itemField(i int, name string) string {
 	return fmt.Sprintf("items[%d].%s", i, name)
@@ -133,7 +141,7 @@ func itemField(i int, name string) string {
 // checkComment runs BR-04 on a decision comment: a reject reason is required with 5 to 500 characters, an approve comment
 // is optional with at most 500. It counts characters, not bytes, after trimming, and returns a ValidationError on the
 // comment field, or nil.
-func checkComment(action, comment string) error {
+func checkComment(action Action, comment string) error {
 	length := utf8.RuneCountInString(strings.TrimSpace(comment))
 
 	var message string
