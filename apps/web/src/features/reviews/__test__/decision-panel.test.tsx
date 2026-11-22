@@ -312,6 +312,36 @@ describe("Decision panel", () => {
     expect(claimReads).toBe(1);
   }, 30_000);
 
+  it("F04-TEST-21: after a 403 on the decision, another claim opens with its data", async () => {
+    const otherId = "0192f1c4-7b2e-7c3a-9d41-3f0a6b8e2c12";
+    server.use(
+      http.get(`${apiUrl}/claims/${otherId}`, () =>
+        HttpResponse.json({
+          data: claim({ id: otherId, claimNo: "CLM-2026-000124" }),
+        })
+      )
+    );
+    const { router, user } = await open(claim());
+
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    decisionResponse = () =>
+      HttpResponse.json(problem(403, "FORBIDDEN", "req-approve-403"), {
+        status: 403,
+      });
+    await user.click(within(dialog()).getByRole("button", { name: "Approve" }));
+    await screen.findByText("You don't have access to this claim.");
+
+    await router.navigate({
+      to: "/claims/$claimId",
+      params: { claimId: otherId },
+    });
+
+    await screen.findByRole("heading", { name: "CLM-2026-000124" }, slow);
+    expect(
+      screen.queryByText("You don't have access to this claim.")
+    ).toBeNull();
+  }, 30_000);
+
   it("F04-TEST-21: another failure shows an error toast with the request ID and keeps the dialog", async () => {
     const { user } = await open(claim());
 

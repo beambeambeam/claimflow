@@ -170,14 +170,14 @@ export const ClaimDetailPage = ({
   claimId: string;
   actions?: ClaimActions;
 }) => {
-  const [denied, setDenied] = useState(false);
+  const [deniedId, setDeniedId] = useState<string | null>(null);
 
   const claim = useQuery({
     ...getClaimOptions({ path: { id: claimId } }),
     retry: false,
   });
 
-  if (denied) {
+  if (deniedId === claimId) {
     return <AccessDenied />;
   }
 
@@ -215,7 +215,7 @@ export const ClaimDetailPage = ({
       actions={actions}
       claim={claim.data.data}
       deny={() => {
-        setDenied(true);
+        setDeniedId(claimId);
       }}
     />
   );
