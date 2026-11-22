@@ -14,7 +14,7 @@ labs/05/
 From `docs/reports`, with `.env` filled in as for the sprint reports (see `../../README.md`, Setup):
 
 ```sh
-bun run pdf ../labs/05    # identity + XeLaTeX twice -> labs/05/main.pdf
+bun run pdf labs/05    # identity + XeLaTeX twice -> labs/05/main.pdf
 ```
 
 Student names and IDs reach the PDF only through `build/identity.tex`, as in the sprint reports. The PDF and `build/` are ignored by Git.
