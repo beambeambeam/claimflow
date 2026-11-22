@@ -2,6 +2,7 @@
   "include": [
     "scripts/**/*.ts",
     "sprints/*/report.config.ts",
+    "labs/*/report.config.ts",
     "sprints/*/demo.ts"
   ],
   "compilerOptions": {
