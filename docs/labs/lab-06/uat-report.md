@@ -207,7 +207,9 @@ Retests by `MacOverlorD` for the Queue team, on `bb5a0d1` (read from `/api/v1/he
 
 The Queue team's evidence IDs are B-R86-01 to 04, B-R87-01, 04, 05, and B-RREG, in their Lab 6 report. Both comments end "OK to close from the UAT side."
 
-The Queue team's confirmation is these two retest comments, by Lappawat Laohasoot on 2026-11-22. Both findings are confirmed fixed on `bb5a0d1` / `claimflow-00010-985`, and no finding is open.
+After the retests, `MacOverlorD` posted the final decision on both Issues at 2026-11-22 11:27 UTC ([#86](https://github.com/beambeambeam/claimflow/issues/86#issuecomment-7078452563), [#87](https://github.com/beambeambeam/claimflow/issues/87#issuecomment-7078452879)): "Final Sprint 1 UAT decision: Accepted, on `bb5a0d1` / `claimflow-00010-985`, tester Lappawat Laohasoot, 2026-11-22."
+
+**Decision for ClaimFlow's Sprint 1: Accepted**, on `bb5a0d1` / `claimflow-00010-985`. No finding is open.
 
 ## 6. Contributions
 
