@@ -1,0 +1,265 @@
+% ClaimFlow Lab 5 evidence index (CPE 334 Lab 5: GCP deployment and CI/CD), as submitted.
+% Build: bun run pdf ../labs/05 in docs/reports. Names and student IDs come from
+% docs/reports/.env through build/identity.tex, which is not committed.
+\documentclass[11pt,a4paper]{article}
+% ---- Team, section, and group -------------------------------------------------
+\newcommand{\teamno}{TH-015}
+\newcommand{\labsection}{1}
+\newcommand{\groupname}{gucode.unofficial}
+% -----------------------------------------------------------------------------
+\usepackage[margin=2cm]{geometry}
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\setmonofont{Courier New}
+% The baht sign needs a Thai font; Leelawadee UI ships with Windows. Elsewhere it prints THB.
+\IfFontExistsTF{Leelawadee UI}{%
+  \newfontfamily\thaifont{Leelawadee UI}\newcommand{\baht}{{\thaifont ฿}}}{%
+  \newcommand{\baht}{THB~}}
+\usepackage{graphicx,booktabs,tabularx,float,array,xcolor}
+\usepackage[font=small,labelfont=bf,labelsep=period]{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xurl}
+\hypersetup{colorlinks=true,urlcolor=blue!60!black,linkcolor=black}
+\usepackage{fancyvrb}
+\setlist{nosep,leftmargin=1.2em}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\graphicspath{{figures/}}
+\captionsetup{skip=3pt}
+% Student names and IDs, from docs/reports/.env through bun run identity.
+\InputIfFileExists{build/identity.tex}{}{%
+  \errmessage{build/identity.tex is missing: run bun run identity ../labs/05}}
+\setlength{\textfloatsep}{8pt}
+\setlength{\intextsep}{6pt}
+
+\newcommand{\repo}{https://github.com/beambeambeam/claimflow}
+\newcommand{\sha}{a76484cf6d80e05b5c8fabf0044e9a5a7d0df124}
+\newcommand{\pr}[1]{\href{\repo/pull/#1}{PR~\##1}}
+\newcommand{\issue}[1]{\href{\repo/issues/#1}{\##1}}
+\newcommand{\run}[1]{\href{\repo/actions/runs/#1}{run~#1}}
+\newcommand{\file}[1]{\href{\repo/blob/\sha/#1}{\nolinkurl{#1}}}
+\newcommand{\liveurl}{\url{https://claimflow-5bcxewbqkq-as.a.run.app}}
+\newcommand{\shot}[2][\textwidth]{\includegraphics[width=#1]{#2}}
+
+\begin{document}
+\begin{center}
+{\Large\bfseries CPE 334 Lab 5: GCP Deployment and CI/CD -- Evidence Index}\\[2pt]
+Team \teamno{} \textperiodcentered{} Section \labsection{} \textperiodcentered{} \groupname{} \textperiodcentered{} Theme 5: ClaimFlow (Department Expense Reimbursement System)
+\end{center}
+
+% =============================================================================
+\section*{Answer Part 0: Team and Evidence Index}
+
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X@{}}
+Team / section / group & Team \teamno, Section \labsection, \groupname \\
+Topic & Theme 5, ClaimFlow: Department Expense Reimbursement System \\
+Student 1 & \studentOneName, \studentOneId, GitHub \href{https://github.com/Kiatisakk}{\texttt{Kiatisakk}} \\
+Student 2 & \studentTwoName, \studentTwoId, GitHub \href{https://github.com/beambeambeam}{\texttt{beambeambeam}} \\
+Public repository & \url{https://github.com/beambeambeam/claimflow} (staging branch \texttt{lab-5}, Lab 5 work labelled \texttt{lab5}) \\
+Submitted commit & \href{\repo/commit/\sha}{\texttt{a76484c}} (head of \texttt{main}, merge of \pr{81}); latest release tag \href{\repo/releases/tag/v0.0.4.0}{\texttt{v0.0.4.0}} (commit \texttt{7952445}, \pr{76}). Later merges carry only \texttt{build:}/\texttt{ci:}/\texttt{docs:} commits, so no new version was cut, but every merge to \texttt{main} deploys. \\
+Public URL & \liveurl{} \\
+Commit it serves & \texttt{a76484c} on Cloud Run revision \texttt{claimflow-00005-2sb} (GCP project \texttt{cpe334-claimflow}, region \texttt{asia-southeast1}); check it at \href{https://claimflow-5bcxewbqkq-as.a.run.app/api/v1/health}{\texttt{/api/v1/health}}. \\
+\end{tabularx}
+
+\subsection*{Contribution}
+\small
+\begin{tabularx}{\textwidth}{@{}p{2.2cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+Student & Work & Issues and Pull Requests \\
+\midrule
+Kiatisakk & Cloud-ready image, compose stack and image CI gate; one-time GCP setup (Episodes 1, 5, 6: project, cost controls, Cloud SQL, secrets, WIF); deploy pipeline with smoke test and rollback; C-02 proof; release PRs; all evidence and this PDF. &
+Issues \issue{52}, \issue{53}, \issue{54}, \issue{55}. Authored \pr{74}, \pr{75}, \pr{77}, \pr{78}, \pr{79}; release \pr{76}, \pr{80}; reviewed and approved \pr{81}. \\
+beambeambeam & Rulesets on \texttt{main}/sprint/lab branches, the \texttt{lab-5} staging branch, the \texttt{demo} environment and secret push protection; reviewed the Lab 5 PRs (3, 5 and 8 findings, all fixed) and merged the releases; sped up API tests. &
+Reviewed \pr{74}, \pr{75}, \pr{79}; merged release \pr{76}, \pr{80}; authored \pr{81}. Spec issue \issue{51} closed as not needed. \\
+\bottomrule
+\end{tabularx}
+
+\subsection*{Evidence index}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{1.9cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.6cm}@{}}
+\toprule
+Rubric part & Artifact / direct link & IDs / version & Verification result \\
+\midrule
+1. CI and quality gate & \file{.github/workflows/ci.yml}; \pr{74}, \run{44115292575} & C-01, R-05; head \texttt{a642875} & 5/5 jobs pass; API coverage 100\% (758/758) \\
+ & \href{\repo/rules}{\texttt{main} ruleset} (Fig.~1) & R-06; checks \texttt{code\_quality}, \texttt{test}, \texttt{api}, \texttt{build}, \texttt{image} & Active: 5 required checks, 1 approval, up to date, no force push \\
+ & \pr{78} from \texttt{test/prove-gate}, \run{44345015869} & C-02, R-06; \texttt{068563f} & \texttt{test} failed (1/130); merge blocked (Figs.~2--3) \\
+\midrule
+2. Docker and config & \file{Dockerfile}, \file{.dockerignore}, \file{docker-compose.yml}; \pr{74} body & C-03, R-01; \texttt{da4ab03}, \texttt{23385c1} & Fresh clone builds; health ok, ready 200; claim survives restart \\
+ & \file{.env.example}, \file{apps/api/.env.schema}, \file{docs/labs/lab-05/deployment.md} & R-02, R-12 & No secret in the repo; push protection on (Fig.~4) \\
+\midrule
+3. GCP deployment & \liveurl{} & C-04, R-03; release \texttt{58f6edb}, rev.\ \texttt{00002-4bv} & Log in, submit, rule and role check work (Figs.~5--7) \\
+ & Cloud Run + Cloud SQL + Secret Manager & rev.\ \texttt{00001-zhx}, \texttt{claimflow-pg} & UI, API and DB connected (Figs.~8--10) \\
+ & C-05 screenshots (Fig.~11) & R-04; \texttt{58f6edb}$\leftrightarrow$\texttt{a76484c}, rev.\ 00002--00005 & CLM-2026-000001 present after every redeploy, rollback and roll forward \\
+\midrule
+4. Release pipeline & \issue{54} $\to$ \pr{79} $\to$ \pr{80} $\to$ \run{44373084548} $\to$ \run{44374575601} & C-06, R-07--R-10; \texttt{58f6edb}, rev.\ \texttt{00002-4bv} & Smoke 4/4 pass; revision serves 100\% (Figs.~12--13) \\
+ & \pr{81} $\to$ \run{44383027904}; rollback \run{44385400401}; forward \run{44385936046} & \texttt{a76484c}; rev.\ 00003, 00004, 00005 & Repeatable; rollback reuses the release digest (Figs.~14--15) \\
+\bottomrule
+\end{tabularx}
+\normalsize
+
+% =============================================================================
+\section*{Answer Part 1: CI and Quality Gate}
+
+\textbf{CI workflow.} \file{.github/workflows/ci.yml} runs five jobs on every pull request and push: \texttt{code\_quality} (lint, format, types), \texttt{test} (web unit tests with coverage), \texttt{api} (Go tests against PostgreSQL, 100\% coverage gate), \texttt{build} (web build) and \texttt{image} (builds the production Docker image).
+
+\textbf{C-01, passing PR.} \pr{74} (cloud-ready image and compose stack), CI \run{44115292575} on head \texttt{a642875}: all five jobs pass, the API suite reports 758/758 statements covered (100\%). Beam's review raised three findings, all fixed before merge.
+
+\textbf{Required checks on \texttt{main}.} The \texttt{main}, sprint and lab rulesets require \texttt{code\_quality}, \texttt{test}, \texttt{api}, \texttt{build} and \texttt{image} to pass, one approval (stale approvals dismissed on new commits), the branch up to date before merging, and block force pushes and deletion; allowed merge methods are Merge and Squash, and \texttt{main} has no bypass actor. The rules are recorded in \file{docs/system-sds.md} \S9.1.
+
+\begin{figure}[H]\centering
+\shot{ep6-7-main-ruleset.png}
+\caption{R-05, R-06: the active \texttt{main} ruleset, Branch rules: restrict deletions; require a pull request with 1 approval, stale approvals dismissed on new commits, allowed merge methods Merge and Squash; require status checks \texttt{code\_quality}, \texttt{test}, \texttt{api}, \texttt{build}, \texttt{image} with the branch up to date before merging; block force pushes. Source: \url{https://github.com/beambeambeam/claimflow/rules}.}
+\end{figure}
+
+\textbf{C-02, failing PR from a temporary branch.} \pr{78} from \texttt{test/prove-gate} changes one expected value in \texttt{apps/web/src/lib/\_\_test\_\_/format.test.ts}. CI \run{44345015869} on head \texttt{068563f}: the required \texttt{test} job fails, the other four pass, and GitHub blocks the merge. The PR was closed unmerged and the branch deleted.
+
+\begin{figure}[H]\centering
+\shot[0.82\textwidth]{ep6-6a-c02-blocked.png}
+\caption{C-02 (R-06): \pr{78} from the temporary branch \texttt{test/prove-gate} into \texttt{main}; the required check \texttt{CI / test} fails, the merge box reads ``Required checks failing'' and \emph{Merge pull request} is disabled. Commit \texttt{068563f}, \run{44345015869}.}
+\end{figure}
+
+\begin{figure}[H]\centering
+\shot{ep6-6b-c02-test-log.png}
+\caption{C-02 (R-05, R-06): the \texttt{test} job log of \run{44345015869} fails on the broken assertion (\texttt{expected '\baht abc' to be '\baht abd'}): 1 failed, 129 passed, exit code 1. Commit \texttt{068563f}.}
+\end{figure}
+
+% =============================================================================
+\section*{Answer Part 2: Docker and Reproducible Configuration}
+
+\textbf{Image.} \file{Dockerfile} builds one image that holds the Go API and the built web app; \file{.dockerignore} keeps \texttt{.env}, \texttt{node\_modules} and build output out of the context. \file{docker-compose.yml} runs \texttt{db} (PostgreSQL), \texttt{migrate} (migrations and seed) and \texttt{app}, with ports bound to loopback.
+
+\textbf{C-03, fresh build and running container with its database} (from the \pr{74} body; fresh clone, only \texttt{.env.example} copied and filled in; run on commits \texttt{da4ab03} and \texttt{23385c1}, host ports 18080/55433 because the defaults were taken):
+\begin{Verbatim}[fontsize=\footnotesize,frame=single,framesep=4pt]
+git clone https://github.com/beambeambeam/claimflow.git && cd claimflow
+cp .env.example .env    # set SEED_USER_PASSWORD
+APP_VERSION=$(git rev-parse HEAD) docker compose up --build -d
+curl -s localhost:8080/api/v1/health
+curl -s localhost:8080/api/v1/ready
+
+migrate: applied 00001_auth.sql
+migrate: applied 00002_claims.sql
+migrate: seeded 7 users and 6 claims
+health:  {"status":"ok","version":"23385c1447a76d2a5bb4a936ff28e7443c758116"}
+ready:   200
+\end{Verbatim}
+\vspace{-4pt}
+\texttt{/} and \texttt{/claims} serve \texttt{index.html} (no-cache), hashed assets are \texttt{immutable}, \texttt{/api/v1/nope} returns a JSON 404. A claim created through the API survived \texttt{docker compose restart app} and \texttt{docker compose up --build}.
+
+\textbf{Configuration without secrets.} \file{.env.example} and \file{apps/api/.env.example} hold placeholders only; \file{apps/api/.env.schema} declares every variable and marks the sensitive ones. The environment variable table in \file{docs/labs/lab-05/deployment.md} lists each variable with its source: in Cloud Run, \texttt{DATABASE\_URL} and the seed password come from Secret Manager (Fig.~10a), never from the repository. Secret push protection is on, so a pushed key would be rejected.
+
+\begin{figure}[H]\centering
+\shot[0.6\textwidth]{ep6-5-push-protection.png}
+\caption{R-02, R-12: repository Settings, Advanced Security; Secret Protection with push protection \emph{On} for \texttt{beambeambeam/claimflow}, so commits containing supported secrets are blocked.}
+\end{figure}
+
+% =============================================================================
+\section*{Answer Part 3: GCP Deployment and Persistence}
+
+\textbf{Public URL.} \liveurl{} (Cloud Run service \texttt{claimflow}, \texttt{asia-southeast1}), serving commit \texttt{a76484c}.
+
+\textbf{C-04, domain workflow on the live URL.} A requester signs in, submits a claim, the expense-date rule rejects a future date, and the requester cannot open the reviewer's queue.
+
+\begin{figure}[H]\centering
+\begin{subfigure}[b]{0.36\textwidth}\centering\shot{c04-1-login.png}\caption{Requester \texttt{req.anan} signs in.}\end{subfigure}\hfill
+\begin{subfigure}[b]{0.6\textwidth}\centering\shot{c04-4-forbidden.png}\caption{Review Queue: ``You don't have access to this page.''}\end{subfigure}
+\caption{C-04 (R-03): sign-in and role-based access on the public URL \texttt{claimflow-5bcxewbqkq-as.a.run.app} (address bar, top left); a Requester is refused the reviewer's Review Queue. Release \texttt{58f6edb}, revision \texttt{claimflow-00002-4bv}.}
+\end{figure}
+
+\begin{figure}[H]\centering
+\shot{c04-2-submit.png}
+\caption{C-04 (R-03): after submitting, \emph{My Claims} on the public URL lists CLM-2026-000001 ``London'', \baht 1,250.00, status Submitted, read back from Cloud SQL. Release \texttt{58f6edb}.}
+\end{figure}
+
+\begin{figure}[H]\centering
+\shot[\textwidth]{c04-3-rule.png}
+\caption{C-04 (R-03): business rule on the public URL; a line item dated 20 Nov 2026 is rejected with ``Expense date cannot be in the future.'' Release \texttt{58f6edb}.}
+\end{figure}
+
+\textbf{UI, API and database connectivity.} The UI and the API are served by the same Cloud Run container; \href{https://claimflow-5bcxewbqkq-as.a.run.app/api/v1/ready}{\texttt{/api/v1/ready}} returns ok only when the database answers.
+\begin{figure}[H]\centering
+\shot[0.75\textwidth]{ep5-1-health.png}
+\caption{R-03: Cloud Shell after the first deploy; the service URL, \texttt{/api/v1/health} reports version \texttt{7952445} (release 1) and \texttt{/api/v1/ready} returns ok, so the API reaches Cloud SQL. Revision \texttt{claimflow-00001-zhx}.}
+\end{figure}
+
+\textbf{GCP service and database.} Cloud SQL for PostgreSQL 17 instance \texttt{claimflow-pg} (\texttt{db-f1-micro}, \texttt{asia-southeast1}); Cloud Run reads \texttt{DATABASE\_URL} from Secret Manager; the runtime service account \texttt{claimflow-runtime} holds only Cloud SQL Client (least privilege). Setup is scripted in \mbox{\file{deploy/setup.sh}}.
+
+\begin{figure}[H]\centering
+\begin{subfigure}[t]{0.4\textwidth}\centering\shot{ep5-5b-sql-config.png}\caption{Cloud SQL \texttt{claimflow-pg}, PostgreSQL 17, \texttt{db-f1-micro}.}\end{subfigure}\hfill
+\begin{subfigure}[t]{0.57\textwidth}\centering\shot{ep5-7a-run.png}\caption{Revision \texttt{claimflow-00001-zhx}; \texttt{DATABASE\_URL} = Secret \texttt{claimflow-database-url:latest}.}\end{subfigure}
+\caption{R-03: the GCP service and database in the Console (project \texttt{cpe334-claimflow}); the container gets its connection string from Secret Manager, not from an image or the repository.}
+\end{figure}
+
+\begin{figure}[H]\centering
+\begin{subfigure}{\textwidth}\centering\shot[0.8\textwidth]{ep5-6a-secrets.png}\caption{Secret Manager holds \texttt{claimflow-database-url} and \texttt{claimflow-seed-password} (values not shown).}\end{subfigure}\\[4pt]
+\begin{subfigure}{\textwidth}\centering\shot[0.85\textwidth]{ep5-4-iam.png}\caption{IAM: the runtime service account \texttt{claimflow-runtime} has only the Cloud SQL Client role.}\end{subfigure}
+\caption{R-02, R-03: secrets and least-privilege runtime identity in project \texttt{cpe334-claimflow}.}
+\end{figure}
+
+\textbf{C-05, data before and after a restart and a redeploy.} Claim CLM-2026-000001 ``London'', \baht 1,250.00, Submitted (history ``Anan K.\ 19 Nov 2026, 02:28'') was checked on the live URL at four moments. Each redeploy, rollback and roll forward creates a new revision, so Cloud Run starts new containers (a restart of the app); the data lives in Cloud SQL, and the user stayed signed in at every step because sessions are stored there too.
+
+\begin{center}\small
+\begin{tabular}{@{}llllc@{}}
+\toprule
+Moment & Version (\texttt{/health}) & Revision & Run & Claim present \\
+\midrule
+Before & \texttt{58f6edb} & \texttt{claimflow-00002-4bv} & \run{44374575601} & yes \\
+After redeploy (\pr{81}) & \texttt{a76484c} & \texttt{claimflow-00003-q7m} & \run{44383027904} & yes \\
+After rollback & \texttt{58f6edb} & \texttt{claimflow-00004-n9c} & \run{44385400401} & yes \\
+After roll forward & \texttt{a76484c} & \texttt{claimflow-00005-2sb} & \run{44385936046} & yes \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{figure}[H]\centering
+\begin{subfigure}{\textwidth}\centering\shot[0.62\textwidth]{c05-row1.png}\caption{Before: version \texttt{58f6edb}, revision 00002.}\end{subfigure}\par\vspace{3pt}
+\begin{subfigure}{\textwidth}\centering\shot[0.62\textwidth]{c05-row2.png}\caption{After redeploy (\pr{81}): \texttt{a76484c}, revision 00003.}\end{subfigure}\par\vspace{3pt}
+\begin{subfigure}{\textwidth}\centering\shot[0.62\textwidth]{c05-row3.png}\caption{After rollback: \texttt{58f6edb}, revision 00004.}\end{subfigure}\par\vspace{3pt}
+\begin{subfigure}{\textwidth}\centering\shot[0.62\textwidth]{c05-row4.png}\caption{After roll forward: \texttt{a76484c}, revision 00005.}\end{subfigure}
+\caption{C-05 (R-04): left of each panel, claim CLM-2026-000001 with its unchanged history; right, the public URL and \texttt{/api/v1/health} version at that moment. The record survives new containers on every redeploy, the rollback and the roll forward. Runs 44374575601, 44383027904, 44385400401, 44385936046.}
+\end{figure}
+
+% =============================================================================
+\section*{Answer Part 4: Repeatable Release Pipeline}
+
+\textbf{One labelled change, end to end (C-06).}
+\begin{enumerate}
+\item Issue \issue{54} ``L5/03 deploy pipeline and first release'' (label \texttt{lab5}).
+\item \pr{79} \emph{build: deploy main to Cloud Run with a smoke test and rollback} from a feature branch into the staging branch \texttt{lab-5} (label \texttt{lab5}, ``Part of \#54''). Beam's review raised eight findings (an ordering race, the startup probe, \texttt{COOKIE\_SECURE}/\texttt{GIN\_MODE}, the version-to-SHA mapping and others); all were fixed and he approved. Squash commit \texttt{5192c60}.
+\item Release \pr{80} \emph{chore: release the Lab 5 deploy pipeline} from \texttt{lab-5} into \texttt{main}, merge commit \texttt{58f6edb}.
+\item CI on \texttt{main}: \run{44373084548} (\texttt{58f6edb}).
+\item Deploy demo \#1, \run{44374575601}, triggered automatically by that CI run (\texttt{workflow\_run}); it builds and pushes the image, deploys it with the GitHub \texttt{demo} environment, and runs \file{deploy/smoke.sh} (4/4 pass).
+\end{enumerate}
+The pipeline is \file{.github/workflows/deploy.yml}; the release procedure, rollback steps and GCP resources are in \file{docs/labs/lab-05/deployment.md}.
+
+\begin{figure}[H]\centering
+\shot[0.9\textwidth]{ep7-3-summary.png}
+\caption{C-06 (R-07, R-08): job summary of Deploy demo \#1, \run{44374575601}, triggered by the CI run on \texttt{main}: commit \texttt{58f6edb}, image digest \texttt{sha256:4576d528e335\ldots}, revision \texttt{claimflow-00002-4bv}, smoke test passed.}
+\end{figure}
+
+\begin{figure}[H]\centering
+\shot[0.6\textwidth]{ep7-4-revision.png}
+\caption{C-06 (R-08): Cloud Run revision history after \run{44374575601}; \texttt{claimflow-00002-4bv} (release commit \texttt{58f6edb}) serves 100\% of traffic.}
+\end{figure}
+
+\textbf{Repeatable.} The next merge, \pr{81} (Beam's change, reviewed and approved by Kiatisakk), deployed automatically: \run{44383027904} $\to$ \texttt{a76484c}, revision \texttt{claimflow-00003-q7m}. A rollback is the same workflow run by hand with an earlier image tag: \run{44385400401} (\texttt{image\_tag=58f6edb\ldots}) skipped the build, redeployed the release-2 digest as \texttt{claimflow-00004-n9c}, and passed the smoke test; roll forward \run{44385936046} restored \texttt{a76484c} as \texttt{claimflow-00005-2sb}.
+
+\begin{figure}[H]\centering
+\shot[0.9\textwidth]{ep8-6-rollback-summary.png}
+\caption{R-07, R-08: rollback, Deploy demo \#3, \run{44385400401} (\texttt{workflow\_dispatch}); \texttt{Rollback: true}, commit \texttt{58f6edb}, the same digest \texttt{sha256:4576d528\ldots} as Fig.~12, new revision \texttt{claimflow-00004-n9c}, smoke test passed.}
+\end{figure}
+
+\begin{figure}[H]\centering
+\shot[0.6\textwidth]{ep8-12-revisions.png}
+\caption{R-08: revision history after roll forward \run{44385936046}; \texttt{claimflow-00005-2sb} (\texttt{a76484c}) serves 100\%, with the earlier revisions 00001--00004 kept for rollback.}
+\end{figure}
+
+\textbf{Keyless deploy.} GitHub Actions signs in to GCP through Workload Identity Federation; the deployer service account has no keys, and the provider only accepts tokens from \texttt{deploy.yml} on \texttt{refs/heads/main} in this repository and the \texttt{demo} environment.
+
+\begin{figure}[H]\centering
+\begin{subfigure}{\textwidth}\centering\shot[0.8\textwidth]{ep6-2-deployer-keys.png}\caption{Service account ``ClaimFlow deployer'', Keys tab: no rows (no key was ever created).}\end{subfigure}\\[4pt]
+\begin{subfigure}{\textwidth}\centering\shot{ep6-3c-wif-condition.png}\caption{WIF provider \texttt{github-main} attribute condition (output wrapped onto two lines here).}\end{subfigure}
+\caption{R-07, R-12: keyless deployment in project \texttt{cpe334-claimflow}; only \texttt{beambeambeam/claimflow}, workflow \texttt{deploy.yml} on \texttt{main}, environment \texttt{demo} can impersonate the deployer.}
+\end{figure}
+
+\end{document}
