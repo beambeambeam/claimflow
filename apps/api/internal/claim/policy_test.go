@@ -85,7 +85,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 						t.Fatalf("visible = %t, want %t", visible, want)
 					}
 
-					// The owner has no action until Sprint 2. A claim assigned to its own requester gives no action (BR-01).
+					// The requester has no action until Sprint 2. A claim assigned to its own requester gives no action (BR-01).
 					if want := relation.actions(status); actions == nil || !slices.Equal(actions, want) {
 						t.Fatalf("actions = %#v, want %#v", actions, want)
 					}

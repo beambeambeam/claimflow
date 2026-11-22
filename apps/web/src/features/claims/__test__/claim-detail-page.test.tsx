@@ -126,7 +126,7 @@ describe("Claim Detail", () => {
     within(entries[1]).getByText("6 Nov 2026, 16:30");
     within(entries[1]).getByText("Receipts match.");
 
-    // No action is allowed for the owner in Sprint 1.
+    // No action is allowed for the requester in Sprint 1.
     expect(within(screen.getByRole("main")).queryByRole("button")).toBeNull();
   }, 20_000);
 
