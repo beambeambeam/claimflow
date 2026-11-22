@@ -11,10 +11,11 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
 
-// Permissions maps a resource to the actions granted on it.
+// Permissions maps a resource to the actions granted on it: the route permissions of GLOSSARY.md, which are not the
+// Allowed Actions of one claim.
 type Permissions map[string][]string
 
-// Permission is one action on one resource, such as claim:create.
+// Permission is one route permission: one action on one resource, such as claim:create.
 type Permission struct {
 	Resource string
 	Action   string

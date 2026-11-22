@@ -75,3 +75,7 @@ _Avoid_: Accessible claim, authorized claim
 **Allowed Action**: A step a member may take on a visible claim right now, given who they are and the claim's current state: edit, delete, submit, withdraw, or a decision or final decision.
 
 _Avoid_: Permission, capability
+
+**Route Permission**: A resource and action pair, such as `claim:create`, that a member's role grants. It says which pages and endpoints a member may use at all, before any claim is looked at. It is not an Allowed Action, which depends on one claim and its state.
+
+_Avoid_: Allowed Action, capability
