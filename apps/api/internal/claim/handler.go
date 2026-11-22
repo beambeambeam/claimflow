@@ -110,13 +110,9 @@ func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestOb
 		return nil, httperr.ErrValidation
 	}
 
-	if err := auth.Authorize(ctx, resource, "list"); err != nil {
+	user, err := auth.Authorize(ctx, resource, "list")
+	if err != nil {
 		return nil, fmt.Errorf("authorize: %w", err)
-	}
-
-	user, ok := auth.UserFrom(ctx)
-	if !ok { // coverage-ignore
-		return nil, errUnauthenticated
 	}
 
 	result, err := list(ctx, Actor{ID: user.ID}, page, pageSize)
