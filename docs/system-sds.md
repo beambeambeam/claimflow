@@ -2,8 +2,8 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.12 (draft for Deliverable 1)
-- **Last updated:** 2026-11-15
+- **Version:** 0.16 (draft for Deliverable 1)
+- **Last updated:** 2026-11-22
 - **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
 This document defines the system-wide design: architecture, data model, the API contract and its conventions, roles and access, authentication, configuration, and deployment. Each feature contract in `docs/sprints/` refines it with exact operations in `apps/api/openapi.yaml`, screens, and schema changes.
@@ -711,7 +711,7 @@ Tests go through each module's interface. They test behaviour, not internals, so
 | HTTP (Go) | `httptest` + full router + `pgtest` | Contract validation, problem responses, cookies, cross-origin protection, the route inventory and access tests (5.3) | Anonymous request to every operation → 401 |
 | Concurrency (Go) | Two goroutines `Act` on the same claim with the same version | BR-13 | Exactly one success, one `ErrConflict`, one history row |
 | Unit/component (web) | Vitest via `vp test`, Testing Library, MSW handlers typed from the generated client | Forms, problem → field messages, `allowedActions` → buttons, navigation by permission | Finance user sees no "New Claim" link |
-| E2E | Playwright against `docker compose` | Critical journeys | Requester submits → reviewer approves → requester sees Approved with history |
+| E2E | Playwright against a local seeded stack before each release, not in CI (Product DoD item 4) | Critical journeys | Requester submits → reviewer approves → requester sees Approved with history |
 
 Test files follow each language's standard layout:
 
@@ -757,6 +757,7 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.10 | 2026-11-07 | F-01/01 (#24) decisions: HeroUI v3 (1.2); `system` package and per-test template databases in `pgtest` (1.4, 10); `db:up` at the root, `migrate up\|down\|status` subcommand with embedded migrations and an advisory lock (2.5); problem `type` is `about:blank`, and `requestId` is a server-made UUIDv7 also sent in `X-Request-Id` (4.2) | 1005, 1045 |
 | 0.11 | 2026-11-13 | Web UI: Astryx with the Neutral theme replaces Tailwind and HeroUI; TanStack Form in use through `#/lib/form` (1.2, 1.4.2) | 1005, 1045 |
 | 0.12 | 2026-11-15 | Sprint 1 release. Records the changes that feature PRs made: `OperationPermissions` and the per-operation check (1.4.1, 5.1, PR #59); `validate.go` (1.4.1, PR #60); the stale-version exception in 3.3 (PR #65, F-04 contract 0.4). Adds what Sprint 1 built differently from 3.1 and 8 (the `List` methods, string actions, empty session audit fields), tracked in #67 | 1005 |
+| 0.16 | 2026-11-22 | E2E (10): Playwright runs against a local seeded stack before each release, not in CI, per Product DoD 0.3 item 4 (#66) | beambeambeam |
 | 0.15 | 2026-11-19 | Release identity (9): images carry the SHA only; a version maps to its SHA (#54) | 1005 |
 | 0.14 | 2026-11-18 | 9.1 matches the live rulesets: admin bypass on `sprint` and `lab`, up to date before merging on all three, no last-push approval rule (#53) | 1005 |
 | 0.13 | 2026-11-17 | Lab 5 (#53): the root `Dockerfile` and `WEB_DIR` (8, 9); the `migrate` compose service (9); `image` replaces `api_image` and is a required check in the `main`, `sprint`, and `lab` rulesets; the `lab` ruleset is documented (9, 9.1) | 1005 |
