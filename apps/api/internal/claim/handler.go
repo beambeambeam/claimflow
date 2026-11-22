@@ -65,7 +65,7 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 	return api.CreateClaim201JSONResponse{
 		Body: api.ClaimEnvelope{Data: claimBody(&created)},
 		Headers: api.CreateClaim201ResponseHeaders{
-			ETag:     fmt.Sprintf("%q", strconv.Itoa(created.Version)),
+			ETag:     etag(created.Version),
 			Location: locationPrefix + created.ID.String(),
 		},
 	}, nil
