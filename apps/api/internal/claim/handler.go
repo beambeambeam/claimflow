@@ -57,86 +57,66 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 		return nil, errUnauthenticated
 	}
 
-	created, err := h.service.Create(ctx, Actor{ID: user.ID}, input(request.Body), true)
-	if errors.Is(err, ErrForbidden) {
-		return nil, httperr.ErrForbidden
-	}
-
-	var invalid ValidationError
-	if errors.As(err, &invalid) {
-		return nil, fmt.Errorf("claim rules: %w", httperr.ValidationFailed(fieldErrors(invalid)))
-	}
-
+	created, err := h.service.Create(ctx, Actor{ID: user.ID}, input(request.Body))
 	if err != nil {
-		return nil, err
+		return nil, problem(err)
 	}
 
 	return api.CreateClaim201JSONResponse{
 		Body: api.ClaimEnvelope{Data: claimBody(&created)},
 		Headers: api.CreateClaim201ResponseHeaders{
-			ETag:     fmt.Sprintf("%q", strconv.Itoa(created.Version)),
+			ETag:     etag(created.Version),
 			Location: locationPrefix + created.ID.String(),
 		},
 	}, nil
 }
 
+// listScopes maps each scope of the contract to the module's scope and the resource of its route permission:
+// claim:list for mine, which a Finance Officer lacks (F03-AC-04), and review:list for review, which a requester lacks
+// (F04-AC-02).
+var listScopes = map[api.ListClaimsParamsScope]struct {
+	scope    Scope
+	resource string
+}{
+	api.ListScopeMine:   {scope: ScopeMine, resource: "claim"},
+	api.ListScopeReview: {scope: ScopeReview, resource: "review"},
+}
+
 // ListClaims returns one page of claims in the scope: the session user's own (mine), or the SUBMITTED claims assigned
 // to them (review). A missing or unknown scope, a page below 1, and a page size outside 1–100 are 400. The route
-// permission depends on the scope, so the handler checks it after it reads the scope: claim:list for mine, which a
-// Finance Officer lacks (F03-AC-04), and review:list for review, which a requester lacks (F04-AC-02).
+// permission depends on the scope, so the handler checks it after it reads the scope.
 func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestObject) (api.ListClaimsResponseObject, error) {
 	params := request.Params
-	page, pageSize := defaultPage, defaultPageSize
+	q := Query{Page: defaultPage, PageSize: defaultPageSize}
 
 	if params.Page != nil {
-		page = *params.Page
+		q.Page = *params.Page
 	}
 
 	if params.PageSize != nil {
-		pageSize = *params.PageSize
+		q.PageSize = *params.PageSize
 	}
 
-	if page < 1 || pageSize < 1 || pageSize > maxPageSize {
+	scope, ok := listScopes[params.Scope]
+	if !ok || q.Page < 1 || q.PageSize < 1 || q.PageSize > maxPageSize {
 		return nil, httperr.ErrValidation
 	}
 
-	resource, list := "claim", h.service.ListMine
+	q.Scope = scope.scope
 
-	switch params.Scope {
-	case api.ListScopeMine:
-	case api.ListScopeReview:
-		resource, list = "review", h.service.ListReview
-	default:
-		return nil, httperr.ErrValidation
-	}
-
-	if err := auth.Authorize(ctx, resource, "list"); err != nil {
+	user, err := auth.Authorize(ctx, scope.resource, "list")
+	if err != nil {
 		return nil, fmt.Errorf("authorize: %w", err)
 	}
 
-	user, ok := auth.UserFrom(ctx)
-	if !ok { // coverage-ignore
-		return nil, errUnauthenticated
-	}
-
-	result, err := list(ctx, Actor{ID: user.ID}, page, pageSize)
+	result, err := h.service.List(ctx, Actor{ID: user.ID}, q)
 	if err != nil { // coverage-ignore
 		return nil, err
 	}
 
-	body := api.ClaimPage{Data: make([]api.ClaimSummary, 0, len(result.Claims)), Page: page, PageSize: pageSize, Total: result.Total}
+	body := api.ClaimPage{Data: make([]api.ClaimSummary, 0, len(result.Claims)), Page: q.Page, PageSize: q.PageSize, Total: result.Total}
 	for i := range result.Claims {
-		summary := &result.Claims[i]
-		body.Data = append(body.Data, api.ClaimSummary{
-			Id:          summary.ID.String(),
-			ClaimNo:     summary.ClaimNo,
-			Status:      api.ClaimStatus(summary.Status),
-			Title:       summary.Title,
-			Total:       summary.Total,
-			Requester:   memberBody(summary.Requester),
-			SubmittedAt: utc(summary.SubmittedAt),
-			CreatedAt:   summary.CreatedAt.UTC(),
-		})
+		body.Data = append(body.Data, summaryBody(&result.Claims[i]))
 	}
 
 	return api.ListClaims200JSONResponse(body), nil
@@ -156,21 +136,13 @@ func (h Handler) GetClaim(ctx context.Context, request api.GetClaimRequestObject
 	}
 
 	found, err := h.service.Get(ctx, Actor{ID: user.ID}, id)
-	if errors.Is(err, ErrNotFound) {
-		return nil, errClaimNotFound
-	}
-
-	if errors.Is(err, ErrForbidden) {
-		return nil, httperr.ErrForbidden
-	}
-
-	if err != nil { // coverage-ignore
-		return nil, err
+	if err != nil {
+		return nil, problem(err)
 	}
 
 	return api.GetClaim200JSONResponse{
 		Body:    api.ClaimEnvelope{Data: claimBody(&found)},
-		Headers: api.GetClaim200ResponseHeaders{ETag: fmt.Sprintf("%q", strconv.Itoa(found.Version))},
+		Headers: api.GetClaim200ResponseHeaders{ETag: etag(found.Version)},
 	}, nil
 }
 
@@ -197,7 +169,7 @@ func (h Handler) RejectClaim(ctx context.Context, request api.RejectClaimRequest
 // decide reads If-Match, the claim id, and the comment of a decision request, takes the decision, and maps the
 // module's errors to problems. A missing If-Match is 428 and a malformed one 400, both before the claim is read
 // (F-04 §1.4, step 1).
-func (h Handler) decide(ctx context.Context, rawID string, ifMatch *string, action string, body *api.ClaimDecision) (Claim, error) {
+func (h Handler) decide(ctx context.Context, rawID string, ifMatch *string, action Action, body *api.ClaimDecision) (Claim, error) {
 	version, err := parseVersion(ifMatch)
 	if err != nil {
 		return Claim{}, err
@@ -219,25 +191,44 @@ func (h Handler) decide(ctx context.Context, rawID string, ifMatch *string, acti
 	}
 
 	decided, err := h.service.Act(ctx, Actor{ID: user.ID}, id, version, action, comment)
-
-	var invalid ValidationError
-
-	switch {
-	case errors.As(err, &invalid):
-		return Claim{}, fmt.Errorf("decision rules: %w", httperr.ValidationFailed(fieldErrors(invalid)))
-	case errors.Is(err, ErrInvalidTransition):
-		return Claim{}, fmt.Errorf("decision status: %w", httperr.InvalidTransition(apiFieldError(transitionError)))
-	case errors.Is(err, ErrNotFound):
-		return Claim{}, errClaimNotFound
-	case errors.Is(err, ErrForbidden):
-		return Claim{}, httperr.ErrForbidden
-	case errors.Is(err, ErrConflict):
-		return Claim{}, httperr.ErrConflict
-	case err != nil:
-		return Claim{}, err
+	if err != nil {
+		return Claim{}, problem(err)
 	}
 
 	return decided, nil
+}
+
+// moduleProblems maps each error of the module to its problem response (SDS §4.2).
+var moduleProblems = []struct {
+	err     error
+	problem error
+}{
+	{ErrNotFound, errClaimNotFound},
+	{ErrForbidden, httperr.ErrForbidden},
+	{ErrConflict, httperr.ErrConflict},
+	{ErrInvalidTransition, httperr.InvalidTransition(apiFieldError(transitionError))},
+}
+
+// problem maps a module error to its problem response. ErrForbidden is also BR-15 on Create. A ValidationError
+// becomes 422 with its fields. Any other error is left as it is, which the server answers with 500.
+func problem(err error) error {
+	var invalid ValidationError
+	if errors.As(err, &invalid) {
+		return fmt.Errorf("claim rules: %w", httperr.ValidationFailed(fieldErrors(invalid)))
+	}
+
+	for _, known := range moduleProblems {
+		if errors.Is(err, known.err) {
+			return known.problem
+		}
+	}
+
+	return err
+}
+
+// etag is the ETag of a claim version, the version number in quotes, which If-Match sends back.
+func etag(version int) string {
+	return strconv.Quote(strconv.Itoa(version))
 }
 
 // parseVersion reads the claim version from an If-Match value such as "3". A missing header is 428. A value that is not
@@ -264,7 +255,7 @@ func parseVersion(ifMatch *string) (int, error) {
 func decidedBody(decided *Claim) api.DecidedJSONResponse {
 	return api.DecidedJSONResponse{
 		Body:    api.ClaimEnvelope{Data: claimBody(decided)},
-		Headers: api.DecidedResponseHeaders{ETag: fmt.Sprintf("%q", strconv.Itoa(decided.Version))},
+		Headers: api.DecidedResponseHeaders{ETag: etag(decided.Version)},
 	}
 }
 
@@ -318,7 +309,7 @@ func claimBody(claim *Claim) api.Claim {
 		UpdatedAt:        claim.UpdatedAt.UTC(),
 		Items:            make([]api.LineItem, 0, len(claim.Items)),
 		History:          make([]api.HistoryEntry, 0, len(claim.History)),
-		AllowedActions:   claim.AllowedActions,
+		AllowedActions:   make([]string, 0, len(claim.AllowedActions)),
 	}
 
 	if claim.AssignedReviewer != nil {
@@ -326,40 +317,67 @@ func claimBody(claim *Claim) api.Claim {
 		body.AssignedReviewer = &reviewer
 	}
 
-	for _, item := range claim.Items {
-		body.Items = append(body.Items, api.LineItem{
-			LineNo:      item.LineNo,
-			Category:    api.ExpenseCategory(item.Category),
-			Description: item.Description,
-			ExpenseDate: openapi_types.Date{Time: item.ExpenseDate},
-			Amount:      item.Amount,
-			ReceiptRef:  item.ReceiptRef,
-		})
+	for i := range claim.Items {
+		body.Items = append(body.Items, lineItemBody(&claim.Items[i]))
 	}
 
 	for i := range claim.History {
-		entry := &claim.History[i]
+		body.History = append(body.History, historyBody(&claim.History[i]))
+	}
 
-		historyEntry := api.HistoryEntry{
-			Id:        entry.ID,
-			Action:    api.ClaimAction(entry.Action),
-			ToStatus:  api.ClaimStatus(entry.ToStatus),
-			Actor:     memberBody(entry.Actor),
-			Comment:   entry.Comment,
-			CreatedAt: entry.CreatedAt.UTC(),
-		}
-
-		if entry.FromStatus != nil {
-			from := api.ClaimStatus(*entry.FromStatus)
-			historyEntry.FromStatus = &from
-		}
-
-		body.History = append(body.History, historyEntry)
+	for _, action := range claim.AllowedActions {
+		body.AllowedActions = append(body.AllowedActions, string(action))
 	}
 
 	return body
 }
 
+// summaryBody maps a list entry to the contract's ClaimSummary.
+func summaryBody(summary *Summary) api.ClaimSummary {
+	return api.ClaimSummary{
+		Id:          summary.ID.String(),
+		ClaimNo:     summary.ClaimNo,
+		Status:      api.ClaimStatus(summary.Status),
+		Title:       summary.Title,
+		Total:       summary.Total,
+		Requester:   memberBody(summary.Requester),
+		SubmittedAt: utc(summary.SubmittedAt),
+		CreatedAt:   summary.CreatedAt.UTC(),
+	}
+}
+
+// lineItemBody maps a line item to the contract's LineItem.
+func lineItemBody(item *LineItem) api.LineItem {
+	return api.LineItem{
+		LineNo:      item.LineNo,
+		Category:    api.ExpenseCategory(item.Category),
+		Description: item.Description,
+		ExpenseDate: openapi_types.Date{Time: item.ExpenseDate},
+		Amount:      item.Amount,
+		ReceiptRef:  item.ReceiptRef,
+	}
+}
+
+// historyBody maps a history entry to the contract's HistoryEntry.
+func historyBody(entry *HistoryEntry) api.HistoryEntry {
+	body := api.HistoryEntry{
+		Id:        entry.ID,
+		Action:    api.ClaimAction(entry.Action),
+		ToStatus:  api.ClaimStatus(entry.ToStatus),
+		Actor:     memberBody(entry.Actor),
+		Comment:   entry.Comment,
+		CreatedAt: entry.CreatedAt.UTC(),
+	}
+
+	if entry.FromStatus != nil {
+		from := api.ClaimStatus(*entry.FromStatus)
+		body.FromStatus = &from
+	}
+
+	return body
+}
+
+// memberBody maps a member to the contract's MemberSummary. The module has no contract types, so this copy is the seam.
 func memberBody(member Member) api.MemberSummary {
 	return api.MemberSummary{Id: member.ID.String(), Name: member.Name, Position: member.Position}
 }

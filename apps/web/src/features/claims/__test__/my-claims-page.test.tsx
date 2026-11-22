@@ -245,4 +245,23 @@ describe("My Claims", () => {
     }, slow);
     expect(requestedUrls.at(-1)?.searchParams.get("page")).toBe("1");
   }, 20_000);
+
+  it("sends a page past the last one to the last page, in place of the URL", async () => {
+    sessionUser = requester;
+    requestedUrls.length = 0;
+    listResponse = () => {
+      const page = Number(requestedUrls.at(-1)?.searchParams.get("page") ?? 1);
+
+      return HttpResponse.json(
+        page > 3 ? { ...pageOf(page, 41), data: [] } : pageOf(page, 41)
+      );
+    };
+
+    const { router } = renderAt("/claims?page=9");
+
+    await screen.findByText("Claim on page 3", {}, slow);
+    within(pagination()).getByText("Page 3 of 3");
+    expect(router.state.location.href).toBe("/claims?page=3");
+    expect(router.history.length).toBe(1);
+  }, 20_000);
 });

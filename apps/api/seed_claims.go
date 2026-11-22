@@ -81,8 +81,10 @@ var decisionStatuses = map[db.ClaimAction]db.ClaimStatus{
 }
 
 // seedClaimRows adds the sample claims that do not exist yet, each with its line items and history, as of now. ids holds
-// the user ids by username, and reviewers the username of each requester's reviewer.
-func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid.UUID, reviewers map[string]string, now time.Time) error {
+// the user ids by username, and reviewers the username of each requester's reviewer. It returns how many claims it added.
+func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid.UUID, reviewers map[string]string, now time.Time) (int, error) {
+	added := 0
+
 	for i := range seedClaims {
 		claim := &seedClaims[i]
 		submittedAt := now.Add(-claim.submittedAgo)
@@ -99,18 +101,20 @@ func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid
 
 		id := uuid.Must(uuid.NewV7())
 
-		added, err := queries.InsertSeedClaim(ctx, db.InsertSeedClaimParams{
+		inserted, err := queries.InsertSeedClaim(ctx, db.InsertSeedClaimParams{
 			ID: id, ClaimNo: claim.claimNo, Title: claim.title, Purpose: claim.purpose, Status: status, TotalSatang: total,
 			Version: version, SubmittedAt: pgtype.Timestamptz{Time: submittedAt, Valid: true}, DecidedAt: decided,
 			Requester: claim.requester,
 		})
 		if err != nil { // coverage-ignore
-			return fmt.Errorf("insert claim %s: %w", claim.claimNo, err)
+			return 0, fmt.Errorf("insert claim %s: %w", claim.claimNo, err)
 		}
 
-		if added == 0 { // seeded before
+		if inserted == 0 { // seeded before
 			continue
 		}
+
+		added++
 
 		for n, item := range claim.items {
 			err := queries.InsertLineItem(ctx, db.InsertLineItemParams{
@@ -118,7 +122,7 @@ func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid
 				ExpenseDate: pgtype.Date{Time: submittedAt.AddDate(0, 0, -1), Valid: true}, AmountSatang: item.amount, ReceiptRef: fmt.Sprintf("RCPT-%d", n+1),
 			})
 			if err != nil { // coverage-ignore
-				return fmt.Errorf("insert line item of %s: %w", claim.claimNo, err)
+				return 0, fmt.Errorf("insert line item of %s: %w", claim.claimNo, err)
 			}
 		}
 
@@ -126,7 +130,7 @@ func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid
 			ClaimID: id, ActorID: ids[claim.requester], Action: db.ClaimActionSUBMIT, ToStatus: db.ClaimStatusSUBMITTED, Now: pgtype.Timestamptz{Time: submittedAt, Valid: true},
 		})
 		if err != nil { // coverage-ignore
-			return fmt.Errorf("insert history of %s: %w", claim.claimNo, err)
+			return 0, fmt.Errorf("insert history of %s: %w", claim.claimNo, err)
 		}
 
 		if claim.decision == "" {
@@ -139,9 +143,9 @@ func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid
 			Comment: pgtype.Text{String: claim.reason, Valid: claim.reason != ""}, Now: decided,
 		})
 		if err != nil { // coverage-ignore
-			return fmt.Errorf("insert decision of %s: %w", claim.claimNo, err)
+			return 0, fmt.Errorf("insert decision of %s: %w", claim.claimNo, err)
 		}
 	}
 
-	return nil
+	return added, nil
 }

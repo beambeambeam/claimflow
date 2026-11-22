@@ -41,6 +41,12 @@ type User struct {
 	Role     string
 }
 
+// Client is who sent a login request, as the session row keeps it for audit (SDS §8). An empty field is stored as NULL.
+type Client struct {
+	IP        string
+	UserAgent string
+}
+
 // Service holds the auth rules: credential check, session start, and session lookup (SDS §6).
 type Service struct {
 	queries   *db.Queries
@@ -59,9 +65,9 @@ func NewService(queries *db.Queries, bcryptCost int, now func() time.Time) Servi
 	return Service{queries: queries, dummyHash: dummyHash, now: now}
 }
 
-// Login checks the credential and starts a session. It returns the user and the token for the cookie.
+// Login checks the credential and starts a session for client. It returns the user and the token for the cookie.
 // The database keeps only the token's SHA-256 digest.
-func (s Service) Login(ctx context.Context, username, password string) (User, string, error) {
+func (s Service) Login(ctx context.Context, username, password string, client Client) (User, string, error) {
 	credential, err := s.queries.GetCredentialForLogin(ctx, db.GetCredentialForLoginParams{
 		Username: strings.ToLower(username),
 		Now:      timestamptz(s.now()),
@@ -85,7 +91,7 @@ func (s Service) Login(ctx context.Context, username, password string) (User, st
 		return User{}, "", fmt.Errorf("delete expired sessions: %w", err)
 	}
 
-	token, err := s.startSession(ctx, credential.UserID)
+	token, err := s.startSession(ctx, credential.UserID, client)
 	if err != nil { // coverage-ignore
 		return User{}, "", err
 	}
@@ -120,8 +126,8 @@ func (s Service) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	return nil
 }
 
-// startSession stores a new session for userID and returns the token that goes in the cookie.
-func (s Service) startSession(ctx context.Context, userID uuid.UUID) (string, error) {
+// startSession stores a new session for userID and client, and returns the token that goes in the cookie.
+func (s Service) startSession(ctx context.Context, userID uuid.UUID, client Client) (string, error) {
 	raw := make([]byte, sessionTokenSize)
 	if _, err := rand.Read(raw); err != nil { // coverage-ignore
 		return "", fmt.Errorf("session token: %w", err)
@@ -135,6 +141,8 @@ func (s Service) startSession(ctx context.Context, userID uuid.UUID) (string, er
 		UserID:    userID,
 		Token:     digest[:],
 		ExpiresAt: timestamptz(s.now().Add(sessionLifetime)),
+		IpAddress: optionalText(client.IP),
+		UserAgent: optionalText(client.UserAgent),
 	})
 	if err != nil { // coverage-ignore
 		return "", fmt.Errorf("create session: %w", err)
@@ -146,4 +154,9 @@ func (s Service) startSession(ctx context.Context, userID uuid.UUID) (string, er
 // timestamptz wraps t as a non-null database timestamp.
 func timestamptz(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
+}
+
+// optionalText wraps text as a database text, NULL when it is empty.
+func optionalText(text string) pgtype.Text {
+	return pgtype.Text{String: text, Valid: text != ""}
 }

@@ -24,13 +24,13 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 
 	statuses := []db.ClaimStatus{db.ClaimStatusDRAFT, db.ClaimStatusSUBMITTED, db.ClaimStatusAPPROVED, db.ClaimStatusREJECTED}
 
-	none := func(db.ClaimStatus) []string { return []string{} }
+	none := func(db.ClaimStatus) []Action { return []Action{} }
 
 	// subject builds the claim as the actor relates to it. "own and assigned" is the corrupted assignment that points at the requester.
 	relations := map[string]struct {
 		subject func(actor uuid.UUID, status db.ClaimStatus) Subject
 		visible func(status db.ClaimStatus) bool
-		actions func(status db.ClaimStatus) []string
+		actions func(status db.ClaimStatus) []Action
 	}{
 		"own": {
 			subject: func(actor uuid.UUID, status db.ClaimStatus) Subject {
@@ -44,12 +44,12 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 				return Subject{RequesterID: other, AssignedReviewerID: actor, Status: status}
 			},
 			visible: func(status db.ClaimStatus) bool { return status != db.ClaimStatusDRAFT },
-			actions: func(status db.ClaimStatus) []string {
+			actions: func(status db.ClaimStatus) []Action {
 				if status == db.ClaimStatusSUBMITTED {
-					return []string{"approve", "reject"}
+					return []Action{ActionApprove, ActionReject}
 				}
 
-				return []string{}
+				return []Action{}
 			},
 		},
 		"unrelated": {
@@ -85,7 +85,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 						t.Fatalf("visible = %t, want %t", visible, want)
 					}
 
-					// The owner has no action until Sprint 2. A claim assigned to its own requester gives no action (BR-01).
+					// The requester has no action until Sprint 2. A claim assigned to its own requester gives no action (BR-01).
 					if want := relation.actions(status); actions == nil || !slices.Equal(actions, want) {
 						t.Fatalf("actions = %#v, want %#v", actions, want)
 					}
@@ -107,7 +107,7 @@ func TestF04TEST09PolicyGivesNoDecisionOnOwnClaim(t *testing.T) {
 		t.Fatal("visible = false, want true: the requester sees their own claim")
 	}
 
-	for _, action := range []string{"approve", "reject"} {
+	for _, action := range []Action{ActionApprove, ActionReject} {
 		if slices.Contains(actions, action) {
 			t.Fatalf("actions = %v, want no %s (BR-01)", actions, action)
 		}

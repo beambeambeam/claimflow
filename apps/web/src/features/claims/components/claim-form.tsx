@@ -1,5 +1,6 @@
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
+import { Grid } from "@astryxdesign/core/Grid";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { useMutation } from "@tanstack/react-query";
@@ -10,8 +11,9 @@ import { categoryLabels } from "#/features/claims/labels";
 import { createClaimMutation } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim } from "#/lib/api/types.gen";
 import { zClaimInput, zLineItemInput } from "#/lib/api/zod.gen";
+import { contractField } from "#/lib/contract";
 import { useAppForm } from "#/lib/form";
-import { amountPattern, formatBaht, parseSatang } from "#/lib/format";
+import { formatBaht, parseSatang } from "#/lib/format";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 import { ClaimConfirmation } from "./claim-confirmation";
@@ -31,43 +33,18 @@ const emptyItem = {
   receiptRef: "",
 };
 
-// Text made only of whitespace counts as empty. JavaScript `\s` is the same whitespace set that the contract's pattern
-// lists, so the form and the API agree.
-const notBlank = /\S/u;
-
-// The shape checks of the generated schema, with the field messages of F-02 §1.4. The form keeps every value as text,
-// so each field is piped into the schema of the same field.
+// The shape checks of the generated schema, with the contract's field messages (F-02 §1.4). The form keeps every value
+// as text, so each field is checked by the schema of the same field.
 const claimSchema = z.object({
-  title: z
-    .string()
-    .regex(notBlank, "Enter a title (up to 120 characters).")
-    .pipe(zClaimInput.shape.title),
-  purpose: z
-    .string()
-    .regex(notBlank, "Enter a purpose (up to 1,000 characters).")
-    .pipe(zClaimInput.shape.purpose),
+  title: contractField(zClaimInput.shape.title),
+  purpose: contractField(zClaimInput.shape.purpose),
   items: z.array(
     z.object({
-      category: z
-        .string()
-        .min(1, "Choose a category.")
-        .pipe(zLineItemInput.shape.category),
-      description: z
-        .string()
-        .regex(notBlank, "Enter a description (up to 200 characters).")
-        .pipe(zLineItemInput.shape.description),
-      expenseDate: z
-        .string()
-        .min(1, "Enter a date as YYYY-MM-DD.")
-        .pipe(zLineItemInput.shape.expenseDate),
-      amount: z
-        .string()
-        .regex(amountPattern, "Enter an amount with 2 decimals, e.g. 1250.00.")
-        .pipe(zLineItemInput.shape.amount),
-      receiptRef: z
-        .string()
-        .regex(notBlank, "Enter the receipt reference (up to 50 characters).")
-        .pipe(zLineItemInput.shape.receiptRef),
+      category: contractField(zLineItemInput.shape.category),
+      description: contractField(zLineItemInput.shape.description),
+      expenseDate: contractField(zLineItemInput.shape.expenseDate),
+      amount: contractField(zLineItemInput.shape.amount),
+      receiptRef: contractField(zLineItemInput.shape.receiptRef),
     })
   ),
 });
@@ -168,9 +145,15 @@ export const ClaimForm = () => {
         {(items) => (
           <VStack gap={4} hAlign="stretch">
             {items.state.value.map((_, index) => (
-              // Rows have no id of their own, and removing one re-reads every value by position.
+              // Rows have no id of their own, and removing one re-reads every value by position. Each field has a grid
+              // track of its own, so an error under one field does not move the others.
               // oxlint-disable-next-line react/no-array-index-key
-              <HStack gap={2} key={index} vAlign="start" wrap="wrap">
+              <Grid
+                align="start"
+                columns={{ minWidth: 160, max: 6 }}
+                gap={2}
+                key={index}
+              >
                 <form.AppField name={`items[${index}].category`}>
                   {(field) => (
                     <field.SelectField
@@ -198,15 +181,17 @@ export const ClaimForm = () => {
                 <form.AppField name={`items[${index}].receiptRef`}>
                   {(field) => <field.TextField label="Receipt reference" />}
                 </form.AppField>
-                <Button
-                  isDisabled={items.state.value.length === 1}
-                  label="Remove"
-                  onClick={() => {
-                    items.removeValue(index);
-                  }}
-                  variant="ghost"
-                />
-              </HStack>
+                <HStack>
+                  <Button
+                    isDisabled={items.state.value.length === 1}
+                    label="Remove"
+                    onClick={() => {
+                      items.removeValue(index);
+                    }}
+                    variant="ghost"
+                  />
+                </HStack>
+              </Grid>
             ))}
             <HStack>
               <Button

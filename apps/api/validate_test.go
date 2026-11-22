@@ -9,6 +9,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
+	"github.com/beambeambeam/claimflow/apps/api/internal/claim"
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
 )
 
@@ -63,18 +64,34 @@ func TestRequestValidationUnreadableBody(t *testing.T) {
 
 // A field with no message of its own gets the default, and an error that is not a schema error names no field.
 func TestShapeErrorsDefaults(t *testing.T) {
-	if got := shapeErrors(errors.New("not a schema error"), nil); len(got) != 0 {
+	if got := shapeErrors(errors.New("not a schema error"), openapi3.NewObjectSchema()); len(got) != 0 {
 		t.Fatalf("shapeErrors = %+v, want none", got)
 	}
 
 	schema := openapi3.NewObjectSchema().WithProperty("x", openapi3.NewStringSchema())
 
-	got := shapeErrors(schema.VisitJSON(map[string]any{"x": 1}, openapi3.MultiErrors()), nil)
+	got := shapeErrors(schema.VisitJSON(map[string]any{"x": 1}, openapi3.MultiErrors()), schema)
 	if len(got) != 1 || got[0].Field != "x" || got[0].Message != defaultShapeMessage {
 		t.Fatalf("shapeErrors = %+v, want x with the default message", got)
 	}
 
+	for _, pointer := range [][]string{{"y"}, {"0"}} {
+		if got := fieldMessage(schema, pointer); got != defaultShapeMessage {
+			t.Fatalf("fieldMessage(%v) = %q, want the default message", pointer, got)
+		}
+	}
+
 	if got := fieldPath([]string{"items", "0", "amount"}); got != "items[0].amount" {
 		t.Fatalf("fieldPath = %q, want items[0].amount", got)
+	}
+}
+
+// The web counter reads the BR-04 comment limit from the contract, so the contract must give the limit the claim module
+// checks.
+func TestContractCommentLimitMatchesModule(t *testing.T) {
+	comment := contractSpec().Components.Schemas["ClaimDecision"].Value.Properties["comment"].Value
+
+	if got := comment.Extensions["x-max-length"]; got != float64(claim.MaxCommentLength) {
+		t.Fatalf("ClaimDecision.comment x-max-length = %v, want %d", got, claim.MaxCommentLength)
 	}
 }

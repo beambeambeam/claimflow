@@ -9,7 +9,7 @@ type transition struct {
 }
 
 // transitions is the lifecycle of Sprint 1 (F-04 §1.3). APPROVED and REJECTED are terminal. A later feature adds rows.
-var transitions = map[string]transition{
+var transitions = map[Action]transition{
 	ActionApprove: {from: db.ClaimStatusSUBMITTED, to: db.ClaimStatusAPPROVED, history: db.ClaimActionAPPROVE},
 	ActionReject:  {from: db.ClaimStatusSUBMITTED, to: db.ClaimStatusREJECTED, history: db.ClaimActionREJECT},
 }

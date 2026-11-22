@@ -73,6 +73,24 @@ type Summary struct {
 	CreatedAt   time.Time
 }
 
+// Scope is which claims List reads.
+type Scope string
+
+// The scopes of List.
+const (
+	// ScopeMine is the actor's own claims in every status, newest first (F-03 §1.4).
+	ScopeMine Scope = "mine"
+	// ScopeReview is the SUBMITTED claims assigned to the actor, oldest submission first (F-04 §3).
+	ScopeReview Scope = "review"
+)
+
+// Query selects one page of a list: the scope, the page number, 1-based, and the page size. F-09 adds filters here.
+type Query struct {
+	Scope    Scope
+	Page     int
+	PageSize int
+}
+
 // Page is one page of a list. Total counts the claims on every page.
 type Page struct {
 	Claims []Summary
@@ -98,7 +116,7 @@ type Claim struct {
 	UpdatedAt        time.Time
 	Items            []LineItem
 	History          []HistoryEntry
-	AllowedActions   []string
+	AllowedActions   []Action
 }
 
 // subject returns what the claim policy reads about the claim.

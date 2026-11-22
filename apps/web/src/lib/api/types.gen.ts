@@ -61,7 +61,7 @@ export type LineItemInput = {
 };
 
 /**
- * The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Whitespace is the JavaScript `\s` set, written out in the pattern because Go RE2 `\s` is ASCII only. Unknown fields, including `total`, are ignored (BR-08).
+ * The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Whitespace is the JavaScript `\s` set, written out in the pattern because Go RE2 `\s` is ASCII only. Unknown fields, including `total`, are ignored (BR-08). The `x-message` of a schema is the message of a 400 field error on it, and the web form shows the same text.
  */
 export type ClaimInput = {
   title: string;
@@ -113,7 +113,7 @@ export type Claim = {
   items: Array<LineItem>;
   history: Array<HistoryEntry>;
   /**
-   * The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the owner in Sprint 1.
+   * The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the requester in Sprint 1.
    */
   allowedActions: Array<string>;
 };
@@ -123,7 +123,7 @@ export type Claim = {
  */
 export type ClaimDecision = {
   /**
-   * Optional for approve (at most 500 characters). The reason for reject (5–500 characters).
+   * Optional for approve (at most 500 characters). The reason for reject (5–500 characters). `x-max-length` is the BR-04 upper bound, which the web counter shows.
    */
   comment?: string;
 };

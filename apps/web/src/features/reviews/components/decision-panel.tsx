@@ -18,6 +18,8 @@ import {
   rejectClaimMutation,
 } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim } from "#/lib/api/types.gen";
+import { zClaimDecision } from "#/lib/api/zod.gen";
+import { contractMaxLength } from "#/lib/contract";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 // The text and button variants of each decision (F-04 §2.2): `trigger` opens the dialog, `variant` confirms it. A reject needs a reason; an approve may have a comment.
@@ -47,17 +49,19 @@ type Decision = keyof typeof decisions;
 const isDecision = (name: string): name is Decision =>
   Object.hasOwn(decisions, name);
 
-// The limit of BR-04. The server checks it; the counter only shows it.
-const commentLimit = 500;
+// The limit of BR-04, from the contract. The server checks it; the counter only shows it.
+const commentLimit = contractMaxLength(zClaimDecision.shape.comment.unwrap());
 
 const DecisionDialog = ({
   claim,
   decision,
   onClose,
+  onDenied,
 }: {
   claim: Claim;
   decision: Decision;
   onClose: () => void;
+  onDenied: () => void;
 }) => {
   const text = decisions[decision];
   const titleId = useId();
@@ -85,14 +89,19 @@ const DecisionDialog = ({
         return;
       }
 
-      if (status === 409 || status === 403) {
-        // Someone decided first, or the claim is no longer this member's: the reloaded claim tells which.
-        if (status === 409) {
-          showToast({
-            body: "This claim was changed by someone else – reloaded",
-          });
-        }
+      if (status === 403) {
+        // The claim is no longer this member's to decide: the page shows the access message (F-04 §2.2).
+        onClose();
+        onDenied();
 
+        return;
+      }
+
+      if (status === 409) {
+        // Someone decided first: the reloaded claim shows the decision.
+        showToast({
+          body: "This claim was changed by someone else – reloaded",
+        });
         onClose();
         refetch();
 
@@ -112,6 +121,7 @@ const DecisionDialog = ({
     ? problemFieldErrors(send.error).comment?.message
     : undefined;
 
+  // Astryx has no dialog width tokens: `width` is in pixels, and the dialog clamps it to the viewport.
   return (
     <Dialog
       aria-labelledby={titleId}
@@ -176,7 +186,14 @@ const DecisionDialog = ({
 };
 
 // The Approve and Reject buttons of a claim (F-04 §2.2). They show only for the actions the policy gave this member.
-export const DecisionPanel = ({ claim }: { claim: Claim }) => {
+// `onDenied` runs when a decision gets a 403.
+export const DecisionPanel = ({
+  claim,
+  onDenied,
+}: {
+  claim: Claim;
+  onDenied: () => void;
+}) => {
   const [open, setOpen] = useState<Decision | null>(null);
 
   const allowed = Object.keys(decisions)
@@ -208,6 +225,7 @@ export const DecisionPanel = ({ claim }: { claim: Claim }) => {
           onClose={() => {
             setOpen(null);
           }}
+          onDenied={onDenied}
         />
       )}
     </>
