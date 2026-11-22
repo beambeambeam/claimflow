@@ -1,0 +1,27 @@
+# apps/web, claim-form.tsx from f684459 (before both fixes), tests from bb5a0d1. DOM dumps cut; PASS/FAIL/SKIP replace the reporter icons.
+$ bun run test -- run src/features/claims/__test__/claim-form.test.tsx --reporter=verbose -t "only spaces|Unicode spaces|double-clicked"
+SKIP starts with one empty row, a THB 0.00 total, and Remove disabled
+SKIP adds rows up to 20, then disables Add line item; Remove brings it back
+SKIP shows the running total from the amounts in the right format only
+SKIP shows a message under each empty field and sends no request
+FAIL refuses text fields of only spaces the same as empty ones and sends no request 1336ms
+    -> Unable to find an element with the text: Enter a title (up to 120 characters).
+FAIL refuses a title and purpose of Unicode spaces, as the API does 1191ms
+    -> Unable to find an element with the text: Enter a title (up to 120 characters).
+SKIP asks for the date again after it is cleared
+SKIP submits the typed claim without a total and shows the claim number and a Submitted badge
+SKIP disables Submit with a spinner while the request is in flight
+FAIL sends one request when Submit is double-clicked 259ms
+    -> expected null to be 'true' // Object.is equality
+SKIP shows each server error under its field, keeps the values, and re-enables Submit after a 422
+SKIP keeps the values and offers Try again with the request ID after a server error
+SKIP shows the error without a request ID when the network fails
+FAIL  refuses text fields of only spaces the same as empty ones and sends no request
+at src/features/claims/__test__/claim-form.test.tsx:183:18
+FAIL  refuses a title and purpose of Unicode spaces, as the API does
+at src/features/claims/__test__/claim-form.test.tsx:198:18
+FAIL  sends one request when Submit is double-clicked
+AssertionError: expected null to be 'true' // Object.is equality
+at src/features/claims/__test__/claim-form.test.tsx:287:59
+Test Files  1 failed (1)
+Tests  3 failed | 10 skipped (13)

@@ -1,0 +1,51 @@
+% ClaimFlow Lab 6 report (CPE 334 Lab 6: Sprint 1 UAT and defect management).
+% Build: bun run pdf labs/06 in docs/reports.
+\documentclass[11pt]{article}
+\newcommand{\sprintname}{Lab 6}
+\newcommand{\deliverable}{Lab 6, Sprint 1 UAT and defect management}
+\input{../../preamble}
+
+% Part A is converted from Markdown by pandoc, whose tables size columns
+% with \real (calc) and whose lists use \tightlist.
+\usepackage{calc}
+% Pandoc wraps uncaptioned tables in \def\LTcaptype{none}.
+\newcounter{none}
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\AtBeginEnvironment{longtable}{\small}
+% A ragged-right table column, so short cells do not stretch.
+\newcolumntype{R}[1]{>{\raggedright\arraybackslash}p{#1}}
+% Steps of a UAT case where the tester takes a screenshot.
+\newcommand{\shot}{\textbf{[S]}}
+% A verbatim file in the report's code style.
+\newcommand{\showfile}[1]{\VerbatimInput[fontsize=\scriptsize, frame=single,
+  framesep=5pt, rulecolor=\color{black!25}, breaklines=true,
+  breakanywhere=true, breaksymbolleft={}]{#1}}
+% \codeevidence{ID}{caption}{file}: text evidence with its caption above it.
+\newcommand{\codeevidence}[3]{\par\medskip\noindent{\small\textbf{#1.} #2}\par
+  \nopagebreak\smallskip\showfile{#3}}
+
+\begin{document}
+
+\input{content/00-front}
+
+\reportpart{A}{UAT preparation and handoff (ClaimFlow as Product Team)}
+\input{content/part-a-intro}
+\input{content/part-a-handoff}
+\reportpartend{A}
+
+\reportpart{B}{Independent execution (ClaimFlow as UAT Team)}
+\input{content/part-b-execution}
+\reportpartend{B}
+
+\reportpart{C}{Defect reporting and triage}
+\input{content/part-c-triage}
+\reportpartend{C}
+
+\reportpart{D}{Resolution and independent retest}
+\input{content/part-d-1-fixes}
+\input{content/part-d-2-release}
+\input{content/part-d-3-retest}
+\input{content/part-d-4-team}
+\reportpartend{D}
+
+\end{document}

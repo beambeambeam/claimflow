@@ -1,0 +1,17 @@
+# apps/web at bb5a0d1. PASS replaces the reporter icon.
+$ bun run test -- run src/features/claims/__test__/claim-form.test.tsx --reporter=verbose
+PASS starts with one empty row, a THB 0.00 total, and Remove disabled 80ms
+PASS adds rows up to 20, then disables Add line item; Remove brings it back 664ms
+PASS shows the running total from the amounts in the right format only 66ms
+PASS shows a message under each empty field and sends no request 27ms
+PASS refuses text fields of only spaces the same as empty ones and sends no request 177ms
+PASS refuses a title and purpose of Unicode spaces, as the API does 147ms
+PASS asks for the date again after it is cleared 73ms
+PASS submits the typed claim without a total and shows the claim number and a Submitted badge 244ms
+PASS disables Submit with a spinner while the request is in flight 521ms
+PASS sends one request when Submit is double-clicked 579ms
+PASS shows each server error under its field, keeps the values, and re-enables Submit after a 422 411ms
+PASS keeps the values and offers Try again with the request ID after a server error 227ms
+PASS shows the error without a request ID when the network fails 213ms
+Test Files  1 passed (1)
+Tests  13 passed (13)

@@ -1,0 +1,20 @@
+# apps/api at bb5a0d1. Testcontainers log cut.
+$ go test -count=1 -run 'TestF02TEST18ShapeViolationsAre400' -v .
+--- PASS: TestF02TEST18ShapeViolationsAre400 (0.72s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/missing_title (0.07s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/title_over_120 (0.05s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/purpose_over_1000 (0.05s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/description_over_200 (0.05s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/receiptRef_over_50 (0.05s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/title_of_spaces (0.05s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/purpose_of_spaces (0.05s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/description_of_spaces (0.04s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/receiptRef_of_spaces (0.05s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/title_of_no-break_spaces (0.04s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/purpose_of_an_ideographic_space (0.05s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/description_of_a_byte_order_mark (0.04s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/receiptRef_of_a_line_separator (0.05s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/impossible_date (0.05s)
+    --- PASS: TestF02TEST18ShapeViolationsAre400/bad_date_format (0.05s)
+PASS
+ok  	github.com/beambeambeam/claimflow/apps/api	3.480s

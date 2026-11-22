@@ -1,0 +1,77 @@
+# git diff f684459 bb5a0d1 (fix #86, PR #92)
+--- a/apps/api/openapi.yaml
++++ b/apps/api/openapi.yaml
+@@ -483,6 +483,7 @@ components:
+           type: string
+           minLength: 1
+           maxLength: 200
++          pattern: &notBlank '[^\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]'
+         expenseDate:
+           type: string
+           format: date
+@@ -492,19 +493,22 @@ components:
+           type: string
+           minLength: 1
+           maxLength: 50
++          pattern: *notBlank
+     ClaimInput:
+       type: object
+-      description: The line-item count and every business limit are checked by the claim module (422), not by this schema. Unknown fields, including `total`, are ignored (BR-08).
++      description: The line-item count and every business limit are checked by the claim module (422), not by this schema. Text fields need at least one character that is not whitespace. Whitespace is the JavaScript `\s` set, written out in the pattern because Go RE2 `\s` is ASCII only. Unknown fields, including `total`, are ignored (BR-08).
+       required: [title, purpose, items]
+       properties:
+         title:
+           type: string
+           minLength: 1
+           maxLength: 120
++          pattern: *notBlank
+         purpose:
+           type: string
+           minLength: 1
+           maxLength: 1000
++          pattern: *notBlank
+         items:
+           type: array
+           items:
+--- a/apps/web/src/features/claims/components/claim-form.tsx
++++ b/apps/web/src/features/claims/components/claim-form.tsx
+@@ -31,16 +31,20 @@ const emptyItem = {
+   receiptRef: "",
+ };
+ 
++// Text made only of whitespace counts as empty. JavaScript `\s` is the same whitespace set that the contract's pattern
++// lists, so the form and the API agree.
++const notBlank = /\S/u;
++
+ // The shape checks of the generated schema, with the field messages of F-02 §1.4. The form keeps every value as text,
+ // so each field is piped into the schema of the same field.
+ const claimSchema = z.object({
+   title: z
+     .string()
+-    .min(1, "Enter a title (up to 120 characters).")
++    .regex(notBlank, "Enter a title (up to 120 characters).")
+     .pipe(zClaimInput.shape.title),
+   purpose: z
+     .string()
+-    .min(1, "Enter a purpose (up to 1,000 characters).")
++    .regex(notBlank, "Enter a purpose (up to 1,000 characters).")
+     .pipe(zClaimInput.shape.purpose),
+   items: z.array(
+     z.object({
+--- a/apps/api/claims_create_test.go
++++ b/apps/api/claims_create_test.go
+@@ -410,6 +410,14 @@ func TestF02TEST18ShapeViolationsAre400(t *testing.T) {
+ 		{"purpose over 1000", body(`"Title"`, quoted(1001), validItem), fieldError{"purpose", "maxLength", "Enter a purpose (up to 1,000 characters)."}},
+ 		{"description over 200", body(`"Title"`, `"Purpose"`, itemWith("description", quoted(201))), fieldError{"items[0].description", "maxLength", "Enter a description (up to 200 characters)."}},
+ 		{"receiptRef over 50", body(`"Title"`, `"Purpose"`, itemWith("receiptRef", quoted(51))), fieldError{"items[0].receiptRef", "maxLength", "Enter the receipt reference (up to 50 characters)."}},
++		{"title of spaces", body(`"   "`, `"Purpose"`, validItem), fieldError{"title", "pattern", "Enter a title (up to 120 characters)."}},
++		{"purpose of spaces", body(`"Title"`, `" \t "`, validItem), fieldError{"purpose", "pattern", "Enter a purpose (up to 1,000 characters)."}},
++		{"description of spaces", body(`"Title"`, `"Purpose"`, itemWith("description", `"   "`)), fieldError{"items[0].description", "pattern", "Enter a description (up to 200 characters)."}},
++		{"receiptRef of spaces", body(`"Title"`, `"Purpose"`, itemWith("receiptRef", `"   "`)), fieldError{"items[0].receiptRef", "pattern", "Enter the receipt reference (up to 50 characters)."}},
++		{"title of no-break spaces", body(`"\u00a0\u00a0"`, `"Purpose"`, validItem), fieldError{"title", "pattern", "Enter a title (up to 120 characters)."}},
++		{"purpose of an ideographic space", body(`"Title"`, `"\u3000"`, validItem), fieldError{"purpose", "pattern", "Enter a purpose (up to 1,000 characters)."}},
++		{"description of a byte order mark", body(`"Title"`, `"Purpose"`, itemWith("description", `"\ufeff"`)), fieldError{"items[0].description", "pattern", "Enter a description (up to 200 characters)."}},
++		{"receiptRef of a line separator", body(`"Title"`, `"Purpose"`, itemWith("receiptRef", `"\u2028"`)), fieldError{"items[0].receiptRef", "pattern", "Enter the receipt reference (up to 50 characters)."}},
+ 		{"impossible date", body(`"Title"`, `"Purpose"`, itemWith("expenseDate", `"2026-02-31"`)), fieldError{"items[0].expenseDate", "format", "Enter a date as YYYY-MM-DD."}},
+ 		{"bad date format", body(`"Title"`, `"Purpose"`, itemWith("expenseDate", `"05/11/2026"`)), fieldError{"items[0].expenseDate", "format", "Enter a date as YYYY-MM-DD."}},
+ 	}

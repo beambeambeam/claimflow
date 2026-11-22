@@ -1,0 +1,792 @@
+% Converted from docs/labs/lab-06/uat-handoff.md by pandoc, then edited.
+\partsection{A.1}{Handoff}
+
+\subsubsection*{A.1.1 Teams}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.0811}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2365}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.5000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.1824}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Role
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Team
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Repository
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+GitHub logins
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Product Team & ClaimFlow & \url{https://github.com/beambeambeam/claimflow} & \texttt{Kiatisakk}, \texttt{beambeambeam} \\
+UAT Team & Queue and Service Management System & \url{https://github.com/MacOverlorD/Queue_and_Service_Management_System_37-39} & \texttt{MacOverlorD}, \texttt{TauForge} \\
+\end{longtable}
+}
+
+ClaimFlow students: \studentOneName{} (\studentOneId, \texttt{Kiatisakk}) and \studentTwoName{} (\studentTwoId, \texttt{beambeambeam}). Queue team tester: Lappawat Laohasoot (UAT Team TH-027\_P9). Coordination happens in the private Discord channel \texttt{\#qa}. First UAT session: 20 November 2026. Defect-fix release: 21 November 2026 (\texttt{bb5a0d1}, PR \#93). Retest: 22 November 2026.
+
+\subsubsection*{A.1.2 Product and version}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Item
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Product & ClaimFlow: staff submit expense claims, and the assigned reviewer approves or rejects them \\
+Repository & \url{https://github.com/beambeambeam/claimflow} \\
+Sprint 1 release & Tag \texttt{v0.0.3.0}, commit \texttt{ac5bce5a0c827f0ef9c6d0841b00f0d0c5839801} (\texttt{chore: release Sprint 1 (\#69)}) \\
+Deployed commit & \texttt{eed7b278b046450c894337b02341271fd0987c56} (head of \texttt{main}), read from \texttt{/api/v1/health} on 2026-11-19 \\
+Cloud Run revision & \texttt{claimflow-00007-5vx}, serving 100\% of traffic (Deploy demo run 44533229870, 2026-11-19 13:26 UTC) \\
+URL & \url{https://claimflow-5bcxewbqkq-as.a.run.app} \\
+Version check & Open \url{https://claimflow-5bcxewbqkq-as.a.run.app/api/v1/health}. It returns \texttt{\{"status":"ok","version":"\textless{}commit\ SHA\textgreater{}"\}} \\
+\end{longtable}
+}
+
+The deployed commit is newer than the Sprint 1 tag. Between \texttt{v0.0.3.0} and \texttt{eed7b27} the application changed only in packaging and dependencies: the API serves the web build from one image (\texttt{apps/api/web.go}, Lab 5), \texttt{APP\_VERSION} was added to the config, and Go and Bun dependencies were updated. Nothing in \texttt{apps/api/internal} or \texttt{apps/web/src} changed, so the Sprint 1 behavior and the API contract (\texttt{openapi.yaml}) are the same as in the tag. Check with \texttt{git diff -\/-stat v0.0.3.0 eed7b27 -\/- apps}.
+
+Every merge into \texttt{main} deploys (Lab 5). The Product Team tells the UAT Team before any merge into \texttt{main} during the UAT window. Record the \texttt{version} from \texttt{/api/v1/health} at the start of each test session. If it changes during a session, stop, tell the Product Team, and record the new version.
+
+\subsubsection*{A.1.3 Scope accepted for test}\label{A:scope}
+
+In scope: Sprint 1 features F-01 to F-04 (feature inventory).
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.2562}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.7438}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Feature
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+What the user can do
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+F-01 Authentication and session & Log in with a seeded account, see the name and role in the header, see only the links of the role, log out \\
+F-02 Submit claim & Create a claim with 1--20 line items and submit it. The server checks the amount, total, Meals, and date rules, and calculates the total \\
+F-03 My claims & List your own claims and open one: line items, total, status, assigned reviewer, history. Other members\textquotesingle{} claims are hidden \\
+F-04 Review decision & A Reviewer or Finance Officer sees the \texttt{Submitted} claims assigned to them and approves (optional comment) or rejects (required reason) \\
+\end{longtable}
+}
+
+Not in scope (Sprint 2 and 3). Do not report these as defects:
+
+\begin{itemize}
+\tightlist
+\item
+  Save as draft, edit, delete (F-05), return and resubmit (F-06), withdraw (F-07). In Sprint 1 the owner has no actions on a submitted claim.
+\item
+  Two-stage approval (F-08). In Sprint 1, an approval is final at any amount, so a 40,000.00 THB claim approved by a reviewer is \texttt{Approved}.
+\item
+  Filter and search (F-09), decision summaries (F-10), Finance Queue.
+\item
+  Sign-up, password change, and account management. Only seeded accounts exist.
+\end{itemize}
+
+\subsubsection*{A.1.4 Accounts}
+
+The seed creates seven synthetic accounts. All seven have the same password. The Product Team posts it in the private Discord channel \texttt{\#qa}, which only the two teams can read (posted on 19 November 2026). It is not in this document or in Git.
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1650}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1212}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1919}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1616}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1800}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1802}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Account label
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Display name
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Role (header label)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Position
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Assigned reviewer
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Used in
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{req.anan} & Anan K. & Requester & Staff, Section A & \texttt{rev.malee} & UAT-01, 03, 06, 07 \\
+\texttt{req.ploy} & Ploy & Requester & Staff, Section A & \texttt{rev.malee} & UAT-02, 03 \\
+\texttt{req.niran} & Niran & Requester & Staff, Section B & \texttt{rev.somchai} & UAT-05 \\
+\texttt{rev.malee} & Malee S. & Reviewer & Section Head A & \texttt{rev.prasert} & UAT-01, 03, 04, 06, 07 \\
+\texttt{rev.somchai} & Somchai & Reviewer & Section Head B & \texttt{rev.prasert} & UAT-03, 05 \\
+\texttt{rev.prasert} & Prasert & Reviewer & Department Head & \texttt{fin.wanida} & UAT-04 \\
+\texttt{fin.wanida} & Wanida & Finance Officer & Finance Officer & none & UAT-04 \\
+\end{longtable}
+}
+
+What each role may do in Sprint 1:
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.1145}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2595}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2443}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.3817}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Role
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Header links
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Create claims
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Sees claims
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Requester & My Claims, New Claim & Yes & Own claims only \\
+Reviewer & My Claims, New Claim, Review Queue & Yes & Own claims, and claims assigned to them for review \\
+Finance Officer & Review Queue & No (no assigned reviewer, BR-15) & Claims assigned to them (the Department Head\textquotesingle s) \\
+\end{longtable}
+}
+
+A member never reviews their own claim (BR-01): a reviewer\textquotesingle s own claim goes to their own assigned reviewer.
+
+\subsubsection*{A.1.5 Data setup}
+
+\begin{itemize}
+\tightlist
+\item
+  No setup by the UAT Team. Each deploy runs the seed, which creates the seven accounts and six sample claims (\texttt{CLM-2026-900001} to \texttt{CLM-2026-900006}).
+\item
+  The cases do not use the sample claims, because an earlier tester may have decided them. Each case creates the claims it needs in its first steps.
+\item
+  Give each claim the title in the case, with the case ID and your run number, for example \texttt{UAT-01 run 1 – Khon Kaen client visit}. Use run 2, 3, \ldots{} when you repeat a case. Then you can always find your own claim in a list.
+\item
+  All names, amounts, receipt references, and comments in the cases are synthetic. Do not enter real personal or financial data.
+\item
+  Dates are relative to \textbf{D}, the day you run the case in Asia/Bangkok time. \texttt{D-3} is three days before D. Enter dates as \texttt{YYYY-MM-DD}. Do not run UAT-02 within 10 minutes of midnight Bangkok time, because D changes.
+\item
+  Money is in Thai baht (THB) with 2 decimals. Enter \texttt{1250.50}; the app shows \texttt{THB 1,250.50}.
+\end{itemize}
+
+\subsubsection*{A.1.6 Reset and cleanup}
+
+\begin{itemize}
+\tightlist
+\item
+  Claims cannot be deleted in Sprint 1, and the claim history is append-only (BR-11). Claims made during UAT stay in the database. This is expected and does not affect a rerun, because each run uses a new title.
+\item
+  Claims that a case leaves in \texttt{Submitted} (UAT-02, 03, 04) stay in a reviewer\textquotesingle s queue. Leave them. The queue is oldest first, 20 rows per page: use the › arrow next to \texttt{Page X of Y} (tooltip \texttt{Go to next page}) to find a newer claim.
+\item
+  Always log out at the end of a case, and before you log in as another account in the same browser. Or use a separate private window for each account.
+\item
+  A session ends 8 hours after login. If the app shows the Login screen during a case, log in again with the same account and continue.
+\item
+  The Product Team does not reset the shared database during the UAT window. The cases do not need a reset.
+\end{itemize}
+
+\subsubsection*{A.1.7 Case order}
+
+Every case is independent: it creates its own data and can run in any order, by either tester. Suggested order: UAT-07, UAT-01, UAT-02, UAT-03, UAT-04, UAT-05, UAT-06. UAT-06 has two sessions; start Session 1 early and run Session 2 at least 1 hour later.
+
+\subsubsection*{A.1.8 Recording results and reporting findings}
+
+\begin{itemize}
+\tightlist
+\item
+  For each case record: case ID, tester name and team, date and time, tested version (the \texttt{version} from \texttt{/api/v1/health}), the inputs you used, the actual result of each step, and PASS, FAIL, or BLOCKED (with the reason).
+\item
+  Write what you saw in the actual result. Do not copy the expected result.
+\item
+  Take a screenshot at each step marked \shot{}.
+\item
+  Report each failure as a GitHub Issue on \url{https://github.com/beambeambeam/claimflow/issues}, with a title that starts with \texttt{{[}UAT{]}}; the Product Team adds the label \texttt{uat}. Give the case ID and step number, the tested version, the steps, the expected result, the actual result, and a screenshot. Then post the Issue link in \texttt{\#qa}.
+\end{itemize}
+
+\partsection{A.2}{Coverage}
+
+The categories are the four that the handout requires (§3.1).
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.0850}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.1758}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2967}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.4425}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Case
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Category
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Requirements
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Sprint 1 acceptance criteria
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+UAT-01 & Normal domain journey & FR-02, FR-03, FR-04, FR-05, FR-06, FR-07, BR-08, BR-17 & F02-AC-01, F02-AC-13, F03-AC-01, F03-AC-05, F03-AC-10, F04-AC-01, F04-AC-03, F04-AC-04, F04-AC-18, F04-AC-20 \\
+UAT-02 & Business rule and boundary & BR-05, BR-06, BR-07, BR-12, NFR-08 & F02-AC-03 (UI part), F02-AC-04, F02-AC-05, F02-AC-06, F02-AC-07, F02-AC-11, F02-AC-13 \\
+UAT-03 & Forbidden ownership & NFR-02, FR-04, FR-05, BR-02 & F01-AC-18, F03-AC-02, F03-AC-06, F03-AC-07, F03-AC-11, F04-AC-01, F04-AC-08 (UI part), F04-AC-17 \\
+UAT-04 & Forbidden role and self-approval & NFR-02, BR-01, BR-15, FR-05 & F01-AC-20, F02-AC-14, F03-AC-04, F04-AC-02, F04-AC-07 \\
+UAT-05 & Business rule and boundary & BR-04, BR-03, FR-06, FR-07, NFR-08 & F04-AC-05, F04-AC-06, F04-AC-11 (UI part), F04-AC-18 \\
+UAT-06 & State, history, and persistence & FR-04, FR-07, NFR-05, BR-03, BR-11 & F03-AC-05, F03-AC-11, F04-AC-04, F04-AC-16 (user view), F04-AC-20 \\
+UAT-07 & Login and session & FR-01, NFR-03 & F01-AC-02, F01-AC-03, F01-AC-07, F01-AC-18, F01-AC-19, F01-AC-20 \\
+\end{longtable}
+}
+
+Sprint 1 criteria that a user cannot check through the web app are covered by the automated tests in CI (the test tables in each feature contract, and the traceability matrix). Examples: bans and the 8-hour expiry (F01-AC-04, 05, 08), password and token storage (F01-AC-09, 10), cross-site requests (F01-AC-13), rollback on a failed write (F02-AC-02, F04-AC-14), concurrent decisions and \texttt{If-Match} (F04-AC-12, 13), and database-level history protection (F04-AC-15).
+
+\partsection{A.3}{Cases}
+
+\subsubsection*{UAT-01\enspace Submit a claim and get it approved}\label{case:UAT-01}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1262}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8738}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Category & Normal domain journey \\
+References & FR-02 to FR-07, BR-08, BR-17; F02-AC-01, F02-AC-13, F03-AC-01, F03-AC-05, F03-AC-10, F04-AC-01, F04-AC-03, F04-AC-04, F04-AC-18, F04-AC-20 \\
+Purpose & A requester submits a claim with two line items; the assigned reviewer approves it; the requester sees the decision and the history \\
+Roles & Requester \texttt{req.anan}, Reviewer \texttt{rev.malee} \\
+Preconditions & Logged out. Version recorded \\
+\end{longtable}
+}
+
+Inputs:
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8571}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Title & \texttt{UAT-01\ run\ \textless{}n\textgreater{}\ –\ Khon\ Kaen\ client\ visit} \\
+Purpose & \texttt{Bus and lunch for the client visit} \\
+Item 1 & Category Travel, Description \texttt{Bus fare, Bangkok to Khon Kaen}, Expense date \texttt{D-3}, Amount \texttt{1250.50}, Receipt reference \texttt{RCPT-UAT01-1} \\
+Item 2 & Category Meals, Description \texttt{Lunch with the client}, Expense date \texttt{D-2}, Amount \texttt{980.25}, Receipt reference \texttt{RCPT-UAT01-2} \\
+Approve comment & \texttt{UAT-01 approved} \\
+\end{longtable}
+}
+
+Expected total: 1,250.50 + 980.25 = \textbf{2,230.75 THB}.
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.0700}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4462}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4839}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Step
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Action
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Expected result
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & Open the URL and log in as \texttt{req.anan} & My Claims page. Header shows \texttt{Anan K.}, \texttt{Requester}, links \textbf{My Claims} and \textbf{New Claim}, no \textbf{Review Queue} \\
+2 & Click \textbf{New Claim}. Enter the title, purpose, and Item 1. Click \textbf{Add line item} and enter Item 2 & Two line-item rows. The running total shows \texttt{Total THB 2,230.75} \\
+3 & Click \textbf{Submit} \shot{} & Confirmation page: heading \texttt{Claim\ CLM-2026-\textless{}6\ digits\textgreater{}\ submitted}, a blue \textbf{Submitted} badge, \texttt{Total THB 2,230.75}, buttons \textbf{View claim}, \textbf{View my claims}, \textbf{New claim}. Record the claim number \\
+4 & Click \textbf{View my claims} & The new claim is the first row: claim number, the title, \texttt{THB 2,230.75}, \textbf{Submitted}, submitted date D (for example \texttt{19 Nov 2026}) \\
+5 & Open the claim \shot{} & Claim Detail: claim number, \textbf{Submitted} badge, title, \texttt{THB 2,230.75}. Summary: purpose, Requester \texttt{Anan K.}, Assigned reviewer \texttt{Malee S.}, Submitted D. Line items in order 1, 2 with the inputs. History: one entry, \texttt{Submitted}, \texttt{– → Submitted}, \texttt{Anan K.}, date and time. No \textbf{Approve} or \textbf{Reject} button \\
+6 & Log out. Log in as \texttt{rev.malee}. Click \textbf{Review Queue} & The claim is in the queue with Requester \texttt{Anan K.}, the title, and \texttt{THB 2,230.75} (if it is not on the first page, use the › arrow next to \texttt{Page X of Y}). Every row is a \texttt{Submitted} claim; no row has Requester \texttt{Malee S.} \\
+7 & Open the claim from the queue & Claim Detail with \textbf{Approve} and \textbf{Reject} buttons \\
+8 & Click \textbf{Approve} & Dialog \texttt{Approve claim CLM-2026-…?} with an optional comment field, \textbf{Approve}, and \textbf{Cancel} \\
+9 & Enter the approve comment. Click \textbf{Approve} \shot{} & Toast \texttt{Claim approved.} The badge changes to green \textbf{Approved}. \textbf{Approve} and \textbf{Reject} are gone. History has a second entry: \texttt{Approved}, \texttt{Submitted → Approved}, \texttt{Malee S.}, date and time, \texttt{UAT-01 approved} \\
+10 & Click \textbf{Review Queue} & The claim is no longer in the queue \\
+11 & Log out. Log in as \texttt{req.anan}. Open \textbf{My Claims}, then the claim \shot{} & The row shows \textbf{Approved}. Claim Detail shows \textbf{Approved}, total \texttt{THB 2,230.75}, and two history entries, oldest first: \texttt{Submitted} (\texttt{Anan K.}) and \texttt{Approved} (\texttt{Malee S.}, comment \texttt{UAT-01 approved}) \\
+\end{longtable}
+}
+
+\subsubsection*{UAT-02\enspace Claim amount, total, Meals, and date limits}\label{case:UAT-02}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1262}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8738}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Category & Business rule and boundary \\
+References & BR-05, BR-06, BR-07, BR-12, NFR-08; F02-AC-03 (UI part), F02-AC-04, F02-AC-05, F02-AC-06, F02-AC-07, F02-AC-11, F02-AC-13 \\
+Purpose & Values just past each limit are refused with the field message, values at each limit are accepted, and a refused submission stores nothing \\
+Role & Requester \texttt{req.ploy} \\
+Preconditions & Logged out. Version recorded. Not within 10 minutes of midnight Bangkok time \\
+\end{longtable}
+}
+
+Valid inputs (the "baseline"). Each limit is at its highest allowed value:
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.0700}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4992}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4308}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Limit
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Title & \texttt{UAT-02\ run\ \textless{}n\textgreater{}\ –\ Regional\ training\ trip} & -- \\
+Purpose & \texttt{Travel, hotel, meals, and fee for the regional training} & -- \\
+Item 1 & Travel, \texttt{Return flight}, \texttt{D-90}, \texttt{20000.00}, \texttt{RCPT-UAT02-1} & Oldest allowed date (BR-07); highest item amount (BR-05) \\
+Item 2 & Accommodation, \texttt{Hotel, 5 nights}, \texttt{D-5}, \texttt{20000.00}, \texttt{RCPT-UAT02-2} & Highest item amount (BR-05) \\
+Item 3 & Meals, \texttt{Team dinner}, \texttt{D}, \texttt{1500.00}, \texttt{RCPT-UAT02-3} & Today (BR-07); highest Meals amount (BR-12) \\
+Item 4 & Training, \texttt{Workshop fee}, \texttt{D-1}, \texttt{8500.00}, \texttt{RCPT-UAT02-4} & -- \\
+\end{longtable}
+}
+
+Expected baseline total: 20,000.00 + 20,000.00 + 1,500.00 + 8,500.00 = \textbf{50,000.00 THB}, the highest allowed total (BR-06).
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.0700}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4462}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4839}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Step
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Action
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Expected result
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & Log in as \texttt{req.ploy}. Open \textbf{My Claims} & No claim with the title \texttt{UAT-02\ run\ \textless{}n\textgreater{}\ …} \\
+2 & Click \textbf{New Claim}. Enter the baseline, but Item 3 Amount \texttt{1500.01} & Running total \texttt{Total THB 50,000.01} \\
+3 & Click \textbf{Submit} \shot{} & No confirmation. Under Item 3 Amount: \texttt{A Meals item cannot be more than 1,500.00 THB.} Above \textbf{Submit}: \texttt{Claim total cannot be more than 50,000.00 THB.} All values stay as entered \\
+4 & Set Item 3 Amount \texttt{1500.00}, Item 1 Expense date \texttt{D-91}, Item 2 Expense date \texttt{D+1}. Click \textbf{Submit} \shot{} & No confirmation. Under Item 1 Expense date: \texttt{Expense date cannot be more than 90 days before the claim was first submitted.} Under Item 2 Expense date: \texttt{Expense date cannot be in the future.} No total message \\
+5 & Set Item 1 Expense date \texttt{D-90} and Item 2 Expense date \texttt{D-5}. Set Item 4 Amount \texttt{0.00}. Click \textbf{Submit} & No confirmation. Under Item 4 Amount: \texttt{Amount must be between 0.01 and 20,000.00 THB.} \\
+6 & Set Item 4 Amount \texttt{8500.00} and Item 2 Amount \texttt{1.005}. Click \textbf{Submit} & No confirmation. Under Item 2 Amount: \texttt{Enter an amount with 2 decimals, e.g. 1250.00.} The running total counts only valid amounts: \texttt{Total THB 30,000.00} \\
+7 & Set Item 2 Amount \texttt{20000.01}. Click \textbf{Submit} & No confirmation. Under Item 2 Amount: \texttt{Amount must be between 0.01 and 20,000.00 THB.} Above \textbf{Submit}: \texttt{Claim total cannot be more than 50,000.00 THB.} (total 50,000.01) \\
+8 & Set Item 2 Amount \texttt{20000.00}. Check that all fields equal the baseline. Click \textbf{Submit} \shot{} & Running total \texttt{Total THB 50,000.00}. Confirmation \texttt{Claim\ CLM-2026-\textless{}6\ digits\textgreater{}\ submitted}, \textbf{Submitted}, \texttt{Total THB 50,000.00}. Record the claim number \\
+9 & Click \textbf{New claim}. Click \textbf{Add line item} until it is disabled. Count the rows. Then click \textbf{Remove} until it is disabled. Do not submit & \textbf{Add line item} is disabled at 20 rows. \textbf{Remove} is disabled when 1 row is left \\
+10 & Open \textbf{My Claims} & Exactly one claim with the title \texttt{UAT-02\ run\ \textless{}n\textgreater{}\ …}, total \texttt{THB 50,000.00}, \textbf{Submitted}. The refused attempts in steps 3 to 7 made no claim \\
+11 & Open that claim & Four line items in order 1 to 4 with the baseline categories, dates, and amounts. Total \texttt{THB 50,000.00}. Assigned reviewer \texttt{Malee S.} \\
+\end{longtable}
+}
+
+\subsubsection*{UAT-03\enspace Other members cannot see or decide a claim}\label{case:UAT-03}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1262}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8738}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Category & Forbidden ownership \\
+References & NFR-02, FR-04, FR-05, BR-02; F01-AC-18, F03-AC-02, F03-AC-06, F03-AC-07, F03-AC-11, F04-AC-01, F04-AC-08 (UI part), F04-AC-17 \\
+Purpose & Another requester, an unrelated reviewer, and an anonymous visitor cannot see a claim. The claim stays unchanged, and the assigned reviewer can still decide it \\
+Roles & Requester \texttt{req.anan} (owner), Requester \texttt{req.ploy}, Reviewer \texttt{rev.somchai} (not assigned), Reviewer \texttt{rev.malee} (assigned), anonymous \\
+Preconditions & Logged out. Version recorded \\
+\end{longtable}
+}
+
+Inputs: Title \texttt{UAT-03\ run\ \textless{}n\textgreater{}\ –\ Office\ supplies}, Purpose \texttt{Paper for the section printer}, one item: Supplies, \texttt{Printer paper, 10 reams}, \texttt{D-1}, \texttt{1200.00}, \texttt{RCPT-UAT03-1}.
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.0700}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4353}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4947}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Step
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Action
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Expected result
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & Log in as \texttt{req.anan}. Submit a claim with the inputs. Click \textbf{View claim} & Claim Detail, \textbf{Submitted}, \texttt{THB 1,200.00}. Record the claim number and copy the page address (\texttt{…/claims/\textless{}id\textgreater{}}) \\
+2 & Log out. Log in as \texttt{req.ploy}. Open \textbf{My Claims} & The UAT-03 claim is not in the list \\
+3 & Paste the claim address into the address bar \shot{} & Page \texttt{You\ don\textquotesingle{}t\ have\ access\ to\ this\ claim.} No claim number, title, amount, line item, or history \\
+4 & Open \texttt{\textless{}URL\textgreater{}/reviews} & Page \texttt{You\ don\textquotesingle{}t\ have\ access\ to\ this\ page.} The header has no \textbf{Review Queue} link \\
+5 & Log out. Log in as \texttt{rev.somchai}. Paste the claim address \shot{} & \texttt{You\ don\textquotesingle{}t\ have\ access\ to\ this\ claim.} No claim data \\
+6 & Click \textbf{Review Queue} & The UAT-03 claim is not in the queue (it is assigned to \texttt{rev.malee}) \\
+7 & Log out. Paste the claim address while logged out & Login screen. The address is \texttt{/login?redirect=\%2Fclaims\%2F\textless{}id\textgreater{}} \\
+8 & Log in as \texttt{rev.malee} on that screen \shot{} & The app opens the UAT-03 claim, not the default page. \textbf{Submitted}, \texttt{THB 1,200.00}, \textbf{Approve} and \textbf{Reject} buttons. Do not click them \\
+9 & Click \textbf{Review Queue} & The UAT-03 claim is in the queue \\
+10 & Log out. Log in as \texttt{req.anan}. Open the claim \shot{} & Still \textbf{Submitted}, \texttt{THB 1,200.00}. History has one entry (\texttt{Submitted}, \texttt{Anan K.}). Nothing changed in steps 2 to 9. No \textbf{Approve} or \textbf{Reject} button for the owner \\
+\end{longtable}
+}
+
+Cleanup: the claim stays \texttt{Submitted} in \texttt{rev.malee}\textquotesingle s queue. Leave it.
+
+\subsubsection*{UAT-04\enspace Finance Officer limits and no self-approval}\label{case:UAT-04}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1262}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8738}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Category & Forbidden role and self-approval \\
+References & NFR-02, BR-01, BR-15, FR-05; F01-AC-20, F02-AC-14, F03-AC-04, F04-AC-02, F04-AC-07 \\
+Purpose & A reviewer cannot decide their own claim, which goes to their own reviewer. A Finance Officer cannot create claims, has no My Claims list, and cannot open claims that are not assigned to them \\
+Roles & Reviewer \texttt{rev.malee} (claim owner), Finance Officer \texttt{fin.wanida}, Reviewer \texttt{rev.prasert} (Malee\textquotesingle s reviewer) \\
+Preconditions & Logged out. Version recorded \\
+\end{longtable}
+}
+
+Inputs: Title \texttt{UAT-04\ run\ \textless{}n\textgreater{}\ –\ Section\ meeting\ snacks}, Purpose \texttt{Snacks for the monthly section meeting}, one item: Other, \texttt{Snacks for 12 people}, \texttt{D-1}, \texttt{850.00}, \texttt{RCPT-UAT04-1}.
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.0700}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4514}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4786}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Step
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Action
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Expected result
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & Log in as \texttt{rev.malee}. Submit a claim with the inputs. Click \textbf{View claim} \shot{} & \textbf{Submitted}, \texttt{THB 850.00}, Assigned reviewer \texttt{Prasert}. No \textbf{Approve} or \textbf{Reject} button. Copy the page address \\
+2 & Click \textbf{Review Queue} & The UAT-04 claim is not in Malee\textquotesingle s queue \\
+3 & Log out. Log in as \texttt{fin.wanida} & Lands on the Review Queue. Header shows \texttt{Wanida}, \texttt{Finance Officer}, and only the \textbf{Review Queue} link: no \textbf{My Claims} and no \textbf{New Claim} \\
+4 & Look at every row of the queue & Every row has Requester \texttt{Prasert}, or the queue shows \texttt{No claims waiting for your review.} No claim of Anan, Ploy, Niran, Malee, or Somchai \\
+5 & Open \texttt{\textless{}URL\textgreater{}/claims/new} \shot{} & Page \texttt{You\ can\textquotesingle{}t\ create\ claims.} with the text \texttt{Your account has no assigned reviewer, so it cannot submit claims.} No form \\
+6 & Open \texttt{\textless{}URL\textgreater{}/claims} & Page \texttt{You\ don\textquotesingle{}t\ have\ access\ to\ this\ page.} No claim list \\
+7 & Paste the UAT-04 claim address \shot{} & \texttt{You\ don\textquotesingle{}t\ have\ access\ to\ this\ claim.} No claim data \\
+8 & Log out. Log in as \texttt{rev.prasert}. Click \textbf{Review Queue} & The UAT-04 claim is in the queue with Requester \texttt{Malee S.} \\
+9 & Open it & \textbf{Submitted}, \texttt{THB 850.00}, \textbf{Approve} and \textbf{Reject} buttons. Do not click them \\
+\end{longtable}
+}
+
+Cleanup: the claim stays \texttt{Submitted} in \texttt{rev.prasert}\textquotesingle s queue. Leave it.
+
+\subsubsection*{UAT-05\enspace Reject reason rule and the final state}\label{case:UAT-05}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1262}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8738}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Category & Business rule and boundary \\
+References & BR-04, BR-03, FR-06, FR-07, NFR-08; F04-AC-05, F04-AC-06, F04-AC-11 (UI part), F04-AC-18 \\
+Purpose & A rejection needs a reason of at least 5 characters. A rejected claim cannot be decided again, and the requester sees the reason \\
+Roles & Requester \texttt{req.niran}, Reviewer \texttt{rev.somchai} \\
+Preconditions & Logged out. Version recorded \\
+\end{longtable}
+}
+
+Inputs: Title \texttt{UAT-05\ run\ \textless{}n\textgreater{}\ –\ Data\ course\ textbook}, Purpose \texttt{Textbook for the data handling course}, one item: Training, \texttt{Course textbook}, \texttt{D-4}, \texttt{1450.00}, \texttt{RCPT-UAT05-1}. Reject reasons: blank, \texttt{Late} (4 characters), \texttt{No ID} (5 characters, the space counts).
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.0700}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4483}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4817}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Step
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Action
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Expected result
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & Log in as \texttt{req.niran}. Submit a claim with the inputs & Confirmation, \textbf{Submitted}, \texttt{Total THB 1,450.00}. Record the claim number \\
+2 & Log out. Log in as \texttt{rev.somchai}. Open \textbf{Review Queue}, then the UAT-05 claim & Requester \texttt{Niran}, \texttt{THB 1,450.00}, \textbf{Approve} and \textbf{Reject} buttons \\
+3 & Click \textbf{Reject} & Dialog \texttt{Reject claim CLM-2026-…?} with a Reason field, a counter \texttt{0/500}, \textbf{Reject}, and \textbf{Cancel} \\
+4 & Leave Reason empty. Click \textbf{Reject} & Under Reason: \texttt{Enter a reason (5 to 500 characters).} The dialog stays open \\
+5 & Enter \texttt{Late}. Click \textbf{Reject} \shot{} & Under Reason: \texttt{Reason must be at least 5 characters.} The dialog stays open and \texttt{Late} is kept \\
+6 & Change Reason to \texttt{No ID}. Click \textbf{Reject} \shot{} & Toast \texttt{Claim rejected.} Red \textbf{Rejected} badge. \textbf{Approve} and \textbf{Reject} are gone. History: \texttt{Submitted} (\texttt{Niran}), then \texttt{Rejected}, \texttt{Submitted → Rejected}, \texttt{Somchai}, \texttt{No ID} \\
+7 & Reload the page & Still \textbf{Rejected}, no \textbf{Approve} or \textbf{Reject} button \\
+8 & Click \textbf{Review Queue} & The UAT-05 claim is not in the queue \\
+9 & Log out. Log in as \texttt{req.niran}. Open \textbf{My Claims}, then the claim \shot{} & The row shows \textbf{Rejected}. The history shows the \texttt{Rejected} entry by \texttt{Somchai} with the reason \texttt{No ID} \\
+\end{longtable}
+}
+
+\subsubsection*{UAT-06\enspace Claim state and history stay the same across sessions}\label{case:UAT-06}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1262}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8738}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Category & State, history, and persistence \\
+References & FR-04, FR-07, NFR-05, BR-03, BR-11; F03-AC-05, F03-AC-11, F04-AC-04, F04-AC-16 (user view), F04-AC-20 \\
+Purpose & A decided claim keeps its status, line items, total, and full history in a later session; the history is in time order and nobody can change it in the app \\
+Roles & Requester \texttt{req.anan}, Reviewer \texttt{rev.malee} \\
+Preconditions & Logged out. Version recorded. Session 2 runs at least 1 hour after Session 1, in a new private browser window \\
+\end{longtable}
+}
+
+Inputs:
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1852}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8148}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Title & \texttt{UAT-06\ run\ \textless{}n\textgreater{}\ –\ Workshop\ travel} \\
+Purpose & \texttt{Van, hotel, and lunch for the Q4 workshop} \\
+Item 1 & Travel, \texttt{Van hire}, \texttt{D-10}, \texttt{3000.00}, \texttt{RCPT-UAT06-1} \\
+Item 2 & Accommodation, \texttt{Hotel, 2 nights}, \texttt{D-9}, \texttt{2400.00}, \texttt{RCPT-UAT06-2} \\
+Item 3 & Meals, \texttt{Workshop lunch}, \texttt{D-9}, \texttt{1499.99}, \texttt{RCPT-UAT06-3} \\
+Approve comment & \texttt{Approved for the Q4 workshop.} \\
+\end{longtable}
+}
+
+Expected total: 3,000.00 + 2,400.00 + 1,499.99 = \textbf{6,899.99 THB}.
+
+Session 1:
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.0700}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4462}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4839}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Step
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Action
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Expected result
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & Log in as \texttt{req.anan}. Submit a claim with the inputs & Running total and confirmation show \texttt{THB 6,899.99}. Record the claim number \\
+2 & Log out. Log in as \texttt{rev.malee}. Open the claim from \textbf{Review Queue}. Approve it with the comment & Toast \texttt{Claim approved.}, green \textbf{Approved} \\
+3 & Log out. Log in as \texttt{req.anan}. Open the claim \shot{} & \textbf{Approved}, \texttt{THB 6,899.99}, three line items in order 1 to 3, two history entries. Record the date and time of each history entry and the version from \texttt{/api/v1/health} \\
+4 & Log out and close the window & -- \\
+\end{longtable}
+}
+
+Session 2 (at least 1 hour later, new private window):
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.0700}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4811}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4489}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Step
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Action
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Expected result
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+5 & Record the version from \texttt{/api/v1/health}. Log in as \texttt{req.anan}. Open \textbf{My Claims} & The UAT-06 row shows \textbf{Approved}, \texttt{THB 6,899.99}, submitted date D \\
+6 & Open the claim \shot{} & Same as step 3: \textbf{Approved}; \texttt{THB 6,899.99}; Item 1 Travel \texttt{Van hire} \texttt{THB 3,000.00}, Item 2 Accommodation \texttt{Hotel, 2 nights} \texttt{THB 2,400.00}, Item 3 Meals \texttt{Workshop lunch} \texttt{THB 1,499.99}, with the input dates and receipt references; Assigned reviewer \texttt{Malee S.}. History, oldest first: \texttt{Submitted} (\texttt{– → Submitted}, \texttt{Anan K.}) and \texttt{Approved} (\texttt{Submitted → Approved}, \texttt{Malee S.}, \texttt{Approved for the Q4 workshop.}), with the same dates and times as step 3 \\
+7 & Look for any control that changes the claim or its history & None: no edit, delete, withdraw, approve, or reject control \\
+8 & Log out. Log in as \texttt{rev.malee}. Open the claim by its address, then open \textbf{Review Queue} & Claim shows \textbf{Approved} with no \textbf{Approve} or \textbf{Reject} button. The claim is not in the queue \\
+\end{longtable}
+}
+
+If the version in step 5 is different from step 3, the claim survived a redeploy too. Record both versions.
+
+\subsubsection*{UAT-07\enspace Log in, role landing pages, and log out}\label{case:UAT-07}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.1262}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.8738}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Category & Login and session \\
+References & FR-01, NFR-03; F01-AC-02, F01-AC-03, F01-AC-07, F01-AC-18, F01-AC-19, F01-AC-20 \\
+Purpose & Only valid credentials open a session, a failed login does not show which part was wrong, each role lands on its own page, and logout ends the session \\
+Roles & Anonymous, Requester \texttt{req.anan}, Reviewer \texttt{rev.malee} \\
+Preconditions & Logged out. Version recorded \\
+\end{longtable}
+}
+
+Inputs: wrong password \texttt{uat-wrong-password}; unknown username \texttt{nobody.uat}; username in mixed case \texttt{REQ.Anan}.
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.0700}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4217}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.5083}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Step
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Action
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Expected result
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & Open \texttt{\textless{}URL\textgreater{}/claims} while logged out & Login screen. Address \texttt{/login?redirect=\%2Fclaims} \\
+2 & Click \textbf{Log in} with both fields empty & Under Username \texttt{Enter your username.} Under Password \texttt{Enter your password.} \\
+3 & Enter username \texttt{req.anan} and the wrong password. Click \textbf{Log in} \shot{} & Form message \texttt{Invalid username or password.} Username kept, password field empty \\
+4 & Enter username \texttt{nobody.uat} and the wrong password. Click \textbf{Log in} & The same message \texttt{Invalid username or password.} \\
+5 & Enter username \texttt{REQ.Anan} and the correct password. Click \textbf{Log in} & My Claims page (\texttt{/claims}). Header \texttt{Anan K.}, \texttt{Requester}, links \textbf{My Claims} and \textbf{New Claim} \\
+6 & Click \textbf{Log out} & Login screen \\
+7 & Press the browser \textbf{Back} button, or open \texttt{\textless{}URL\textgreater{}/claims} & Login screen again; no claim data shows \\
+8 & Open \texttt{\textless{}URL\textgreater{}/login}. Log in as \texttt{rev.malee} & Lands on the Review Queue (\texttt{/reviews}). Header \texttt{Malee S.}, \texttt{Reviewer}, links \textbf{My Claims}, \textbf{New Claim}, \textbf{Review Queue} \\
+9 & Click \textbf{Log out} & Login screen \\
+\end{longtable}
+}
+
+\partsection{A.4}{Releases during the UAT window}
+
+Every merge into \texttt{main} redeployed the demo. The Sprint 1 behavior changed only in the fix release.
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2194}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1100}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2954}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2752}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Commit
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Change
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Deployed (UTC)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Cloud Run revision
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Sprint 1 behavior
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{eed7b27} & Go dependency update (\#83) & 2026-11-19 13:26 & \texttt{claimflow-00007-5vx} & Same as \texttt{v0.0.3.0}. First UAT session and both findings \\
+\texttt{be3086f} & Agent skills tracked in Git (\#88) & 2026-11-20 16:10 & \texttt{claimflow-00008-64z} & No change: no file under \texttt{apps} changed \\
+\texttt{6e48f77} & Bun dependency update (\#89) & 2026-11-21 08:23 & Not in the run log (Deploy demo run 44884609520) & No change to \texttt{apps/api/internal}, \texttt{apps/web/src}, or \texttt{openapi.yaml} \\
+\texttt{bb5a0d1} & Fix release: \#92 (\#86) and \#91 (\#87), release PR \#93 & 2026-11-21 16:29 & \texttt{claimflow-00010-985} (Deploy demo run 44924677973, smoke test passed) & Whitespace-only text is refused; a double-click on \textbf{Submit} creates one claim. Retested on this version \\
+\end{longtable}
+}
+
+Semantic-release cut no new tag for \texttt{bb5a0d1} (CI run 44924470476: "There are no relevant changes, so no new version is released"), so the fix release is identified by its commit and revision.
