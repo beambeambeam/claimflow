@@ -82,13 +82,15 @@ func seedUserRows(ctx context.Context, queries *db.Queries, password string, cos
 }
 
 // seed upserts the SDS §2.5 demo users and adds the sample claims of F-04 §4 that do not exist yet. A second run
-// updates the same rows and adds no claim twice. The password never reaches the output or an error message.
+// updates the same rows and adds no claim twice. It writes the number of users stored and of claims added to out. The password never reaches the output or an error message.
 func seed(ctx context.Context, databaseURL, password string, cost int, out io.Writer) error {
 	conn, err := pgx.Connect(ctx, databaseURL)
 	if err != nil { // coverage-ignore
 		return fmt.Errorf("connect: %w", err)
 	}
 	defer conn.Close(ctx)
+
+	var added int
 
 	err = pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
 		queries := db.New(tx)
@@ -98,13 +100,15 @@ func seed(ctx context.Context, databaseURL, password string, cost int, out io.Wr
 			return err
 		}
 
-		return seedClaimRows(ctx, queries, ids, reviewers, time.Now())
+		added, err = seedClaimRows(ctx, queries, ids, reviewers, time.Now())
+
+		return err
 	})
 	if err != nil { // coverage-ignore
 		return fmt.Errorf("seed: %w", err)
 	}
 
-	if _, err := fmt.Fprintf(out, "seeded %d users and %d claims\n", len(seedUsers), len(seedClaims)); err != nil { // coverage-ignore
+	if _, err := fmt.Fprintf(out, "seeded %d users and %d new claims\n", len(seedUsers), added); err != nil { // coverage-ignore
 		return fmt.Errorf("write summary: %w", err)
 	}
 
