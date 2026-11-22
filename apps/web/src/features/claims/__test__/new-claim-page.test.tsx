@@ -39,6 +39,9 @@ describe("New Claim page", () => {
     renderAt("/claims/new");
 
     await screen.findByText("You can't create claims.", {}, slow);
+    screen.getByText(
+      "Your account has no assigned reviewer, so it cannot submit claims."
+    );
     expect(screen.queryByLabelText("Title")).toBeNull();
     expect(screen.queryByRole("button", { name: "Submit" })).toBeNull();
   }, 20_000);
