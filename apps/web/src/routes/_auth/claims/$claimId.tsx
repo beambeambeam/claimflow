@@ -4,7 +4,9 @@ import { ClaimDetailPage } from "#/features/claims/components/claim-detail-page"
 import { DecisionPanel } from "#/features/reviews/components/decision-panel";
 import type { Claim } from "#/lib/api/types.gen";
 
-const decisionPanel = (claim: Claim) => <DecisionPanel claim={claim} />;
+const decisionPanel = (claim: Claim, deny: () => void) => (
+  <DecisionPanel claim={claim} onDenied={deny} />
+);
 
 // The route joins the two features: Claim Detail shows the decision panel in its slot. The features do not import each other.
 const ClaimDetailRoute = () => {

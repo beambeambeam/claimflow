@@ -56,10 +56,12 @@ const DecisionDialog = ({
   claim,
   decision,
   onClose,
+  onDenied,
 }: {
   claim: Claim;
   decision: Decision;
   onClose: () => void;
+  onDenied: () => void;
 }) => {
   const text = decisions[decision];
   const titleId = useId();
@@ -87,14 +89,19 @@ const DecisionDialog = ({
         return;
       }
 
-      if (status === 409 || status === 403) {
-        // Someone decided first, or the claim is no longer this member's: the reloaded claim tells which.
-        if (status === 409) {
-          showToast({
-            body: "This claim was changed by someone else – reloaded",
-          });
-        }
+      if (status === 403) {
+        // The claim is no longer this member's to decide: the page shows the access message (F-04 §2.2).
+        onClose();
+        onDenied();
 
+        return;
+      }
+
+      if (status === 409) {
+        // Someone decided first: the reloaded claim shows the decision.
+        showToast({
+          body: "This claim was changed by someone else – reloaded",
+        });
         onClose();
         refetch();
 
@@ -178,7 +185,14 @@ const DecisionDialog = ({
 };
 
 // The Approve and Reject buttons of a claim (F-04 §2.2). They show only for the actions the policy gave this member.
-export const DecisionPanel = ({ claim }: { claim: Claim }) => {
+// `onDenied` runs when a decision gets a 403.
+export const DecisionPanel = ({
+  claim,
+  onDenied,
+}: {
+  claim: Claim;
+  onDenied: () => void;
+}) => {
   const [open, setOpen] = useState<Decision | null>(null);
 
   const allowed = Object.keys(decisions)
@@ -210,6 +224,7 @@ export const DecisionPanel = ({ claim }: { claim: Claim }) => {
           onClose={() => {
             setOpen(null);
           }}
+          onDenied={onDenied}
         />
       )}
     </>

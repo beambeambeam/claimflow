@@ -293,28 +293,23 @@ describe("Decision panel", () => {
     });
   }, 30_000);
 
-  it("F04-TEST-21: a 403 closes the dialog and shows the access page", async () => {
+  it("F04-TEST-21: a 403 on the decision shows the access page with no claim data, even when the claim still reads", async () => {
     const { user } = await open(claim());
 
     await user.click(screen.getByRole("button", { name: "Approve" }));
-    decisionResponse = () => {
-      server.use(
-        http.get(`${apiUrl}/claims/${claimId}`, () =>
-          HttpResponse.json(problem(403, "FORBIDDEN", "req-claim-403"), {
-            status: 403,
-          })
-        )
-      );
-
-      return HttpResponse.json(problem(403, "FORBIDDEN", "req-approve-403"), {
+    decisionResponse = () =>
+      HttpResponse.json(problem(403, "FORBIDDEN", "req-approve-403"), {
         status: 403,
       });
-    };
 
     await user.click(within(dialog()).getByRole("button", { name: "Approve" }));
 
     await screen.findByText("You don't have access to this claim.");
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "CLM-2026-000123" })
+    ).toBeNull();
+    expect(claimReads).toBe(1);
   }, 30_000);
 
   it("F04-TEST-21: another failure shows an error toast with the request ID and keeps the dialog", async () => {

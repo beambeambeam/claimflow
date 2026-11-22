@@ -9,6 +9,7 @@ import { Table } from "@astryxdesign/core/Table";
 import type { TableColumn } from "@astryxdesign/core/Table";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { DateText } from "#/components/date-text";
 import { LoadError } from "#/components/load-error";
@@ -95,12 +96,17 @@ const HistoryTimeline = ({ history }: { history: HistoryEntry[] }) => (
   </List>
 );
 
+// The slot under the claim header. `deny` swaps the page for the access message, as when a decision gets a 403.
+type ClaimActions = (claim: Claim, deny: () => void) => React.ReactNode;
+
 const ClaimView = ({
   claim,
   actions,
+  deny,
 }: {
   claim: Claim;
-  actions?: (claim: Claim) => React.ReactNode;
+  actions?: ClaimActions;
+  deny: () => void;
 }) => (
   <VStack gap={6} hAlign="stretch">
     <VStack aria-label="Claim" as="section" gap={2}>
@@ -110,7 +116,7 @@ const ClaimView = ({
       </HStack>
       <Text type="large">{claim.title}</Text>
       <Money value={claim.total} />
-      {actions?.(claim)}
+      {actions?.(claim, deny)}
     </VStack>
 
     <Section title="Summary">
@@ -148,19 +154,32 @@ const ClaimSkeleton = () => (
   </VStack>
 );
 
+const AccessDenied = () => (
+  <Text type="body" color="secondary">
+    You don&apos;t have access to this claim.
+  </Text>
+);
+
 // Claim Detail (F-03 §2.2). A claim the member may not see, or that does not exist, shows its message and no claim data.
 // `actions` is a slot under the claim header, which the route fills with what a feature adds, such as the decision panel.
+// A 403 from an action shows the same access message as a 403 from the read (F-04 §2.2).
 export const ClaimDetailPage = ({
   claimId,
   actions,
 }: {
   claimId: string;
-  actions?: (claim: Claim) => React.ReactNode;
+  actions?: ClaimActions;
 }) => {
+  const [denied, setDenied] = useState(false);
+
   const claim = useQuery({
     ...getClaimOptions({ path: { id: claimId } }),
     retry: false,
   });
+
+  if (denied) {
+    return <AccessDenied />;
+  }
 
   if (claim.isPending) {
     return <ClaimSkeleton />;
@@ -170,11 +189,7 @@ export const ClaimDetailPage = ({
     const status = isProblem(claim.error) ? claim.error.status : null;
 
     if (status === 403) {
-      return (
-        <Text type="body" color="secondary">
-          You don&apos;t have access to this claim.
-        </Text>
-      );
+      return <AccessDenied />;
     }
 
     if (status === 404) {
@@ -195,5 +210,13 @@ export const ClaimDetailPage = ({
     );
   }
 
-  return <ClaimView actions={actions} claim={claim.data.data} />;
+  return (
+    <ClaimView
+      actions={actions}
+      claim={claim.data.data}
+      deny={() => {
+        setDenied(true);
+      }}
+    />
+  );
 };
