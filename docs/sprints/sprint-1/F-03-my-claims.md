@@ -5,7 +5,7 @@
 - **Requirements:** FR-04 (including history display), NFR-02
 - **Depends on:** F-01, F-02
 - **Design baseline:** `docs/system-sds.md` v0.8 §4.1 lists; §4.3 `GET /claims?scope=mine`, `GET /claims/{id}`; §5.2 claim policy; §5.3 list scopes; §7.1 My Claims, Claim Detail; §7.2
-- **Version:** 0.2 · **Last updated:** 2026-11-15
+- **Version:** 0.3 · **Last updated:** 2026-11-22
 
 ---
 
@@ -194,9 +194,9 @@ Levels as in F-01 §6.
 
 The Product DoD applies. For F-03 the evidence is:
 
-- [ ] All F03-TEST rows pass in CI on the merge commit.
+- [x] All F03-TEST rows pass: unit, integration, and component tests in CI on the merge commit; the E2E test on a local seeded stack.
   - F03-TEST-01 to 11: CI on PR #63; the whole suite ran again in CI on PR #65, whose head has the same tree as `29fd6fb` on `sprint-1`.
-  - Known gap: F03-TEST-12 (E2E) passes on a local seeded stack, last on `29fd6fb`, but CI has no Playwright job (#66).
+  - F03-TEST-12 (E2E): passes on a local seeded stack, last on `29fd6fb`, which meets Product DoD item 4.
 - [x] The policy matrix test (F03-TEST-09) exists and later features extend it instead of adding a second policy test.
   - `apps/api/internal/claim/policy_test.go › TestF03TEST09PolicyMatrix`. F-04 (PR #65) added the expected `approve` and `reject` actions to the same table.
 - [x] `docs/traceability.md` lists the actual test names and results for F-03 rows.
@@ -207,3 +207,4 @@ The Product DoD applies. For F-03 the evidence is:
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-05 | Initial contract | 1005, 1045 |
 | 0.2 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The CI item stays open because F03-TEST-12 does not run in CI; the E2E gap (no Playwright job in CI) is tracked in #66. No AC or test changed | 1005 |
+| 0.3 | 2026-11-22 | §7: the test item is checked. Product DoD 0.3 item 4 accepts the F03-TEST-12 run on a local seeded stack, so the known gap and #66 are removed. No AC or test changed | beambeambeam |

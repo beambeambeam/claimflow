@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-03 (NFR-05, local restart), SR-04 (BR-03, BR-11, BR-13, NFR-06)
 - **Depends on:** F-01, F-02, F-03 (claim policy and Claim Detail)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claim_history`; §3.2 `APPROVE`, `REJECT`; §3.3; §4.1 versions; §4.3 `approve`, `reject`; §5.2; §5.3 `scope=review` and access tests; §7.2 decisions; ADR-0001
-- **Version:** 0.5 · **Last updated:** 2026-11-15
+- **Version:** 0.6 · **Last updated:** 2026-11-22
 
 ---
 
@@ -255,8 +255,8 @@ The Product DoD applies. For F-04 the evidence is:
   - F04-TEST-19 (manual): pass on `d96f612` and again on `29fd6fb`. On `29fd6fb`, `req.anan` submitted a claim and `rev.malee` approved it; after the API and the PostgreSQL container restarted with the volume kept, `req.anan`'s 3 claims, 5 line items, and 5 history entries, read through the API, were byte-identical.
 - [x] TDD evidence for BR-01 or BR-13: commit IDs of the failing test and the passing implementation, for #4.
   - BR-01, F04-TEST-08: red `cccb853`, green `cf3289a`. BR-13, F04-TEST-16: red `cccb853`, green `cf3289a` (PR #65).
-- [x] The Playwright journey (F04-TEST-23) runs in CI or is recorded with the tested commit.
-  - Recorded: F04-TEST-23 and 24 pass on a local seeded stack on `29fd6fb`. CI has no Playwright job (#66).
+- [x] The Playwright journey (F04-TEST-23) passes on a local seeded stack, recorded with the tested commit (Product DoD item 4).
+  - Recorded: F04-TEST-23 and 24 pass on a local seeded stack on `29fd6fb`.
 - [x] `docs/traceability.md` lists the actual test names and results for F-04 rows.
 
 ## 8. Revision history
@@ -268,3 +268,4 @@ The Product DoD applies. For F-04 the evidence is:
 | 0.3 | 2026-11-07 | Problem example uses `type: about:blank` and a UUIDv7 `requestId`, matching SDS §4.2 v0.10 | 1005, 1045 |
 | 0.4 | 2026-11-14 | Write the reject counter as `0/500`, as the field renders it. Clarify check 5, §1.6, F04-AC-11, and BR-13: a decision with a stale `If-Match` version on a claim that is no longer `SUBMITTED` returns 409 `CONFLICT`, not `INVALID_TRANSITION`. This makes the losing request of two concurrent decisions always `CONFLICT` (F04-AC-12). `INVALID_TRANSITION` stays for a current version on a decided claim (F04-AC-11) | beambeambeam |
 | 0.5 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence; F04-TEST-19 recorded again on `29fd6fb`. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |
+| 0.6 | 2026-11-22 | §7: the Playwright item follows Product DoD 0.3 item 4 (local seeded stack, not CI), and the #66 note is removed. No AC or test changed | beambeambeam |

@@ -5,7 +5,7 @@
 - **Requirements:** FR-02, FR-03, FR-07, BR-05, BR-06, BR-07, BR-08, BR-12, BR-15, BR-17, NFR-06, NFR-08
 - **Depends on:** F-01
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claims`, `line_items`, `claim_history`; §2.3 money; §2.4 time; §3; §4.3 `POST /claims`; §5.2; §7.1 New Claim
-- **Version:** 0.4 · **Last updated:** 2026-11-15
+- **Version:** 0.6 · **Last updated:** 2026-11-22
 
 ---
 
@@ -294,9 +294,9 @@ Levels as in F-01 §6. Module tests call `claim.Service` against `pgtest` Postgr
 
 The Product DoD applies. For F-02 the evidence is:
 
-- [ ] All F02-TEST rows pass in CI on the merge commit.
+- [x] All F02-TEST rows pass: unit, integration, and component tests in CI on the merge commit; the E2E test on a local seeded stack.
   - F02-TEST-01 to 20: CI on PR #60; the whole suite ran again in CI on PR #65, whose head has the same tree as `29fd6fb` on `sprint-1`.
-  - Known gap: F02-TEST-21 (E2E) passes on a local seeded stack, last on `29fd6fb`, but CI has no Playwright job. F-04/03 (#34) set up Playwright for local runs only; #66 adds the CI job.
+  - F02-TEST-21 (E2E): passes on a local seeded stack, last on `29fd6fb`, which meets Product DoD item 4.
 - [x] TDD evidence for at least one rule (BR-05, BR-07, or BR-12): commit IDs of the failing test and the passing implementation, for #4.
   - F02-TEST-04, 06, 08, 09, 11 (BR-05, BR-06, BR-07, BR-12): red `ca3a703`, green `7b4787d` (PR #60). `docs/traceability.md` has the other pairs.
 - [x] Migration `00002_claims.sql` runs up and down on an empty database.
@@ -312,3 +312,4 @@ The Product DoD applies. For F-02 the evidence is:
 | 0.3 | 2026-11-14 | §1.4 adds the message for a bad or calendar-impossible expense date (400, shape); §7 records the known gap that F02-TEST-21 runs in CI only after F-04/03 (#34) sets up Playwright | 1005 |
 | 0.4 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The CI item stays open because F02-TEST-21 does not run in CI. The known gap now says that #34 set up Playwright for local runs only and #66 adds the CI job. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |
 | 0.5 | 2026-11-21 | UAT fix (#86): text of only whitespace, including Unicode whitespace, is a shape error (400), in the contract and the form. F02-AC-12, §1.3, and §1.5 name the case | 1045 |
+| 0.6 | 2026-11-22 | §7: the test item is checked. Product DoD 0.3 item 4 accepts the F02-TEST-21 run on a local seeded stack, so the known gap and #66 are removed. No AC or test changed | beambeambeam |
