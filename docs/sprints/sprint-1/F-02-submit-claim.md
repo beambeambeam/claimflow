@@ -5,7 +5,7 @@
 - **Requirements:** FR-02, FR-03, FR-07, BR-05, BR-06, BR-07, BR-08, BR-12, BR-15, BR-17, NFR-06, NFR-08
 - **Depends on:** F-01
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claims`, `line_items`, `claim_history`; §2.3 money; §2.4 time; §3; §4.3 `POST /claims`; §5.2; §7.1 New Claim
-- **Version:** 0.6 · **Last updated:** 2026-11-22
+- **Version:** 0.7 · **Last updated:** 2026-11-22
 
 ---
 
@@ -313,3 +313,4 @@ The Product DoD applies. For F-02 the evidence is:
 | 0.4 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence. The CI item stays open because F02-TEST-21 does not run in CI. The known gap now says that #34 set up Playwright for local runs only and #66 adds the CI job. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |
 | 0.5 | 2026-11-21 | UAT fix (#86): text of only whitespace, including Unicode whitespace, is a shape error (400), in the contract and the form. F02-AC-12, §1.3, and §1.5 name the case | 1045 |
 | 0.6 | 2026-11-22 | §7: the test item is checked. Product DoD 0.3 item 4 accepts the F02-TEST-21 run on a local seeded stack, so the known gap and #66 are removed. No AC or test changed | beambeambeam |
+| 0.7 | 2026-11-22 | Follow-up (#70): §2.2, F02-AC-14, and F02-TEST-20 give the no-reviewer sentence of the can't-create page | beambeambeam |
