@@ -1,0 +1,19 @@
+\partsection{D.6}{Release and deployment (PR \#93)}
+
+\begin{longtable}{@{}R{3cm}R{13cm}@{}}
+\toprule \textbf{Step} & \textbf{Evidence} \\ \midrule \endhead
+Release PR & \href{https://github.com/beambeambeam/claimflow/pull/93}{\#93} \texttt{chore: release Lab 6}, \texttt{lab-6} into \texttt{main}, author \texttt{beambeambeam} (ED-15) \\
+Review & \texttt{Kiatisakk} approved on \texttt{0f2dd01}, 2026-11-21 13:27 UTC: \texttt{git diff origin/main origin/lab-6} covers 11 files and equals the reviewed result of \#85, \#91, and \#92; \texttt{openapi.yaml} has the final Unicode-aware pattern; no migration (ED-16) \\
+CI on the PR head & Run 44905878321 on \texttt{0f2dd01}: \texttt{code\_quality}, \texttt{test}, \texttt{api}, \texttt{build}, \texttt{image} passed; \texttt{release} skipped, as on every PR \\
+Merge & Merge commit \texttt{bb5a0d1}, 2026-11-21 16:25 UTC. The merge redeploys the demo, so the UAT Team was told in \texttt{\#qa} first \\
+CI on \texttt{main} & Run 44924470476: all jobs passed; \texttt{release} made no tag (ED-17) \\
+Deployment & Deploy demo run 44924677973, 16:27:30 to 16:29:14 UTC: revision \texttt{claimflow-00010-985} serving 100\% of traffic; smoke test passed (ED-17) \\
+Version check & \texttt{bb5a0d1a6c3db99d69d6187b09b4d66fd0be01c5}, returned by \texttt{GET /api/v1/health} (ED-17) \\
+\bottomrule
+\end{longtable}
+
+\evidence{figures/github/pr93-header.png}{ED-15, PR \#93 \texttt{chore: release Lab 6}, \texttt{lab-6} into \texttt{main}, head \texttt{0f2dd01}, merged as \texttt{bb5a0d1}.}
+
+\evidence{figures/github/pr93-approved.png}{ED-16, PR \#93, \texttt{Kiatisakk}, 2026-11-21 13:27 UTC, on \texttt{0f2dd01}: approved after comparing the release diff with the reviewed PRs.}
+
+\codeevidence{ED-17}{Deployment of \texttt{bb5a0d1}. Action: merge \#93. Expected: revision serving the new commit and a passing smoke test. Actual: \texttt{claimflow-00010-985} at 2026-11-21 16:29 UTC, four smoke checks PASS; semantic-release made no tag; the health endpoint still reports \texttt{bb5a0d1} on 2026-11-22. Lines copied from the GitHub Actions logs.}{content/data/deploy.txt}

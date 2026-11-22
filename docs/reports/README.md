@@ -1,6 +1,6 @@
 # Sprint reports
 
-LaTeX sources and the capture scripts of the ClaimFlow sprint reports. One package serves every sprint; each `sprints/NN/` folder is one report. `sprints/01/README.md` holds that report's plan and evidence index.
+LaTeX sources and the capture scripts of the ClaimFlow sprint reports. One package serves every sprint; each `sprints/NN/` folder is one report. `sprints/01/README.md` holds that report's plan and evidence index. Lab reports live in `labs/NN/` and take the same commands with `labs/NN`, for example `bun run pdf labs/06`.
 
 ```
 docs/reports/
@@ -96,3 +96,7 @@ Mark it in LaTeX as `\todo{<who or what>: ...}`, for example `\todo{release: ...
 2. In `main.tex`, set `\sprintname` and `\deliverable`.
 3. Rewrite `report.config.ts` for the sprint's documents, reviews, contracts, and tickets, and `demo.ts` for its demos.
 4. Run the release-day steps with `NN`.
+
+## Lab reports
+
+A lab report, such as `labs/06/`, has the same `main.tex`, `content/`, `figures/`, and `report.config.ts`. Its config needs only `docs`, `parts`, and `reviews`; the board, contracts, tickets, and manual checks are sprint-only. Pass `labs/NN` wherever a sprint passes `NN`.

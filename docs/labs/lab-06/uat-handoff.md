@@ -2,7 +2,7 @@
 
 What the UAT Team needs to test the ClaimFlow Sprint 1 release without help from the Product Team. The handout is [`lab-6-sprint-1-uat.md`](../../project-specifications/lab-6-sprint-1-uat.md) §3.1. The Sprint 1 contract is the four feature contracts in [`docs/sprints/sprint-1`](../../sprints/sprint-1) (F-01 to F-04) and the [SRS](../../srs.md).
 
-Items marked **TODO** depend on later events. The Product Team fills them in when they happen.
+The results, the triage of the findings, the fixes, and the retest are in [`uat-report.md`](uat-report.md).
 
 ## 1. Handoff
 
@@ -13,7 +13,7 @@ Items marked **TODO** depend on later events. The Product Team fills them in whe
 | Product Team | ClaimFlow | <https://github.com/beambeambeam/claimflow> | `Kiatisakk`, `beambeambeam` |
 | UAT Team | Queue and Service Management System | <https://github.com/MacOverlorD/Queue_and_Service_Management_System_37-39> | `MacOverlorD`, `TauForge` |
 
-Student names and IDs are in the PDF only. Coordination happens in the private Discord channel `#qa`. First UAT session: 20 November 2026. **TODO**: dates of the defect-fix release and the retest, before the 22 November 2026 deadline.
+Student names and IDs are in the PDF only. Coordination happens in the private Discord channel `#qa`. First UAT session: 20 November 2026. Defect-fix release: 21 November 2026 (`bb5a0d1`, PR #93). Retest: 22 November 2026.
 
 ### 1.2 Product and version
 
@@ -336,8 +336,15 @@ Inputs: wrong password `uat-wrong-password`; unknown username `nobody.uat`; user
 | 8 | Open `<URL>/login`. Log in as `rev.malee` | Lands on the Review Queue (`/reviews`). Header `Malee S.`, `Reviewer`, links **My Claims**, **New Claim**, **Review Queue** |
 | 9 | Click **Log out** | Login screen |
 
-## 4. Open items
+## 4. Releases during the UAT window
 
-| Item                                                  | Owner      |
-| ----------------------------------------------------- | ---------- |
-| Dates of the defect-fix release and the retest (§1.1) | Both teams |
+Every merge into `main` redeployed the demo. The Sprint 1 behavior changed only in the fix release.
+
+| Commit | Change | Deployed (UTC) | Cloud Run revision | Sprint 1 behavior |
+| --- | --- | --- | --- | --- |
+| `eed7b27` | Go dependency update (#83) | 2026-11-19 13:26 | `claimflow-00007-5vx` | Same as `v0.0.3.0`. First UAT session and both findings |
+| `be3086f` | Agent skills tracked in Git (#88) | 2026-11-20 16:10 | `claimflow-00008-64z` | No change: no file under `apps` changed |
+| `6e48f77` | Bun dependency update (#89) | 2026-11-21 08:23 | Not in the run log (Deploy demo run 44884609520) | No change to `apps/api/internal`, `apps/web/src`, or `openapi.yaml` |
+| `bb5a0d1` | Fix release: #92 (#86) and #91 (#87), release PR #93 | 2026-11-21 16:29 | `claimflow-00010-985` (Deploy demo run 44924677973, smoke test passed) | Whitespace-only text is refused; a double-click on **Submit** creates one claim. Retested on this version |
+
+Semantic-release cut no new tag for `bb5a0d1` (CI run 44924470476: "There are no relevant changes, so no new version is released"), so the fix release is identified by its commit and revision.

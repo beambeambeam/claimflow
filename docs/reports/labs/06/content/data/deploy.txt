@@ -1,0 +1,15 @@
+# Deploy demo run 44924677973 (workflow_run on main, bb5a0d1), step "smoke test", times UTC
+2026-11-21T16:29:00Z Service [claimflow] revision [claimflow-00010-985] has been deployed and is serving 100 percent of traffic.
+2026-11-21T16:29:07Z Revision: claimflow-00010-985
+2026-11-21T16:29:07Z PASS /api/v1/health reports bb5a0d1a6c3db99d69d6187b09b4d66fd0be01c5
+2026-11-21T16:29:07Z PASS /api/v1/ready 200
+2026-11-21T16:29:08Z PASS / serves the web build
+2026-11-21T16:29:08Z PASS unknown /api route is a JSON 404
+
+# CI run 44924470476 (push to main, bb5a0d1), job "release"
+2026-11-21T16:27:25Z [semantic-release] Analysis of 12 commits complete: no release
+2026-11-21T16:27:25Z [semantic-release] There are no relevant changes, so no new version is released.
+
+# Version check, 2026-11-22 08:08 UTC
+$ curl -s https://claimflow-5bcxewbqkq-as.a.run.app/api/v1/health
+{"status":"ok","version":"bb5a0d1a6c3db99d69d6187b09b4d66fd0be01c5"}

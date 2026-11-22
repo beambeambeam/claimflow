@@ -1,0 +1,51 @@
+\thispagestyle{plain}
+\reporttitle
+
+\medskip
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & \textbf{Student 1} & \textbf{Student 2} \\ \midrule
+Name & \studentOneName & \studentTwoName \\
+Student ID & \studentOneId & \studentTwoId \\
+GitHub & \href{https://github.com/Kiatisakk}{@Kiatisakk} & \href{https://github.com/beambeambeam}{@beambeambeam} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{tabular}{@{}p{3.6cm}p{13cm}@{}}
+\textbf{Theme} & Theme 5, ClaimFlow: Department Expense Reimbursement System. Staff submit expense claims; the assigned reviewer approves or rejects them. \\
+\textbf{Sprint 1 scope} & F-01 Authentication and session, F-02 Submit claim, F-03 My claims, F-04 Review decision (Part A, p.~\pageref{A:scope}). \\
+\textbf{Repository} & \url{https://github.com/beambeambeam/claimflow} \\
+\textbf{Sprint 1 baseline} & Tag \texttt{v0.0.3.0}, commit \texttt{ac5bce5} (release PR \#69, 15 Nov 2026) \\
+\textbf{Tested release} & \texttt{eed7b27}, Cloud Run revision \texttt{claimflow-00007-5vx} (first UAT session, 20 Nov 2026) \\
+\textbf{Corrected release} & \texttt{bb5a0d1} on \texttt{main} (release PR \#93), revision \texttt{claimflow-00010-985}, deployed 21 Nov 2026 16:29 UTC; retested on this release \\
+\textbf{Deployed URL} & \url{https://claimflow-5bcxewbqkq-as.a.run.app}; \texttt{/api/v1/health} returns the deployed commit \\
+\textbf{Partner team} & Queue and Service Management System: Lappawat Laohasoot (\texttt{MacOverlorD}) and Rattathamnoon Buranapattana (\texttt{TauForge}); UAT tester Lappawat Laohasoot, UAT Team TH-027\_P9 \\
+\textbf{UAT of ClaimFlow} & 2 findings received (\#86 minor, \#87 major), both accepted, fixed in \texttt{bb5a0d1}, and retested PASS by the partner on 2026-11-22. Decision: \textbf{Accepted} on \texttt{bb5a0d1} / \texttt{claimflow-00010-985} by Lappawat Laohasoot, 22 Nov 2026 (D.8). No open findings \\
+\textbf{Our UAT of Queue} & 4 cases, all PASS; 4 minor findings. Decision: \textbf{Accepted with documented minor limitations} on \texttt{253b80e} / \texttt{qms-00007-zqx}, 21 Nov 2026 \\
+\end{tabular}
+
+\medskip
+\noindent\textbf{How to read this PDF.}
+ClaimFlow plays two roles in Lab 6.
+As the \emph{Product Team} it wrote the UAT cases (Part A), received and triaged the findings (Part C), and fixed and released them (Part D).
+As the \emph{UAT Team} it tested the Queue team's Sprint 1 release (Part B).
+Evidence has an ID (EB-, EC-, ED-) in its caption, with the action, the expected and actual result, the time, and the commit or revision.
+Times are UTC unless marked UTC+7 (Bangkok).
+The app shows amounts with the baht sign; this PDF writes it as THB, because the report fonts have no baht glyph.
+
+\clearpage
+\section*{Navigation}
+\addcontentsline{toc}{section}{Navigation table}
+\renewcommand{\arraystretch}{1.25}
+\begin{longtable}{@{}R{0.9cm}R{2.5cm}R{12.6cm}@{}}
+\toprule \textbf{Part} & \textbf{Pages} & \textbf{Content and evidence IDs} \\ \midrule \endhead
+A & \pages{A} & ClaimFlow as Product Team: handoff (teams, version, scope, accounts, data setup, cleanup), coverage of the Sprint 1 requirements and acceptance criteria, cases UAT-01 to UAT-07, releases during the UAT window. \\
+B & \pages{B} & ClaimFlow as UAT Team for the Queue team: tested version, results of UAT-01 to UAT-04, outgoing reports Queue \#55 to \#58 (EB-01, EB-02), retest of \#58 and our acceptance decision. \\
+C & \pages{C} & Findings received on ClaimFlow: \#86 whitespace-only text (EC-01 to EC-04), \#87 double-click on Submit (EC-05, EC-06); triage table, classification, severity and reasons. \\
+D & \pages{D} & Version table; fix of \#86 (PR \#92) and \#87 (PR \#91): diffs, regression tests, red and green output (ED-01 to ED-08), reviews and CI (ED-09 to ED-14); release PR \#93 and deployment (ED-15 to ED-17); independent retest (ED-18, ED-19) and the Sprint 1 decision; contributions, AI use, known limitations. \\
+\bottomrule
+\end{longtable}
+
+\tableofcontents

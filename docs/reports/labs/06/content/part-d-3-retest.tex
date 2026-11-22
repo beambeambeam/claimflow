@@ -1,0 +1,24 @@
+\partsection{D.7}{Independent retest}
+
+\texttt{MacOverlorD} retested both fixes for the Queue team on \texttt{bb5a0d1} (read from \texttt{/api/v1/health}, revision \texttt{claimflow-00010-985}) on 2026-11-22 (UTC+7), as \texttt{req.niran}.
+The developer did not retest their own fix. The Queue team's own evidence IDs are B-R86-01 to 04, B-R87-01, 04, 05, and B-RREG, in their Lab 6 report.
+
+\begin{longtable}{@{}R{1.3cm}R{1.9cm}R{10.2cm}R{2.2cm}@{}}
+\toprule \textbf{ID} & \textbf{Time (UTC+7)} & \textbf{Action, expected and actual result} & \textbf{Result} \\ \midrule \endhead
+ED-18 \#86 & 03:15–03:21 & New Claim with one valid item, one field at a time set to 3 spaces. Expected: refused with the field's message. Actual: Title ``Enter a title (up to 120 characters).''; Purpose ``Enter a purpose (up to 1,000 characters).''; Description ``Enter a description (up to 200 characters).''; Receipt reference ``Enter the receipt reference (up to 50 characters).'' No claim created. A direct \texttt{POST /api/v1/claims} with each field of 3 spaces returned 400 with the matching field error & PASS, \href{https://github.com/beambeambeam/claimflow/issues/86\#issuecomment-7068894155}{comment} \\
+ED-19 \#87 & 03:21–03:25 & Runs 1 to 3, double-click on Submit; run 4, three \texttt{click()} calls in one tick. Expected: one claim each. Actual: one claim each, CLM-2026-000019 to 000022, consecutive, no duplicates in My Claims. Regression: \texttt{rev.somchai} approved CLM-2026-000019 normally at 03:34 & PASS, \href{https://github.com/beambeambeam/claimflow/issues/87\#issuecomment-7068894510}{comment} \\
+\bottomrule
+\end{longtable}
+
+Both comments end ``OK to close from the UAT side.'' Both Issues were closed on 2026-11-22 (08:26 UTC).
+
+\partsection{D.8}{Sprint 1 decision for ClaimFlow}
+
+After the retests (ED-18, ED-19), \texttt{MacOverlorD} posted the final decision on both Issues at 2026-11-22 11:27 UTC (\href{https://github.com/beambeambeam/claimflow/issues/86\#issuecomment-7078452563}{\#86}, \href{https://github.com/beambeambeam/claimflow/issues/87\#issuecomment-7078452879}{\#87}): ``Final Sprint 1 UAT decision: Accepted, on \texttt{bb5a0d1} / \texttt{claimflow-00010-985}, tester Lappawat Laohasoot, 2026-11-22.''
+
+\medskip
+\noindent\fbox{\parbox{0.97\linewidth}{%
+\textbf{Sprint 1 decision for ClaimFlow: Accepted.}\\
+Tester: Lappawat Laohasoot (Queue team, UAT Team TH-027\_P9). Retest: 2026-11-22, 03:15 to 03:25 (UTC+7). Decision posted: 2026-11-22 11:27 UTC.\\
+Release: \texttt{bb5a0d1}, Cloud Run \texttt{claimflow-00010-985}.\\
+Open findings: none. \#86 (minor) and \#87 (major) are fixed and retested PASS.}}

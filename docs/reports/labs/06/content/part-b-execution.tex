@@ -1,0 +1,68 @@
+In this part ClaimFlow is the \emph{UAT Team}. We ran the Queue team's Sprint 1 UAT cases on their deployed release, reported what failed, and recorded our decision.
+The full record is Queue Issue \#59 and the four finding Issues \#55 to \#58 in the Queue team's repository.
+
+\partsection{B.1}{Product Team, testers, and tested release}
+
+\begin{longtable}{@{}R{3.6cm}R{12.4cm}@{}}
+\toprule \textbf{Item} & \textbf{Value} \\ \midrule \endhead
+Product & Queue and Service Management System, \url{https://github.com/MacOverlorD/Queue_and_Service_Management_System_37-39} \\
+Product Team & Lappawat Laohasoot (\texttt{MacOverlorD}) and Rattathamnoon Buranapattana (\texttt{TauForge}) \\
+UAT Team (us) & \studentOneName{} (\texttt{Kiatisakk}) and \studentTwoName{} (\texttt{beambeambeam}) \\
+URL & \url{https://qms-6ba6hboj4a-as.a.run.app} \\
+Tested version & \texttt{main} at \texttt{e754975}, Cloud Run revision \texttt{qms-00006-z7c} \\
+Cases & UAT-01 to UAT-04 from the Queue team's \texttt{dev\_handoff.md}, shared privately \\
+Run & 2026-11-20 12:45:09 to 12:46:26 (UTC+7), each case once, in order UAT-01 to UAT-04 \\
+Starting state & As in handoff section 3: Registrar Desk \#4 SERVING and 2 waiting; Finance Desk no current customer and 1 waiting; Student Affairs closed with \#1 CALLED \\
+Method & The handoff steps, followed exactly in Chromium on the deployed app, with one browser window per user. Extra security and contract checks with \texttt{curl} \\
+Record & Queue Issue \#59 (results and decision), Issues \#55 to \#58 (findings) \\
+\bottomrule
+\end{longtable}
+
+Roles: \studentTwoName{} ran the cases, wrote the reports \#55 to \#58, and recorded the decision in \#59. \studentOneName{} solved the problem with the production environment and re-ran the cases.
+
+\partsection{B.2}{Results}
+
+\begin{longtable}{@{}R{1.3cm}R{2.3cm}R{10.4cm}R{1.6cm}@{}}
+\toprule \textbf{Case} & \textbf{Time (UTC+7)} & \textbf{Actual result} & \textbf{Result} \\ \midrule \endhead
+UAT-01 normal journey & 12:45:12 to 12:45:56 & Customer Three joined Finance Desk and got \#2 WAITING, 1 person ahead. Operator One saw only Finance Desk and Registrar Desk. Call next, Start, and Complete moved \#1 through CALLED and SERVING and off the panel. Without a reload, the customer window showed 0 ahead after 2.8 s, CALLED after 9.9 s, and dropped the ticket after 9.4 s. & PASS \\
+UAT-02 business rule & 12:45:56 to 12:46:03 & Empty queue: ``Nobody is waiting in this queue.'' Second join: ``You already have an active ticket in this queue.'' and no new number. Closed queue: join button disabled. Call next while busy: ``Finish the current customer before calling the next one.'' The next join after the refused one got \#4, so the refusal used no number. & PASS \\
+UAT-03 forbidden access & 12:46:03 to 12:46:17 & Signed out: 401 \texttt{UNAUTHENTICATED}. Customer Two on another user's ticket: 404 \texttt{NOT\_FOUND}; operator page: ``Not available''; operator API: 403 \texttt{FORBIDDEN\_ROLE}. Operator Two on Registrar Desk: 403 \texttt{FORBIDDEN\_QUEUE}. Each rejection body held only \texttt{\{error:\{code,message\}\}}, so no protected data was disclosed. & PASS \\
+UAT-04 state and session & 12:46:17 to 12:46:26 & Wrong password: ``Invalid email or password.'' Registrar \#5 WAITING stayed after F5 and after a new login, with its history. Logout ended the session on the server (the old cookie got 401). Operator data was correct after reload, but the selected queue reset to the first queue (finding \#55, EB-01 and EB-02). & PASS, with \#55 \\
+\bottomrule
+\end{longtable}
+
+End state: Finance Desk free, 0 waiting, last number 4. Registrar Desk and Student Affairs were not changed.
+UAT-01 step 3 lists the queue selector as ``Registrar Desk, Finance Desk''. The app sorts the queues by name, as the Queue team's F-06 contract says, so we judged the content, not the order.
+
+Extra checks that passed: the \texttt{sid} cookie is \texttt{HttpOnly}, \texttt{Secure}, \texttt{SameSite=Lax}; a wrong password and an unknown email get the same reply; the development seed password is refused on production; malformed login bodies get 4xx, never 500; a forged cookie gets 401; write endpoints refuse signed-out users (401), customers (403), and operators of another queue (403 \texttt{FORBIDDEN\_QUEUE}); the public display API holds no names or emails; no sideways scrolling at 390 px on \texttt{/queues}, \texttt{/my-ticket}, and \texttt{/operator}.
+
+\evidencehalf{figures/issues/q55-before.png}{EB-01, UAT-04 step 8, 2026-11-20, \texttt{e754975} / \texttt{qms-00006-z7c}. Action: Operator One chooses Registrar Desk. Expected and actual: Now serving \#4 Customer Four, SERVING; \#5 and \#6 waiting (Queue \#55).}
+
+\evidencehalf{figures/issues/q55-after.png}{EB-02, same run. Action: press F5. Expected: Registrar Desk stays selected with \#4 SERVING. Actual: the selector shows Finance Desk, ``No one is being served.'' and ``No one is waiting.''; the operator must pick Registrar Desk again (Queue \#55, minor).}
+
+\partsection{B.3}{Outgoing reports}
+
+Each Issue gives the tested version, the steps, the expected and actual result, and evidence (screenshots or \texttt{curl} output).
+
+\begin{longtable}{@{}R{1.1cm}R{5cm}R{1.3cm}R{4cm}R{3.4cm}@{}}
+\toprule \textbf{Issue} & \textbf{Finding} & \textbf{Severity} & \textbf{Product Team triage} & \textbf{Final state} \\ \midrule \endhead
+\href{https://github.com/MacOverlorD/Queue_and_Service_Management_System_37-39/issues/55}{\#55} & Operator console loses the selected queue on reload (UAT-04 step 8) & Minor & Accepted defect, not fixed in Sprint 1 & Accepted by us as a known limitation \\
+\href{https://github.com/MacOverlorD/Queue_and_Service_Management_System_37-39/issues/56}{\#56} & No security response headers; \texttt{X-Powered-By: Express} sent & Minor & Enhancement: no Sprint 1 requirement covers response headers & Agreed: outside Sprint 1 scope \\
+\href{https://github.com/MacOverlorD/Queue_and_Service_Management_System_37-39/issues/57}{\#57} & Production CORS allows \texttt{http://localhost:5173} with credentials & Minor & Accepted defect, not fixed in Sprint 1 & Accepted by us as a known limitation \\
+\href{https://github.com/MacOverlorD/Queue_and_Service_Management_System_37-39/issues/58}{\#58} & Unknown \texttt{/api/*} routes return HTML, not the JSON error format & Minor & Accepted defect, fixed in Queue PR \#60 & Retest PASS (B.4) \\
+\bottomrule
+\end{longtable}
+
+\partsection{B.4}{Retest and our Sprint 1 decision}
+
+Retest of \#58 by \texttt{beambeambeam}, 2026-11-21 20:09 (UTC+7), on \texttt{253b80e} (Cloud Run \texttt{qms-00007-zqx}), manual \texttt{curl}:
+
+\texttt{GET /api/does-not-exist} returned 404 with \texttt{Content-Type: application/json; charset=utf-8} and the body \nolinkurl{{"error":{"code":"NOT_FOUND","message":"Not found."}}}, the Queue team's JSON error format.
+Result: PASS.
+
+\medskip
+\noindent\fbox{\parbox{0.97\linewidth}{%
+\textbf{Decision for the Queue team's Sprint 1: Accepted with documented minor limitations.}\\
+Release: \texttt{253b80e}, Cloud Run \texttt{qms-00007-zqx}. Date: 2026-11-21. Testers: \studentOneName{} and \studentTwoName{} (ClaimFlow).\\
+Conditions: \#55 and \#57 are minor and accepted as known limitations; \#56 is an enhancement outside Sprint 1; \#58 is fixed and retested. No critical or major finding, and no BLOCKED case.\\
+Recorded in Queue \#59: \url{https://github.com/MacOverlorD/Queue_and_Service_Management_System_37-39/issues/59\#issuecomment-7063068926}.}}

@@ -1,0 +1,57 @@
+// apps/web/src/features/claims/__test__/claim-form.test.tsx at bb5a0d1 (lines 173-201 and 267-291), describe "F02-TEST-19 (F02-AC-13): New Claim form"
+  it("refuses text fields of only spaces the same as empty ones and sends no request", async () => {
+    const user = renderForm();
+
+    await user.type(screen.getByLabelText("Title"), "   ");
+    await user.type(screen.getByLabelText("Purpose"), "   ");
+    await fillItem(user, 0, { amount: "250.00", description: "   " });
+    await user.clear(screen.getByLabelText("Receipt reference"));
+    await user.type(screen.getByLabelText("Receipt reference"), "   ");
+    await user.click(getButton("Submit"));
+
+    await screen.findAllByText("Enter a title (up to 120 characters).");
+    screen.getAllByText("Enter a purpose (up to 1,000 characters).");
+    screen.getAllByText("Enter a description (up to 200 characters).");
+    screen.getAllByText("Enter the receipt reference (up to 50 characters).");
+    expect(bodies).toEqual([]);
+  });
+
+  it("refuses a title and purpose of Unicode spaces, as the API does", async () => {
+    const user = renderForm();
+
+    await user.type(screen.getByLabelText("Title"), "\u00A0\u00A0");
+    await user.type(screen.getByLabelText("Purpose"), "\u3000");
+    await fillItem(user, 0, { amount: "250.00", description: "Train" });
+    await user.click(getButton("Submit"));
+
+    await screen.findAllByText("Enter a title (up to 120 characters).");
+    screen.getAllByText("Enter a purpose (up to 1,000 characters).");
+    expect(bodies).toEqual([]);
+  });
+
+  // ...
+  it("sends one request when Submit is double-clicked", async () => {
+    server.use(
+      http.post(claimsUrl, async ({ request }) => {
+        bodies.push(zClaimInput.parse(await request.json()));
+        await delay(300);
+
+        return HttpResponse.json({ data: submittedClaim }, { status: 201 });
+      })
+    );
+    const user = renderForm();
+
+    await user.type(screen.getByLabelText("Title"), "Bangkok workshop travel");
+    await user.type(screen.getByLabelText("Purpose"), "Train fares and hotel");
+    await fillItem(user, 0, { amount: "250.00", description: "Train" });
+    // A fast double-click lands its second click before React renders the first one's pending state.
+    act(() => {
+      getButton("Submit").click();
+      getButton("Submit").click();
+    });
+
+    expect(getButton("Submit").getAttribute("aria-busy")).toBe("true");
+
+    await screen.findByText("Claim CLM-2026-000123 submitted");
+    expect(bodies).toHaveLength(1);
+  });

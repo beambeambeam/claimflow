@@ -28,6 +28,10 @@ const page = await browser.newPage({
 
 const view = url ?? sprint.config.board;
 
+if (view === undefined) {
+  throw new Error(`no board in ${sprint.name}/report.config.ts; pass the URL`);
+}
+
 await page.goto(view, { timeout: 60_000, waitUntil: "domcontentloaded" });
 
 await page.waitForTimeout(8000);

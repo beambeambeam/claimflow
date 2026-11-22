@@ -1,0 +1,90 @@
+Both fixes took the same path: Issue, fix branch from \texttt{lab6-staging}, teammate review with requested changes, CI, merge into \texttt{lab6-staging}, release PR into \texttt{main}, deployment, smoke test, and an independent retest by the Queue team.
+
+\partsection{D.1}{Versions}
+
+\begin{longtable}{@{}R{2.9cm}R{4cm}R{4.1cm}R{4.5cm}@{}}
+\toprule \textbf{Item} & \textbf{Commit} & \textbf{Cloud Run revision} & \textbf{Notes} \\ \midrule \endhead
+Sprint 1 baseline & \texttt{v0.0.3.0} = \texttt{ac5bce5} & – & Sprint 1 release (\#69) \\
+Tested version & \texttt{eed7b27} & \texttt{claimflow-00007-5vx} & Packaging and dependency changes only since \texttt{v0.0.3.0}. Both findings were made on it \\
+Defective code & \texttt{eed7b27} (same code as \texttt{v0.0.3.0}) & – & \#86: \texttt{claimSchema} in \texttt{claim-form.tsx} and the \texttt{ClaimInput} and \texttt{LineItemInput} schemas in \texttt{openapi.yaml}. \#87: the \texttt{ClaimForm} submit handler \\
+Lab 6 staging base & \texttt{f684459} & – & Handoff merged into \texttt{lab-6} (\#85). The red runs use it as base \\
+Fix \#86 & \texttt{ecb4b2e}, \texttt{2054923}, \texttt{3da036a} $\to$ merge \texttt{6474b95} & – & PR \#92 into \texttt{lab6-staging} \\
+Fix \#87 & \texttt{f97dec4}, \texttt{34e7198}, \texttt{496b22f} $\to$ merge \texttt{f498f49} & – & PR \#91 into \texttt{lab6-staging} \\
+Release PR head & \texttt{0f2dd01} & – & \texttt{lab-6} with \texttt{main} merged in (\#88, \#89) \\
+Corrected release & \texttt{bb5a0d1} & \texttt{claimflow-00010-985} & PR \#93, merge commit, deployed 2026-11-21 16:29 UTC. Retested on this version \\
+\bottomrule
+\end{longtable}
+
+\texttt{0f2dd01} merges \texttt{main} into \texttt{lab-6}, so the release also carries \#88 (agent skills, no file under \texttt{apps}) and \#89 (a Bun dependency update).
+The reviewer of \#93 checked that the release diff equals the reviewed result of \#85, \#91, and \#92 for those files.
+
+No release tag: semantic-release found ``no relevant changes'' for \texttt{bb5a0d1} (ED-17). The latest tag stays \texttt{v0.0.4.0}. The fix release is identified by its commit, which \texttt{/api/v1/health} returns.
+
+\textbf{About the red and green runs.} The test and the fix of each defect are in one commit, so there is no red commit to point at.
+To show red, we ran the current tests (from \texttt{bb5a0d1}) against the code from the staging base \texttt{f684459}, on 2026-11-22, and restored the files with \texttt{git checkout}. Green is the same tests on \texttt{bb5a0d1}. The reviewer ran the same swap during review.
+
+\partsection{D.2}{Fix of \#86: whitespace-only text (PR \#92)}
+
+Branch \texttt{fix/reject-blank-claim-text}, author \texttt{beambeambeam}, \href{https://github.com/beambeambeam/claimflow/pull/92}{PR \#92}.
+
+The contract adds a non-blank \texttt{pattern} to the four text fields. The pattern lists the JavaScript \texttt{\textbackslash s} set as \texttt{\textbackslash uXXXX} escapes, because Go RE2 \texttt{\textbackslash s} matches ASCII only; kin-openapi rewrites \texttt{\textbackslash uXXXX} to \texttt{\textbackslash x\{XXXX\}}, so the API and the form refuse the same text.
+The API answers 400 naming the field and the rule \texttt{pattern}, with the F-02 §1.4 message. The form checks the same set with \texttt{/\textbackslash S/u} and the same messages, and sends no request.
+
+\codeevidence{ED-01}{Fix of \#86: \texttt{git diff f684459 bb5a0d1} of \texttt{openapi.yaml} and the schema in \texttt{claim-form.tsx}.}{content/data/diff-86.txt}
+
+\codeevidence{ED-02}{Regression test for \#86 in the API (F02-TEST-18): the eight rows added to the table of \texttt{TestF02TEST18}\allowbreak\texttt{ShapeViolationsAre400}. Each sends one blank field and expects 400 with the field, rule, and message.}{content/data/test-api.txt}
+
+\codeevidence{ED-03}{Red, 2026-11-22, \texttt{apps/api}: contract and generated code from \texttt{f684459}, tests from \texttt{bb5a0d1}. Expected after the fix: 400 for each blank field. Actual on the old code: 201 and a stored claim, for all eight rows; the seven older rows pass.}{content/data/api-red.txt}
+
+\codeevidence{ED-04}{Green, 2026-11-22, \texttt{apps/api} at \texttt{bb5a0d1}: all 15 rows pass.}{content/data/api-green.txt}
+
+The four Unicode rows were added during review: the first fix (\texttt{ecb4b2e}) used \texttt{\textbackslash S}, which in RE2 lets U+00A0, U+3000, and U+FEFF through. Those rows were red on \texttt{ecb4b2e} and green on \texttt{2054923}.
+
+\partsection{D.3}{Fix of \#87: double-click on Submit (PR \#91)}
+
+Branch \texttt{fix/prevent-double-submit}, author \texttt{beambeambeam}, \href{https://github.com/beambeambeam/claimflow/pull/91}{PR \#91}.
+
+\texttt{submit} returns early while \texttt{form.state.isSubmitting} is true. TanStack Form sets it before its first \texttt{await}, so it already holds for a second click in the same tick.
+\texttt{onSubmit} awaits \texttt{create.mutateAsync}, so \texttt{isSubmitting} stays true until the request settles, and the Submit spinner follows it. No API change (C.1).
+
+\codeevidence{ED-05}{Fix of \#87: \texttt{git diff f684459 bb5a0d1} of \texttt{claim-form.tsx}, the submit guard, \texttt{mutateAsync}, and the busy state of Submit. The first lines of the second hunk are the rest of the \#86 schema change (description and receipt reference), which sits next to it in the file.}{content/data/diff-87.txt}
+
+\partsection{D.4}{Form regression tests for both fixes}
+
+Both are in the \texttt{describe} ``F02-TEST-19 (F02-AC-13): New Claim form''.
+The two blank-text tests cover \#86 in the form. The double-click test covers \#87: it clicks Submit twice in one \texttt{act}, the way a fast double-click arrives before React renders, delays the 201 by 300 ms, asserts \texttt{aria-busy="true"} on Submit, and asserts exactly one create request.
+
+\codeevidence{ED-06}{Regression tests in \texttt{claim-form.test.tsx} at \texttt{bb5a0d1}.}{content/data/test-web.txt}
+
+\codeevidence{ED-07}{Red, 2026-11-22, \texttt{apps/web}: \texttt{claim-form.tsx} from \texttt{f684459}, tests from \texttt{bb5a0d1}, filtered to the three new tests. Expected after the fixes: the blank-field messages, and Submit busy after the first click. Actual on the old code: no message, and Submit not busy, so a second click sends a second request.}{content/data/web-red.txt}
+
+\codeevidence{ED-08}{Green, 2026-11-22, \texttt{apps/web} at \texttt{bb5a0d1}: all 13 tests of the file pass.}{content/data/web-green.txt}
+
+Checks run on each PR before review: \texttt{bun run check} at the root, and \texttt{bun run test:coverage} in \texttt{apps/web} (131 tests in 16 files) and \texttt{apps/api} (100\% statement coverage). For \#92 also \texttt{bun run lint:fix} (0 issues) and \texttt{bun run vuln} (no vulnerabilities) in \texttt{apps/api}.
+
+\partsection{D.5}{Reviews and CI}
+
+\texttt{Kiatisakk} reviewed both PRs and requested changes on each before approving.
+
+\begin{longtable}{@{}R{1.2cm}R{3.4cm}R{11.4cm}@{}}
+\toprule \textbf{PR} & \textbf{Review (UTC)} & \textbf{Content} \\ \midrule \endhead
+\#92 & 2026-11-21 06:41, changes requested & The server's \texttt{\textbackslash S} matches U+00A0, U+3000, and U+FEFF but the form's \texttt{/\textbackslash S/u} does not, so a title of two no-break spaces was refused by the form but stored by the API. \texttt{docs/traceability.md} was not updated. Revision row 0.5 named the wrong author. A nit on a comment \\
+\#92 & 2026-11-21 08:01, approved & After \texttt{2054923} and \texttt{3da036a}: the pattern and \texttt{/\textbackslash S/u} agree on U+00A0 twice, U+3000, U+FEFF, U+2028, \texttt{" \textbackslash t "}, U+200B, \texttt{Title}, and \texttt{" x "}; F02-TEST-18 has the Unicode rows; the traceability rows record red and green \\
+\#91 & 2026-11-21 06:41, changes requested & Fix and test correct: red on base, green on head, \texttt{isSubmitting} set before the first \texttt{await}. \texttt{docs/traceability.md} must name the new case and its red evidence. Non-blocking: assert the busy state, and raise the file's timeout \\
+\#91 & 2026-11-21 08:18, approved & On \texttt{496b22f}, after \texttt{34e7198}: traceability updated, \texttt{aria-busy} asserted, one 30 s timeout on the \texttt{describe} \\
+\bottomrule
+\end{longtable}
+
+CI on \texttt{3da036a} (\#92), and on \texttt{34e7198} and \texttt{496b22f} (\#91): \texttt{code\_quality}, \texttt{test}, \texttt{api}, \texttt{build}, and \texttt{image} passed. \#92 merged into \texttt{lab6-staging} as \texttt{6474b95}, \#91 as \texttt{f498f49}. \texttt{496b22f} merges \texttt{lab6-staging} (with \#92) into the \#91 branch; the form tests were 13 of 13 after it.
+
+\evidence{figures/github/pr92-header.png}{ED-09, PR \#92 \texttt{fix: reject claim text that is only whitespace}, \texttt{fix/reject-blank-claim-text} into \texttt{lab6-staging}, merged as \texttt{6474b95}.}
+
+\evidence{figures/github/pr92-changes-requested.png}{ED-10, PR \#92, \texttt{Kiatisakk}, 2026-11-21 06:41 UTC, on \texttt{ecb4b2e}: changes requested (Unicode whitespace mismatch, traceability, revision row).}
+
+\evidence{figures/github/pr92-approved.png}{ED-11, PR \#92, \texttt{Kiatisakk}, 2026-11-21 08:01 UTC, on \texttt{3da036a}: approved.}
+
+\evidence{figures/github/pr91-header.png}{ED-12, PR \#91 \texttt{fix: prevent a double-click on Submit from creating two claims}, \texttt{fix/prevent-double-submit} into \texttt{lab6-staging}, merged as \texttt{f498f49}.}
+
+\evidence{figures/github/pr91-changes-requested.png}{ED-13, PR \#91, \texttt{Kiatisakk}, 2026-11-21 06:41 UTC, on \texttt{f97dec4}: changes requested (traceability; busy-state assertion and timeout non-blocking).}
+
+\evidence{figures/github/pr91-approved.png}{ED-14, PR \#91, \texttt{Kiatisakk}, 2026-11-21 08:18 UTC, on \texttt{496b22f}: approved.}

@@ -67,9 +67,19 @@ const { values, positionals } = parseArgs({
 const sprint = await loadSprint(positionals[0]);
 const { commit } = values;
 
+const {
+  contracts: contractsDir,
+  manualChecks = {},
+  tickets = [],
+} = sprint.config;
+
+if (contractsDir === undefined) {
+  throw new Error(`no contracts folder in ${sprint.name}/report.config.ts`);
+}
+
 // TEST id -> [ac ids, level].
 const plan = new Map<string, [string, string]>();
-const contracts = path.join(ROOT, sprint.config.contracts);
+const contracts = path.join(ROOT, contractsDir);
 
 for (const f of readdirSync(contracts)
   .filter((n) => /^F-0.*\.md$/u.test(n))
@@ -167,7 +177,7 @@ if (existsSync(goJson)) {
 // TEST id -> issue number, from the bodies of the sprint's open issues.
 const owner = new Map<string, number>();
 
-for (const n of sprint.config.tickets) {
+for (const n of tickets) {
   let body = "";
 
   try {
@@ -294,7 +304,7 @@ const L = [
     "p{1.9cm}p{2.3cm}p{1.8cm}p{10.2cm}",
     String.raw`\textbf{Planned test} & \textbf{AC} & \textbf{Level} & \textbf{Status}`,
     manual.map(([id, ac, level]) => {
-      const status = sprint.config.manualChecks[id]?.(commit) ?? ciCheck;
+      const status = manualChecks[id]?.(commit) ?? ciCheck;
 
       return String.raw`${id} & ${tex(ac)} & ${tex(level)} & ${status} \\`;
     })

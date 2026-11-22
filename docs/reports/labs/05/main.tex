@@ -1,5 +1,5 @@
 % ClaimFlow Lab 5 evidence index (CPE 334 Lab 5: GCP deployment and CI/CD), as submitted.
-% Build: bun run pdf ../labs/05 in docs/reports. Names and student IDs come from
+% Build: bun run pdf labs/05 in docs/reports. Names and student IDs come from
 % docs/reports/.env through build/identity.tex, which is not committed.
 \documentclass[11pt,a4paper]{article}
 % ---- Team, section, and group -------------------------------------------------
@@ -30,7 +30,7 @@
 \captionsetup{skip=3pt}
 % Student names and IDs, from docs/reports/.env through bun run identity.
 \InputIfFileExists{build/identity.tex}{}{%
-  \errmessage{build/identity.tex is missing: run bun run identity ../labs/05}}
+  \errmessage{build/identity.tex is missing: run bun run identity labs/05}}
 \setlength{\textfloatsep}{8pt}
 \setlength{\intextsep}{6pt}
 

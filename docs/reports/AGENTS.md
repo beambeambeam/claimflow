@@ -1,12 +1,12 @@
 # Reports
 
-`docs/reports` is one Bun package for every sprint report. Shared code lives at this root; each `sprints/NN/` folder (two digits) holds only that sprint's LaTeX, figures, and config.
+`docs/reports` is one Bun package for every sprint report. Shared code lives at this root; each `sprints/NN/` folder (two digits) holds only that sprint's LaTeX, figures, and config. Lab reports live in `labs/NN/` the same way; scripts take them as `labs/NN`.
 
 ## Layout
 
-- `scripts/` – generic TypeScript run by Bun. Every script takes the sprint first: `bun run <script> NN [...]`, resolved to `sprints/NN`. The list is in `package.json`.
+- `scripts/` – generic TypeScript run by Bun. Every script takes the sprint first: `bun run <script> NN [...]`, resolved to `sprints/NN` (or `labs/NN` for a lab report). The list is in `package.json`.
 - `preamble.tex` – shared by every sprint. `sprints/NN/main.tex` defines `\sprintname` and `\deliverable`, then runs `\input{../../preamble}`.
-- `sprints/NN/report.config.ts` – the single source of everything sprint-specific: captured docs, part lists, review anchors, board URL, contracts folder, tickets, manual-check text. Sprint data goes here; scripts read it through `loadSprint`.
+- `sprints/NN/report.config.ts` – the single source of everything sprint-specific: captured docs, part lists, review anchors, board URL, contracts folder, tickets, manual-check text. A lab report leaves out board, contracts, tickets, and manual checks. Sprint data goes here; scripts read it through `loadSprint`.
 - `sprints/NN/demo.ts` – that sprint's app walkthrough for `capture-demo`.
 - `check.config.ts` – lint overrides for this package, imported by the root `vite.config.ts`.
 
