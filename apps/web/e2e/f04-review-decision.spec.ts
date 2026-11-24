@@ -51,9 +51,9 @@ test("F04-TEST-24: rev.malee rejects a submitted claim with a reason and req.ana
 
   await reason.fill("No photos");
   await expect(reject).toBeDisabled();
-  await expect(
-    dialog.getByText("Reason must be at least 10 characters.")
-  ).toBeVisible();
+  await expect(reason).toHaveAccessibleDescription(
+    /Reason must be at least 10 characters\./u
+  );
 
   await reason.fill("Receipt missing");
   await expect(reject).toBeEnabled();
