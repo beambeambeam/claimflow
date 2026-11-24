@@ -3,6 +3,7 @@ package claim
 import (
 	"errors"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -199,8 +200,8 @@ func TestCreateStoresSubmittedClaim(t *testing.T) {
 		t.Fatalf("history = %+v, want one SUBMIT entry from nil to SUBMITTED by req.anan", got.History)
 	}
 
-	if len(got.AllowedActions) != 0 {
-		t.Fatalf("allowed actions = %v, want none", got.AllowedActions)
+	if !slices.Equal(got.AllowedActions, []Action{ActionWithdraw}) {
+		t.Fatalf("allowed actions = %v, want only withdraw for the owner", got.AllowedActions)
 	}
 }
 

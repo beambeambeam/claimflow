@@ -30,6 +30,9 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 		if status == db.ClaimStatusDRAFT {
 			return []Action{ActionEdit, ActionDelete}
 		}
+		if status == db.ClaimStatusSUBMITTED {
+			return []Action{ActionWithdraw}
+		}
 		return []Action{}
 	}
 
@@ -134,8 +137,8 @@ func TestF05TEST06DraftAndReturnedPolicy(t *testing.T) {
 	}{
 		{"draft with reviewer", owner, db.ClaimStatusDRAFT, true, true, []Action{ActionEdit, ActionDelete, ActionSubmit}},
 		{"draft without reviewer", owner, db.ClaimStatusDRAFT, false, true, []Action{ActionEdit, ActionDelete}},
-		{"submitted", owner, db.ClaimStatusSUBMITTED, true, true, nil},
-		{"returned", owner, db.ClaimStatusRETURNED, false, true, []Action{ActionEdit, ActionSubmit}},
+		{"submitted", owner, db.ClaimStatusSUBMITTED, true, true, []Action{ActionWithdraw}},
+		{"returned", owner, db.ClaimStatusRETURNED, false, true, []Action{ActionEdit, ActionSubmit, ActionWithdraw}},
 		{"draft owned by someone else", other, db.ClaimStatusDRAFT, true, false, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {

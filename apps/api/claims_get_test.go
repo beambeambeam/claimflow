@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -76,8 +77,8 @@ func TestF03TEST05RequesterOpensOwnClaim(t *testing.T) {
 		t.Fatalf("history = %+v, want one SUBMIT entry", claim.History)
 	}
 
-	if claim.AllowedActions == nil || len(claim.AllowedActions) != 0 {
-		t.Fatalf("allowedActions = %v, want an empty list", claim.AllowedActions)
+	if !slices.Equal(claim.AllowedActions, []string{"withdraw"}) {
+		t.Fatalf("allowedActions = %v, want only withdraw for the owner of a submitted claim", claim.AllowedActions)
 	}
 }
 
