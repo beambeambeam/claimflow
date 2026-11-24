@@ -17,6 +17,10 @@ Student names and IDs are in the PDF only. This document uses GitHub logins.
 | Who may reject | Unchanged: only the claim's assigned reviewer, never its requester (BR-01, BR-02) |
 | Out of scope | The approve comment rule; return (F-06, Sprint 2) and final reject (F-08, Sprint 3); the database schema |
 
+### 1.0 Scope of the change
+
+The change touches the API rule and its messages (`rules.go`), the OpenAPI contract and the generated code, the web decision dialog (a client-side minimum that disables Reject and shows the field message), the SRS, F-04 contract, System SDS and STS, four test files, the E2E spec, and the deploy. At its core it is a one-number rule change (5 to 10) with a UI behavior added.
+
 ### 1.1 Old and new behavior
 
 `POST /claims/{id}/reject` by the assigned reviewer on a `SUBMITTED` claim with the current `If-Match`:
@@ -213,10 +217,9 @@ New:
 
 The BR-04 and NFR-08 rows keep their recorded passes and red/green commits (`2a2f76f`, `be4c545`, #33), now marked as results of the 5–500 rule, with the 10–500 results pending. The change log has a 2026-11-24 row for #99.
 
-## 6. Review and approval
+## 6. Review
 
 | Item | Value |
 | --- | --- |
-| Instructor/TA approval | Approver: TBD · Date: TBD · Evidence: TBD · Status: **pending** (#99, Approval section) |
 | Teammate review of the contract | Reviewer `beambeambeam` · PR: TBD · Date: TBD |
-| Rule | No code change starts before both are recorded |
+| Rule | No code change starts before the review is recorded |
