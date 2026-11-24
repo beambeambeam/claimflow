@@ -260,6 +260,7 @@ func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, 
 var transitionErrors = map[Action]FieldError{
 	ActionApprove: transitionError,
 	ActionReject:  transitionError,
+	ActionReturn:  {Field: "status", Rule: ruleTransition, Message: "Only a submitted claim can be returned."},
 	ActionEdit:    {Field: "status", Rule: "BR-10", Message: "Only a draft or a returned claim can be edited."},
 	ActionDelete:  {Field: "status", Rule: "BR-10", Message: "Only a draft can be deleted."},
 	ActionSubmit:  {Field: "status", Rule: ruleTransition, Message: "Only a draft or a returned claim can be submitted."},
