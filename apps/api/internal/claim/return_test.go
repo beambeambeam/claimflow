@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -127,5 +128,41 @@ func TestF06TEST07FourthReturnIsRefusedAndApproveStillWorks(t *testing.T) {
 	approved, err := service.Act(t.Context(), reviewer, current.ID, current.Version, ActionApprove, "")
 	if err != nil || approved.Status != db.ClaimStatusAPPROVED {
 		t.Fatalf("Act approve = %s, %v; want APPROVED", approved.Status, err)
+	}
+}
+
+// F06-TEST-12 (F06-AC-10, NFR-06): when the history insert fails, the return is rolled back: the status, the return
+// count, the submission time, and the version are as before.
+func TestF06TEST12HistoryFailureRollsBackTheReturn(t *testing.T) {
+	pool := pgtest.New(t)
+	created, reviewer := submittedClaim(t, pool)
+
+	// A test-only trigger makes every history insert fail.
+	if _, err := pool.Exec(t.Context(), `
+		CREATE FUNCTION fail_history_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN RAISE EXCEPTION 'forced history failure'; END; $$;
+		CREATE TRIGGER fail_history_insert BEFORE INSERT ON claim_history
+		FOR EACH ROW EXECUTE FUNCTION fail_history_insert();`); err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+
+	if _, err := newService(pool).Act(t.Context(), reviewer, created.ID, created.Version, ActionReturn, "Please attach the receipt."); err == nil {
+		t.Fatal("Act succeeded, want the history failure")
+	}
+
+	var (
+		status      string
+		returnCount int
+		submittedAt time.Time
+		version     int
+	)
+	if err := pool.QueryRow(t.Context(), `SELECT status::text, return_count, submitted_at, version FROM claims WHERE id = $1`, created.ID).
+		Scan(&status, &returnCount, &submittedAt, &version); err != nil {
+		t.Fatalf("read claim: %v", err)
+	}
+
+	if status != "SUBMITTED" || returnCount != 0 || !submittedAt.Equal(*created.SubmittedAt) || version != created.Version {
+		t.Fatalf("claim = %s, return count %d, submitted %s, version %d; want SUBMITTED, 0, %s, %d",
+			status, returnCount, submittedAt, version, created.SubmittedAt, created.Version)
 	}
 }

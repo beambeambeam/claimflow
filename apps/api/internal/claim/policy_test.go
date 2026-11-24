@@ -146,3 +146,24 @@ func TestF05TEST06DraftAndReturnedPolicy(t *testing.T) {
 		})
 	}
 }
+
+// F06-TEST-06 (F06-AC-05, BR-14): the assigned reviewer of a SUBMITTED claim may return it until it has been returned
+// MaxReturns times; after that approve and reject are what is left.
+func TestF06TEST06ReturnIsAllowedBelowTheReturnLimit(t *testing.T) {
+	reviewer := uuid.New()
+
+	for _, test := range []struct {
+		returnCount int
+		actions     []Action
+	}{
+		{0, []Action{ActionApprove, ActionReject, ActionReturn}},
+		{MaxReturns - 1, []Action{ActionApprove, ActionReject, ActionReturn}},
+		{MaxReturns, []Action{ActionApprove, ActionReject}},
+	} {
+		subject := Subject{RequesterID: uuid.New(), AssignedReviewerID: reviewer, Status: db.ClaimStatusSUBMITTED, ReturnCount: test.returnCount}
+
+		if _, actions := Allowed(reviewer, subject); !slices.Equal(actions, test.actions) {
+			t.Fatalf("return count %d: actions = %v, want %v", test.returnCount, actions, test.actions)
+		}
+	}
+}
