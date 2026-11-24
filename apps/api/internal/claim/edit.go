@@ -21,7 +21,7 @@ func (s Service) Edit(ctx context.Context, actor Actor, id uuid.UUID, version in
 		if err := checkContentAction(ctx, queries, actor, id, version, ActionEdit); err != nil {
 			return err
 		}
-		if err := checkRules(in, time.Time{}); err != nil {
+		if err := checkRules(in, time.Time{}, time.Time{}); err != nil {
 			return err
 		}
 
@@ -87,6 +87,6 @@ func checkContentAction(ctx context.Context, queries *db.Queries, actor Actor, i
 		return err
 	}
 
-	subject := Subject{RequesterID: row.RequesterID, AssignedReviewerID: row.ReviewerID.UUID, Status: row.Status}
+	subject := claimSubject(&row)
 	return checkVersionedAction(actor, subject, action, version, int(row.Version))
 }

@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveClaim, createClaim, deleteClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, updateClaim } from '../sdk.gen';
-import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse } from '../types.gen';
+import { approveClaim, createClaim, deleteClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, submitClaim, updateClaim } from '../sdk.gen';
+import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, SubmitClaimData, SubmitClaimError, SubmitClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -294,6 +294,25 @@ export const approveClaimMutation = (options?: Partial<Options<ApproveClaimData>
   const mutationOptions: UseMutationOptions<ApproveClaimResponse, ApproveClaimError, Options<ApproveClaimData>> = {
     mutationFn: async (fnOptions) => {
       const { data } = await approveClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Submit a draft for review (F-05).
+ *
+ * Only the requester can submit. On first submission, the reviewer and submission times are recorded with the transition.
+ */
+export const submitClaimMutation = (options?: Partial<Options<SubmitClaimData>>): UseMutationOptions<SubmitClaimResponse, SubmitClaimError, Options<SubmitClaimData>> => {
+  const mutationOptions: UseMutationOptions<SubmitClaimResponse, SubmitClaimError, Options<SubmitClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await submitClaim({
         ...options,
         ...fnOptions,
         throwOnError: true

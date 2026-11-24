@@ -217,6 +217,16 @@ func (h Handler) DeleteClaim(ctx context.Context, request api.DeleteClaimRequest
 	return api.DeleteClaim204Response{}, nil
 }
 
+// SubmitClaim submits the claim for review.
+func (h Handler) SubmitClaim(ctx context.Context, request api.SubmitClaimRequestObject) (api.SubmitClaimResponseObject, error) {
+	submitted, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionSubmit, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.SubmitClaim200JSONResponse{ClaimChangedJSONResponse: changedBody(&submitted)}, nil
+}
+
 // mutationTarget reads If-Match before looking up the claim.
 func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, uuid.UUID, int, error) {
 	version, err := parseVersion(ifMatch)
@@ -242,6 +252,7 @@ var transitionErrors = map[Action]FieldError{
 	ActionReject:  transitionError,
 	ActionEdit:    {Field: "status", Rule: "BR-10", Message: "Only a draft or a returned claim can be edited."},
 	ActionDelete:  {Field: "status", Rule: "BR-10", Message: "Only a draft can be deleted."},
+	ActionSubmit:  {Field: "status", Rule: ruleTransition, Message: "Only a draft or a returned claim can be submitted."},
 }
 
 func actionProblem(err error, action Action) error {

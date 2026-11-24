@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, DeleteClaimData, DeleteClaimErrors, DeleteClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses, UpdateClaimData, UpdateClaimErrors, UpdateClaimResponses } from './types.gen';
-import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zDeleteClaimHeaders, zDeleteClaimPath, zDeleteClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse, zUpdateClaimBody, zUpdateClaimHeaders, zUpdateClaimPath, zUpdateClaimResponse } from './zod.gen';
+import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, DeleteClaimData, DeleteClaimErrors, DeleteClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses, SubmitClaimData, SubmitClaimErrors, SubmitClaimResponses, UpdateClaimData, UpdateClaimErrors, UpdateClaimResponses } from './types.gen';
+import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zDeleteClaimHeaders, zDeleteClaimPath, zDeleteClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse, zSubmitClaimHeaders, zSubmitClaimPath, zSubmitClaimResponse, zUpdateClaimBody, zUpdateClaimHeaders, zUpdateClaimPath, zUpdateClaimResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -204,6 +204,23 @@ export const approveClaim = <ThrowOnError extends boolean = false>(options: Opti
     'Content-Type': 'application/json',
     ...options.headers
   }
+});
+
+/**
+ * Submit a draft for review (F-05).
+ *
+ * Only the requester can submit. On first submission, the reviewer and submission times are recorded with the transition.
+ */
+export const submitClaim = <ThrowOnError extends boolean = false>(options: Options<SubmitClaimData, ThrowOnError>): RequestResult<SubmitClaimResponses, SubmitClaimErrors, ThrowOnError> => (options.client ?? client).post<SubmitClaimResponses, SubmitClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    headers: zSubmitClaimHeaders.optional(),
+    path: zSubmitClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zSubmitClaimResponse.parseAsync(data),
+  url: '/claims/{id}/submit',
+  ...options
 });
 
 /**

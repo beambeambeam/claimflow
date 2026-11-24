@@ -35,7 +35,7 @@ VALUES (sqlc.arg(claim_id), sqlc.arg(actor_id), sqlc.arg(action), sqlc.narg(from
 -- GetClaim returns a claim with its requester and, when it has one, its assigned reviewer.
 SELECT c.id, c.claim_no, c.status, c.title, c.purpose, c.total_satang, c.return_count, c.version,
        c.first_submitted_at, c.submitted_at, c.decided_at, c.created_at, c.updated_at,
-       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position, r.reviewer_id AS owner_reviewer_id,
        a.id AS reviewer_id, a.name AS reviewer_name, a.position AS reviewer_position
 FROM claims c
 JOIN "user" r ON r.id = c.requester_id
@@ -117,3 +117,14 @@ DELETE FROM line_items WHERE claim_id = sqlc.arg(claim_id);
 
 -- name: DeleteDraftClaim :execrows
 DELETE FROM claims WHERE id = sqlc.arg(id) AND version = sqlc.arg(version) AND status = 'DRAFT';
+
+-- name: SubmitDraftClaim :execrows
+UPDATE claims
+SET status = 'SUBMITTED', assigned_reviewer_id = sqlc.arg(reviewer_id), first_submitted_at = sqlc.arg(now),
+    submitted_at = sqlc.arg(now), updated_at = sqlc.arg(now), version = version + 1
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: ResubmitClaim :execrows
+UPDATE claims
+SET status = 'SUBMITTED', submitted_at = sqlc.arg(now), updated_at = sqlc.arg(now), version = version + 1
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);

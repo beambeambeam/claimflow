@@ -16,6 +16,7 @@ const (
 	ActionReject  Action = "reject"
 	ActionEdit    Action = "edit"
 	ActionDelete  Action = "delete"
+	ActionSubmit  Action = "submit"
 )
 
 // Subject is what the claim policy reads about a claim. A claim with no assigned reviewer has the nil UUID there.
@@ -23,10 +24,12 @@ type Subject struct {
 	RequesterID        uuid.UUID
 	AssignedReviewerID uuid.UUID
 	Status             db.ClaimStatus
+	OwnerHasReviewer   bool
+	ReturnCount        int
 }
 
 // allActions lists every action in the order that Allowed returns them.
-var allActions = []Action{ActionApprove, ActionReject, ActionEdit, ActionDelete}
+var allActions = []Action{ActionApprove, ActionReject, ActionEdit, ActionDelete, ActionSubmit}
 
 // isVisible reports whether actor may see the claim: it is own, or it is assigned and not a DRAFT.
 func isVisible(actor uuid.UUID, claim Subject) bool {
@@ -47,11 +50,18 @@ func check(actor uuid.UUID, claim Subject, action Action) error {
 		if claim.Status == db.ClaimStatusDRAFT || (action == ActionEdit && claim.Status == db.ClaimStatusRETURNED) {
 			return nil
 		}
+	case ActionSubmit:
+		if claim.RequesterID != actor || (claim.Status == db.ClaimStatusDRAFT && !claim.OwnerHasReviewer) {
+			return ErrForbidden
+		}
+		if _, ok := transitions[action][claim.Status]; ok {
+			return nil
+		}
 	case ActionApprove, ActionReject:
 		if claim.RequesterID == actor || claim.AssignedReviewerID != actor {
 			return ErrForbidden
 		}
-		if claim.Status == transitions[action].from {
+		if _, ok := transitions[action][claim.Status]; ok {
 			return nil
 		}
 	}
@@ -64,7 +74,7 @@ func check(actor uuid.UUID, claim Subject, action Action) error {
 // visible when it is own, or when it is assigned and not a DRAFT. The assigned reviewer, when not also the requester,
 // may approve and reject a SUBMITTED claim. It is a pure function of its inputs. Actions is never nil.
 //
-// The requester may edit a draft or returned claim and may delete a draft (F-05 §1.9).
+// The requester may edit or submit a draft or returned claim and may delete a draft (F-05 §1.9).
 func Allowed(actor uuid.UUID, claim Subject) (visible bool, allowed []Action) {
 	allowed = []Action{}
 

@@ -117,11 +117,14 @@ type Claim struct {
 	Items            []LineItem
 	History          []HistoryEntry
 	AllowedActions   []Action
+	ownerReviewerID  uuid.NullUUID
 }
 
 // subject returns what the claim policy reads about the claim.
 func (c *Claim) subject() Subject {
-	subject := Subject{RequesterID: c.Requester.ID, Status: c.Status}
+	subject := Subject{
+		RequesterID: c.Requester.ID, Status: c.Status, OwnerHasReviewer: c.ownerReviewerID.Valid, ReturnCount: c.ReturnCount,
+	}
 	if c.AssignedReviewer != nil {
 		subject.AssignedReviewerID = c.AssignedReviewer.ID
 	}

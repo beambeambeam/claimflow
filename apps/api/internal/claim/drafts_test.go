@@ -56,7 +56,7 @@ func TestF05TEST12SubmissionChecksExpenseDateWindow(t *testing.T) {
 			input.Items = input.Items[:1]
 			input.Items[0].ExpenseDate = date
 			draft := saveDraft(t, service, owner, input)
-			result, err := service.Act(t.Context(), owner, draft.ID, draft.Version, Action("submit"), "")
+			result, err := service.Act(t.Context(), owner, draft.ID, draft.Version, ActionSubmit, "")
 			if test.message == "" {
 				if err != nil || result.Status != db.ClaimStatusSUBMITTED {
 					t.Fatalf("submit at 90 days: status = %s, error = %v", result.Status, err)

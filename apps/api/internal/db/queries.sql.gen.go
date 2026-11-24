@@ -155,7 +155,7 @@ func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 const getClaim = `-- name: GetClaim :one
 SELECT c.id, c.claim_no, c.status, c.title, c.purpose, c.total_satang, c.return_count, c.version,
        c.first_submitted_at, c.submitted_at, c.decided_at, c.created_at, c.updated_at,
-       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position, r.reviewer_id AS owner_reviewer_id,
        a.id AS reviewer_id, a.name AS reviewer_name, a.position AS reviewer_position
 FROM claims c
 JOIN "user" r ON r.id = c.requester_id
@@ -180,6 +180,7 @@ type GetClaimRow struct {
 	RequesterID       uuid.UUID
 	RequesterName     string
 	RequesterPosition string
+	OwnerReviewerID   uuid.NullUUID
 	ReviewerID        uuid.NullUUID
 	ReviewerName      pgtype.Text
 	ReviewerPosition  pgtype.Text
@@ -206,6 +207,7 @@ func (q *Queries) GetClaim(ctx context.Context, id uuid.UUID) (GetClaimRow, erro
 		&i.RequesterID,
 		&i.RequesterName,
 		&i.RequesterPosition,
+		&i.OwnerReviewerID,
 		&i.ReviewerID,
 		&i.ReviewerName,
 		&i.ReviewerPosition,
@@ -708,6 +710,53 @@ func (q *Queries) NextClaimSequence(ctx context.Context) (int64, error) {
 	var seq int64
 	err := row.Scan(&seq)
 	return seq, err
+}
+
+const resubmitClaim = `-- name: ResubmitClaim :execrows
+UPDATE claims
+SET status = 'SUBMITTED', submitted_at = $1, updated_at = $1, version = version + 1
+WHERE id = $2 AND version = $3
+`
+
+type ResubmitClaimParams struct {
+	Now     pgtype.Timestamptz
+	ID      uuid.UUID
+	Version int32
+}
+
+func (q *Queries) ResubmitClaim(ctx context.Context, arg ResubmitClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, resubmitClaim, arg.Now, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const submitDraftClaim = `-- name: SubmitDraftClaim :execrows
+UPDATE claims
+SET status = 'SUBMITTED', assigned_reviewer_id = $1, first_submitted_at = $2,
+    submitted_at = $2, updated_at = $2, version = version + 1
+WHERE id = $3 AND version = $4
+`
+
+type SubmitDraftClaimParams struct {
+	ReviewerID uuid.NullUUID
+	Now        pgtype.Timestamptz
+	ID         uuid.UUID
+	Version    int32
+}
+
+func (q *Queries) SubmitDraftClaim(ctx context.Context, arg SubmitDraftClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, submitDraftClaim,
+		arg.ReviewerID,
+		arg.Now,
+		arg.ID,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateClaimContent = `-- name: UpdateClaimContent :execrows

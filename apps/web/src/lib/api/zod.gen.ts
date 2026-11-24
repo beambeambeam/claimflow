@@ -308,6 +308,19 @@ export const zApproveClaimPath = z.object({
  */
 export const zApproveClaimResponse = zClaimEnvelope;
 
+export const zSubmitClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zSubmitClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The changed claim, with its new `ETag`.
+ */
+export const zSubmitClaimResponse = zClaimEnvelope;
+
 export const zRejectClaimBody = zClaimDecision;
 
 export const zRejectClaimHeaders = z.object({

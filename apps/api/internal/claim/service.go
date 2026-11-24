@@ -71,7 +71,7 @@ func (s Service) Create(ctx context.Context, actor Actor, in Input, submit bool)
 		if submit {
 			submittedAt = now
 		}
-		if err := checkRules(in, submittedAt); err != nil {
+		if err := checkRules(in, now, submittedAt); err != nil {
 			return err
 		}
 
@@ -206,86 +206,72 @@ func summarize(row *db.ListRequesterClaimsRow) Summary {
 	}
 }
 
-// Act takes a decision on a claim for the actor, in one transaction (F-04 §1.2): the claim policy allows the action, the
-// comment is trimmed (empty is stored as no comment), the claim moves to the decided status with its version plus one
-// and its decision time set, and one history entry is added. version is the one the caller read. It checks in the order of
-// F-04 §1.4: a missing claim is ErrNotFound; a claim the actor may not decide is ErrForbidden; a status that does not
-// allow the action is ErrInvalidTransition; a comment that breaks BR-04 is a ValidationError; a changed version is
-// ErrConflict (BR-13). It returns the decided claim.
-func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int, a Action, comment string) (Claim, error) {
+// Act changes the claim's status and writes one history entry in the same transaction.
+// Actor, status, and field checks run before the conditional update, as in F-05 §1.4.
+func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int, action Action, comment string) (Claim, error) {
 	now := s.now()
-
-	var decided Claim
+	var acted Claim
 
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		queries := db.New(tx)
-
-		step, err := checkAct(ctx, queries, actor, id, version, a, comment)
+		row, err := findClaim(ctx, queries, id)
 		if err != nil {
 			return err
 		}
 
-		if err := record(ctx, queries, actor, id, version, step, comment, now); err != nil {
+		if err := checkVersionedAction(actor, claimSubject(&row), action, version, int(row.Version)); err != nil {
 			return err
 		}
 
-		decided, err = load(ctx, queries, id)
+		step, ok := transitions[action][row.Status]
+		if !ok {
+			return ErrInvalidTransition
+		}
 
+		if err := record(ctx, queries, actor, &row, version, action, step, comment, now); err != nil {
+			return err
+		}
+
+		acted, err = load(ctx, queries, id)
 		return err
 	})
 	if err != nil {
-		return Claim{}, fmt.Errorf("decide claim: %w", err)
+		return Claim{}, fmt.Errorf("act on claim: %w", err)
 	}
 
-	_, decided.AllowedActions = Allowed(actor.ID, decided.subject())
+	_, acted.AllowedActions = Allowed(actor.ID, acted.subject())
 
-	return decided, nil
+	return acted, nil
 }
 
-// checkAct runs the checks of Act before its first write and returns what the action does.
-//
-// A claim that is no longer SUBMITTED, read with a version other than the caller's, is ErrConflict: another decision
-// has won since the caller read the claim (BR-13). The caller's screen is stale, so its action is not "invalid".
-func checkAct(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUID, version int, a Action, comment string) (transition, error) {
-	found, err := load(ctx, queries, id)
+// record updates the claim only at the requested version, then appends the history entry.
+func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetClaimRow, version int, action Action, step transition, comment string, now time.Time) error {
+	var changed int64
+	var err error
+	if action == ActionSubmit {
+		changed, err = submitClaim(ctx, queries, row, version, now)
+		comment = ""
+	} else {
+		if err := checkComment(action, comment); err != nil {
+			return err
+		}
+		changed, err = queries.DecideClaim(ctx, db.DecideClaimParams{
+			Status: step.to, Now: timestamptz(now), ID: row.ID,
+			Version: int32(version), //nolint:gosec // the handler reads a 31-bit version
+		})
+	}
 	if err != nil {
-		return transition{}, err
+		return fmt.Errorf("update claim status: %w", err)
 	}
-
-	err = checkVersionedAction(actor, found.subject(), a, version, found.Version)
-	if err != nil {
-		return transition{}, err
-	}
-
-	if err := checkComment(a, comment); err != nil {
-		return transition{}, err
-	}
-
-	return transitions[a], nil
-}
-
-// record writes a decision: the claim moves by step if its version is still version, and one history entry is added.
-// A changed version is ErrConflict (BR-13).
-func record(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUID, version int, step transition, comment string, now time.Time) error {
-	changed, err := queries.DecideClaim(ctx, db.DecideClaimParams{
-		Status:  step.to,
-		Now:     timestamptz(now),
-		ID:      id,
-		Version: int32(version), //nolint:gosec // the handler reads a 31-bit version
-	})
-	if err != nil { // coverage-ignore
-		return fmt.Errorf("decide claim: %w", err)
-	}
-
 	if changed == 0 {
 		return ErrConflict
 	}
 
 	err = queries.InsertClaimHistory(ctx, db.InsertClaimHistoryParams{
-		ClaimID:    id,
+		ClaimID:    row.ID,
 		ActorID:    actor.ID,
 		Action:     step.history,
-		FromStatus: db.NullClaimStatus{ClaimStatus: step.from, Valid: true},
+		FromStatus: db.NullClaimStatus{ClaimStatus: row.Status, Valid: true},
 		ToStatus:   step.to,
 		Comment:    optionalComment(comment),
 		Now:        timestamptz(now),
@@ -295,6 +281,45 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUID,
 	}
 
 	return nil
+}
+
+func submitClaim(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, version int, now time.Time) (int64, error) {
+	items, err := queries.ListClaimLineItems(ctx, row.ID)
+	if err != nil { // coverage-ignore
+		return 0, fmt.Errorf("list items to submit: %w", err)
+	}
+
+	input := Input{Items: make([]LineItemInput, 0, len(items))}
+	for _, item := range items {
+		input.Items = append(input.Items, LineItemInput{
+			Category: item.Category, Amount: item.AmountSatang, ExpenseDate: item.ExpenseDate.Time,
+		})
+	}
+
+	firstSubmittedAt := now
+	if row.Status == db.ClaimStatusRETURNED {
+		firstSubmittedAt = row.FirstSubmittedAt.Time
+	}
+	if err := checkRules(input, now, firstSubmittedAt); err != nil {
+		return 0, err
+	}
+
+	requestedVersion := int32(version) //nolint:gosec // the handler reads a 31-bit version
+	if row.Status == db.ClaimStatusDRAFT {
+		changed, err := queries.SubmitDraftClaim(ctx, db.SubmitDraftClaimParams{
+			ID: row.ID, Version: requestedVersion, ReviewerID: row.OwnerReviewerID, Now: timestamptz(now),
+		})
+		if err != nil { // coverage-ignore
+			return 0, fmt.Errorf("submit draft: %w", err)
+		}
+		return changed, nil
+	}
+
+	changed, err := queries.ResubmitClaim(ctx, db.ResubmitClaimParams{ID: row.ID, Version: requestedVersion, Now: timestamptz(now)})
+	if err != nil { // coverage-ignore
+		return 0, fmt.Errorf("resubmit claim: %w", err)
+	}
+	return changed, nil
 }
 
 // optionalComment trims comment and stores an empty one as NULL.
@@ -395,6 +420,13 @@ func findClaim(ctx context.Context, queries *db.Queries, id uuid.UUID) (db.GetCl
 	return row, nil
 }
 
+func claimSubject(row *db.GetClaimRow) Subject {
+	return Subject{
+		RequesterID: row.RequesterID, AssignedReviewerID: row.ReviewerID.UUID, Status: row.Status,
+		OwnerHasReviewer: row.OwnerReviewerID.Valid, ReturnCount: int(row.ReturnCount),
+	}
+}
+
 // load reads a claim with its line items and history.
 func load(ctx context.Context, queries *db.Queries, id uuid.UUID) (Claim, error) {
 	row, err := findClaim(ctx, queries, id)
@@ -430,6 +462,7 @@ func load(ctx context.Context, queries *db.Queries, id uuid.UUID) (Claim, error)
 		Items:            lineItems(items),
 		History:          historyEntries(history),
 		AllowedActions:   []Action{},
+		ownerReviewerID:  row.OwnerReviewerID,
 	}
 
 	if row.ReviewerID.Valid {
