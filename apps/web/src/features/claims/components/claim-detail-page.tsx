@@ -24,6 +24,7 @@ import type {
   HistoryEntry,
   LineItem,
 } from "#/lib/api/types.gen";
+import { formatDate } from "#/lib/format";
 
 import { ClaimAccessDenied, ClaimLoadFailure } from "./claim-load-failure";
 import { ClaimOwnerActions } from "./claim-owner-actions";
@@ -104,6 +105,24 @@ const HistoryTimeline = ({ history }: { history: HistoryEntry[] }) => (
   </List>
 );
 
+// The latest RETURN entry of a returned claim: who sent it back, when, and why (F-06 §2.2).
+const ReturnBanner = ({ claim }: { claim: Claim }) => {
+  const returns = claim.history.filter((entry) => entry.action === "RETURN");
+  const latest = returns.at(-1);
+
+  if (claim.status !== "RETURNED" || latest === undefined) {
+    return null;
+  }
+
+  return (
+    <Banner
+      status="warning"
+      title={`Returned by ${latest.actor.name} on ${formatDate(latest.createdAt)}`}
+      description={latest.comment ?? undefined}
+    />
+  );
+};
+
 // The slot under the claim header. `deny` swaps the page for the access message, as when a decision gets a 403.
 type ClaimActions = (claim: Claim, deny: () => void) => React.ReactNode;
 
@@ -156,6 +175,7 @@ const ClaimView = ({
 
   return (
     <VStack gap={6} hAlign="stretch">
+      <ReturnBanner claim={claim} />
       <VStack aria-label="Claim" as="section" gap={2}>
         <HStack gap={3} vAlign="center">
           <Heading level={1}>{claim.claimNo}</Heading>
@@ -182,6 +202,11 @@ const ClaimView = ({
               ? "Assigned when submitted"
               : (claim.assignedReviewer?.name ?? "–")}
           </MetadataListItem>
+          {claim.status === "RETURNED" ? (
+            <MetadataListItem label="Returns">
+              {`Returned ${claim.returnCount} / 3`}
+            </MetadataListItem>
+          ) : null}
           <MetadataListItem label="Submitted">
             {draft ? (
               "Not submitted yet"
