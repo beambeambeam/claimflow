@@ -176,11 +176,11 @@ The amber **Returned** badge shows in My Claims. The Review Queue does not list 
 | F06-AC-06 | FR-09, FR-10 | A returned claim is not in the reviewer's `scope=review` list and is in the owner's `scope=mine` list as `RETURNED`. The assigned reviewer can still open it (200, no `allowedActions`). After a resubmission it is back in `scope=review`, ordered by its new `submittedAt`. |
 | F06-AC-07 | FR-10, FR-07, BR-17, NFR-06 | The owner resubmits a `RETURNED` claim with the current version → 200: status `SUBMITTED`, `submittedAt` = now, `firstSubmittedAt` and `assignedReviewer` unchanged (even if the owner's `reviewer_id` changed or became NULL), `version` + 1, and one `RESUBMIT` history row. |
 | F06-AC-08 | BR-07 | Resubmission checks the 90-day window from `firstSubmittedAt`: with `firstSubmittedAt` 2026-11-20, an item dated 2026-08-22 → 200, 2026-08-21 → 422 BR-07; after a 422 the claim stays `RETURNED` with no new history. |
-| F06-AC-09 | FR-10, BR-10 | The owner edits a `RETURNED` claim with the F-05 edit path → 200; a non-owner → 403; the reviewer cannot resubmit → 403. |
+| F06-AC-09 | FR-10, FR-03, BR-10 | The owner edits a `RETURNED` claim with the F-05 edit path → 200; a non-owner → 403; the reviewer cannot resubmit → 403. |
 | F06-AC-10 | NFR-06 | If the history insert fails during a return or a resubmission, the response is 500 and status, `returnCount`, `submittedAt`, and `version` are unchanged. |
 | F06-AC-11 | FR-09, NFR-08 | The Decision Panel shows "Return (n / 3)" only when `return` is allowed, opens a reason dialog that behaves like the Reject dialog (same counter, client checks, and 422 message under the field), and on success returns to the queue with "Claim returned."; with `returnCount` 3 it shows "Returned 3 / 3 – approve or reject." |
 | F06-AC-12 | FR-10, NFR-08 | The owner's Claim Detail for a `RETURNED` claim shows the amber banner with the reviewer, date, and latest return reason, "Returned n / 3", **Edit**, and **Resubmit**; resubmit success shows "Claim resubmitted." |
-| F06-AC-13 | FR-09, FR-10 | End to end: `req.anan` submits; `rev.malee` returns with a reason; `req.anan` sees the reason, edits an item, and resubmits; `rev.malee` approves. History shows `SUBMIT`, `RETURN`, `RESUBMIT`, `APPROVE` in order. |
+| F06-AC-13 | FR-09, FR-10, FR-07 | End to end: `req.anan` submits; `rev.malee` returns with a reason; `req.anan` sees the reason, edits an item, and resubmits; `rev.malee` approves. History shows `SUBMIT`, `RETURN`, `RESUBMIT`, `APPROVE` in order. |
 
 ## 6. Software Test Specification
 
@@ -218,4 +218,4 @@ The Sprint 2 Product DoD applies. For F-06 the evidence is:
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-23 | Initial contract, from the F-06 feature spec and tickets #43–#44 | beambeambeam |
-| 0.2 | 2026-11-24 | Review fixes (PR #100): the Return dialog behaves like the Reject dialog and reads the same schema, so it adds no client minimum of its own (§1.6, §2.1, F06-AC-11, F06-TEST-13). A Finance Officer returning a department head's claim cites ADR-0001 and BR-02, not BR-15, and F06-TEST-04 tests it (§1.8, F06-AC-03). F06-TEST-17: resubmission works when the owner's `reviewer_id` is NULL (§1.8, F06-AC-07) | beambeambeam |
+| 0.2 | 2026-11-24 | Review fixes (PR #100): the Return dialog behaves like the Reject dialog and reads the same schema, so it adds no client minimum of its own (§1.6, §2.1, F06-AC-11, F06-TEST-13). A Finance Officer returning a department head's claim cites ADR-0001 and BR-02, not BR-15, and F06-TEST-04 tests it (§1.8, F06-AC-03). F06-TEST-17: resubmission works when the owner's `reviewer_id` is NULL (§1.8, F06-AC-07). F06-AC-09 adds FR-03 (the edit recalculates the total) and F06-AC-13 adds FR-07 (the history order), as `docs/traceability.md` lists them | beambeambeam |
