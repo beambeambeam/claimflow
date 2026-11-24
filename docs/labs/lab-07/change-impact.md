@@ -55,8 +55,8 @@ Intervening development between `bb5a0d1` and `214d1d5`: four docs-only PRs (#94
 
 | Requirement | Feature | SRS | Feature SDS (F-04) | System SDS | AC | STS tests | Code modules |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| BR-04 reject reason | F-04 (S1) | §7 BR-04 **revised** | §1.5 **revised**; §1.6 boundary row **revised**; §2.2 Reject row **revised**; §1.4 step 6 and §3 unchanged | §2.2 `claim_history.comment` **revised**; §3.3, §4.2 unchanged | F04-AC-06 **revised**; F04-AC-05 unchanged | F04-TEST-06, 07 **revised**; F04-TEST-05, 24 unchanged | `apps/api/internal/claim/rules.go` (`MinReasonLength`, `checkComment`); `apps/api/openapi.yaml` descriptions and the generated files (§3.2) |
-| NFR-08 field messages naming the rule | F-04 (S1) | §8 NFR-08 unchanged | §1.5 messages **revised**; §2.2 | §4.2 unchanged | F04-AC-06 **revised**; F04-AC-18 unchanged | F04-TEST-06, 07 **revised**; F04-TEST-21, 24 unchanged (their code asserts the old message text, §3.2) | `rules.go` messages; `apps/web/src/features/reviews/components/decision-panel.tsx` shows the API's message and needs no change |
+| BR-04 reject reason | F-04 (S1) | §7 BR-04 **revised** | §1.5 **revised**; §1.6 boundary row **revised**; §2.2 Reject row **revised**; §1.4 step 6 and §3 unchanged | §2.2 `claim_history.comment` **revised**; §3.3, §4.2 unchanged | F04-AC-06, F04-AC-18 **revised**; F04-AC-05 unchanged | F04-TEST-06, 07, 21 **revised**; F04-TEST-05, 24 unchanged | `apps/api/internal/claim/rules.go` (`MinReasonLength`, `checkComment`); `apps/api/openapi.yaml` descriptions and the generated files (§3.2) |
+| NFR-08 field messages naming the rule | F-04 (S1) | §8 NFR-08 unchanged | §1.5 messages **revised**; §2.2 | §4.2 unchanged | F04-AC-06, F04-AC-18 **revised** | F04-TEST-06, 07, 21 **revised**; F04-TEST-24 unchanged | `rules.go` messages; `apps/web/src/features/reviews/components/decision-panel.tsx` (minimum and field message, Part B) |
 | FR-06 reject with a reason | F-04 (S1) | §6 FR-06 unchanged | §1.3 unchanged | §3.2 unchanged | F04-AC-05 unchanged | F04-TEST-05, 24 unchanged | `apps/api/internal/claim/service.go` `Act`, `handler.go` `RejectClaim`: unchanged |
 | BR-04 return, final reject | F-06 (S2), F-08 (S3) | §7 BR-04 **revised** | Not in Sprint 1. The F-06 draft in PR #100 uses `MinReasonLength`, not a literal, and names L7/01 | – | F06-AC-02 (planned, PR #100) | F06-TEST-02, 03 (planned) | Inherit `MinReasonLength` when built |
 
@@ -75,12 +75,13 @@ Part A revises the documents. Part B changes the rest after the review, in this 
 | Generated from `openapi.yaml` | `apps/api/internal/api/api.gen.go` 288; `apps/web/src/lib/api/types.gen.ts` 126; `sdk.gen.ts` 174; `@tanstack/react-query.gen.ts` 272 | 5–500 | B, by `bun run generate` |
 | `apps/api/internal/claim/act_test.go` (F04-TEST-06) | 31, 35, 36, and cases 48–52 | Messages, 4/5 boundary | B, red first |
 | `apps/api/claims_review_test.go` (F04-TEST-07) | 470–473 | Messages, 4-character case | B, red first |
-| `apps/web/src/features/reviews/__test__/decision-panel.test.tsx` (F04-TEST-21) | 232, 244 | Mocked 422 message | B |
+| `apps/web/src/features/reviews/__test__/decision-panel.test.tsx` (F04-TEST-21) | 232, 244 | Mocked 422 message; new 9/10-character step | B, red first |
+| `apps/web/src/features/reviews/components/decision-panel.tsx`, `apps/web/src/lib/contract.ts` | – | No minimum in the dialog | B |
 | `apps/web/e2e/f04-review-decision.spec.ts` (F04-TEST-24) | 50 | "Enter a reason (5 to 500 characters)." | B |
 
 Not changed, with the reason:
 
-- `apps/web/src/lib/api/zod.gen.ts` 134 and `x-max-length: 500` (`openapi.yaml` 664): they state only the upper bound, which does not change. The web dialog has no minimum of its own.
+- `apps/web/src/lib/api/zod.gen.ts` 134 and `x-max-length: 500` (`openapi.yaml` 664): they state only the upper bound. Part B adds the minimum to the contract (`x-min-length`, read like `x-max-length`) so the dialog reads both limits from one source; this is the one OpenAPI schema change beyond the descriptions.
 - `docs/labs/lab-06/uat-handoff.md` 254, 265, 266 and `docs/reports/labs/06/content/part-a-handoff.tex` 561, 589, 590: the Lab 6 UAT-05 case as it ran on the 5–500 release. They are records of that run, so they stay as written.
 
 ### 3.3 Considered
@@ -88,8 +89,8 @@ Not changed, with the reason:
 | Concern | Applies | Reason |
 | --- | --- | --- |
 | Callers and dependencies | Yes, one path | `checkComment` (`rules.go` 129) has one caller, `checkAct` (`service.go` 260), used by `Act` for approve and reject. Approve uses only the upper bound, which does not change. `RejectClaim` (`handler.go` 160) passes the body through unchanged. F-06 return reuses the constant when it is built (PR #100) |
-| API validation | Yes, descriptions only | The schema sets no `minLength` on `comment` (F-04 §3), so the BR-04 check in the claim module decides every length case and the 400 path is not involved. Only the two descriptions in `openapi.yaml` and their generated copies change |
-| UI validation | Yes, text only | The Reject dialog has no client-side minimum: it sends the reason and shows the API's 422 message under the field, keeping the text (F-04 §2.2). The new messages reach it with no code change; the counter stays `0/500`. Only test assertions of the message text change |
+| API validation | Yes, descriptions and one extension | The schema sets no `minLength` on `comment` (F-04 §3), so the BR-04 check in the claim module decides every length case and the 400 path is not involved. The two descriptions in `openapi.yaml` change, and `comment` gains `x-min-length: 10` for the web (UI validation); the generated copies follow |
+| UI validation | Yes | The Reject dialog gains a client-side minimum (decision on #99 AC 5): **Reject** is disabled while the trimmed reason has fewer than 10 characters and the field shows "Reason must be at least 10 characters." The limit is read from the contract like the counter's 500. The API still checks the rule and its 422 message still shows under the field (F-04 §2.2). Behavior for 10–500 characters is unchanged |
 | Roles and ownership | No | The comment rule is step 6 of F-04 §1.4, after the visibility, relation (BR-01, BR-02), and status (BR-03) checks. Who may reject, and the 403 and 409 results, do not change |
 | Persistence | No | `claim_history.comment` is `VARCHAR(500)` NULL with no length CHECK (`apps/api/migrations/00002_claims.sql` 64). The trimmed reason is stored as before |
 | Historical data | No | `REJECT` rows with 5–9 character reasons stay as stored. History is append-only (BR-11, trigger tested by F04-TEST-18), and reads never check BR-04 again. The seed's reject reason, "Receipt is missing." (19 characters, `apps/api/seed_claims.go` 54), is valid under both rules |
@@ -167,7 +168,17 @@ Old:
 
 New:
 
-> Opens a dialog with a required reason field, a counter (`0/500`), the field messages from §1.5, **Reject** and **Cancel**. A blank reason or one under 10 characters does not reject the claim: the API answers 422 and the dialog shows the §1.5 message (row 422).
+> Opens a dialog with a required reason field, a counter (`0/500`), the field messages from §1.5, **Reject** and **Cancel**. **Reject** stays disabled while the trimmed reason has fewer than 10 characters, and once any text is entered the field shows "Reason must be at least 10 characters." The limits come from the API contract (`minLength` and `maxLength`), as the counter's does. The API still checks the rule: a 422 shows its §1.5 message under the field (row 422).
+
+### 5.4a F04-AC-18 (decision panel)
+
+Old:
+
+> … Approve asks for confirmation; Reject needs a reason and shows the field message. …
+
+New:
+
+> … Approve asks for confirmation; Reject needs a reason of at least 10 characters: its button is disabled below that and the field shows the message, and a 422 shows the API's message. …
 
 ### 5.5 F04-AC-06
 
@@ -179,14 +190,14 @@ New:
 
 > Reject with a missing or blank reason, or 9 or 501 characters → 422 with `field = "comment"`, `rule = "BR-04"`, and the message from §1.5. 10 and 500 characters → 200. Approve with a 501-character comment → 422.
 
-### 5.6 STS: F04-TEST-06 and F04-TEST-07
+### 5.6 STS: F04-TEST-06, F04-TEST-07, and F04-TEST-21
 
 | Test | Level | Precondition | Old input / expected result | New input / expected result |
 | --- | --- | --- | --- | --- |
 | F04-TEST-06 | Integration (module) | `SUBMITTED` claim | `Act(REJECT)` with no comment, `"   "`, 4, 5, 500, 501 characters; `Act(APPROVE)` with 501 → `ValidationError{comment, BR-04}` ×3, ok, ok, BR-04 error; BR-04 error | `Act(REJECT)` with no comment, `"   "`, 9, 10, 500, 501 characters; `Act(APPROVE)` with 501 → same expected results |
 | F04-TEST-07 | Integration | `SUBMITTED` claim | `POST …/reject` with no `comment`, `"   "`, a 4-character reason → 422 each, `comment`, BR-04, "Enter a reason (5 to 500 characters)." ×2, "Reason must be at least 5 characters." | `POST …/reject` with no `comment`, `"   "`, a 9-character reason → 422 each, `comment`, BR-04, "Enter a reason (10 to 500 characters)." ×2, "Reason must be at least 10 characters." |
 
-Both cover F04-AC-06. F04-TEST-24 keeps its input, "Receipt missing" (15 characters).
+F04-TEST-21 (component, covers F04-AC-18) adds one step to its Reject case: type a 9-character reason, then a 10-character one. Expected: **Reject** is disabled with "Reason must be at least 10 characters." at 9 characters and enabled at 10; the existing 422, success, 409, and 403 steps are unchanged. F04-TEST-06 and 07 cover F04-AC-06. F04-TEST-24 keeps its input, "Receipt missing" (15 characters).
 
 ### 5.7 System SDS §2.2 `claim_history.comment` (0.17 → 0.18)
 
