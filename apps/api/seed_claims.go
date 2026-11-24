@@ -20,8 +20,8 @@ type seedItem struct {
 }
 
 // seedClaim is one sample claim of F-04 §4. A draft has no history. For submitted claims, decision is empty for a claim that
-// still waits, APPROVE or REJECT for one its reviewer has decided, or RETURN for one that waits for its requester. reason is
-// the comment of the decision.
+// still waits, APPROVE or REJECT for one its reviewer has decided, RETURN for one that waits for its requester, or WITHDRAW
+// for one its requester has withdrawn. reason is the comment of the decision.
 type seedClaim struct {
 	claimNo   string
 	requester string
@@ -86,13 +86,21 @@ var seedClaims = []seedClaim{
 		reason:     "Please attach the taxi receipt.",
 		createdAgo: 30 * time.Hour,
 	},
+	{
+		claimNo: "CLM-2026-900009", requester: "req.ploy", title: "Team lunch", purpose: "Lunch for the team after the audit",
+		items:      []seedItem{{db.ExpenseCategoryMEALS, "Team lunch", 125000}},
+		decision:   db.ClaimActionWITHDRAW,
+		reason:     "Booked by the company instead.",
+		createdAgo: 18 * time.Hour,
+	},
 }
 
 // decisionStatuses is the status a claim has after each decision.
 var decisionStatuses = map[db.ClaimAction]db.ClaimStatus{
-	db.ClaimActionAPPROVE: db.ClaimStatusAPPROVED,
-	db.ClaimActionREJECT:  db.ClaimStatusREJECTED,
-	db.ClaimActionRETURN:  db.ClaimStatusRETURNED,
+	db.ClaimActionAPPROVE:  db.ClaimStatusAPPROVED,
+	db.ClaimActionREJECT:   db.ClaimStatusREJECTED,
+	db.ClaimActionRETURN:   db.ClaimStatusRETURNED,
+	db.ClaimActionWITHDRAW: db.ClaimStatusWITHDRAWN,
 }
 
 // seedClaimRows adds the sample claims that do not exist yet, each with its line items and history, as of now. ids holds
@@ -111,6 +119,9 @@ func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid
 		case claim.decision == db.ClaimActionRETURN:
 			// A return is a step in the review: the claim has no decision time.
 			status, version, returns = db.ClaimStatusRETURNED, 1, 1
+		case claim.decision == db.ClaimActionWITHDRAW:
+			// A withdrawal is the requester's, not a decision: the claim has no decision time.
+			status, version = db.ClaimStatusWITHDRAWN, 1
 		case claim.decision != "":
 			status, version, decided = decisionStatuses[claim.decision], 1, pgtype.Timestamptz{Time: decidedAt, Valid: true}
 		}
@@ -162,8 +173,13 @@ func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid
 			continue
 		}
 
+		actor := ids[reviewers[claim.requester]]
+		if claim.decision == db.ClaimActionWITHDRAW {
+			actor = ids[claim.requester]
+		}
+
 		err = queries.InsertClaimHistory(ctx, db.InsertClaimHistoryParams{
-			ClaimID: id, ActorID: ids[reviewers[claim.requester]], Action: claim.decision,
+			ClaimID: id, ActorID: actor, Action: claim.decision,
 			FromStatus: db.NullClaimStatus{ClaimStatus: db.ClaimStatusSUBMITTED, Valid: true}, ToStatus: status,
 			Comment: pgtype.Text{String: claim.reason, Valid: claim.reason != ""}, Now: pgtype.Timestamptz{Time: decidedAt, Valid: true},
 		})

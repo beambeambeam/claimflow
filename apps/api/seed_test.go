@@ -148,6 +148,7 @@ var seededClaims = []seededClaim{
 	{"rev.prasert", "fin.wanida", "SUBMITTED", "40000.00", []string{"SUBMIT"}, ""},
 	{"req.anan", "", "DRAFT", "1250.00", nil, ""},
 	{"req.anan", "rev.malee", "RETURNED", "1250.00", []string{"SUBMIT", "RETURN"}, "Please attach the taxi receipt."},
+	{"req.ploy", "rev.malee", "WITHDRAWN", "1250.00", []string{"SUBMIT", "WITHDRAW"}, "Booked by the company instead."},
 }
 
 // F04-TEST-22 (F04-AC-19): on an empty database, the seed adds the sample claims of F-04 §4 with their history. A second
@@ -173,8 +174,8 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 	}
 
 	claims, items, history := counts()
-	if claims != len(seededClaims) || items != 11 || history != 10 {
-		t.Fatalf("after the first run: %d claims, %d items, %d history entries; want %d claims, 11 items, 10 history entries",
+	if claims != len(seededClaims) || items != 12 || history != 12 {
+		t.Fatalf("after the first run: %d claims, %d items, %d history entries; want %d claims, 12 items, 12 history entries",
 			claims, items, history, len(seededClaims))
 	}
 
@@ -208,11 +209,11 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 			t.Fatalf("scan claim: %v", err)
 		}
 
-		// A return is a step in the review, not a decision: the claim has a new version but no decision time.
+		// A return and a withdrawal are not decisions: the claim has a new version but no decision time.
 		wantDecision := claim.status == "APPROVED" || claim.status == "REJECTED"
-		wantVersion := wantDecision || claim.status == "RETURNED"
+		wantVersion := wantDecision || claim.status == "RETURNED" || claim.status == "WITHDRAWN"
 		if !itemsMatch || submitted != (claim.status != "DRAFT") || decided != wantDecision || (version == 1) != wantVersion {
-			t.Fatalf("claim %+v: items match %t, submitted %t, decided %t, version %d; want items summing to the total, submission times for submitted claims, a decision time only when decided, and version 1 only after a decision or a return",
+			t.Fatalf("claim %+v: items match %t, submitted %t, decided %t, version %d; want items summing to the total, submission times for submitted claims, a decision time only when decided, and version 1 only after a decision, a return, or a withdrawal",
 				claim, itemsMatch, submitted, decided, version)
 		}
 
@@ -321,7 +322,7 @@ func TestSeedCommandRefusesEmptyPassword(t *testing.T) {
 func TestSeedCommandSeedsWithPassword(t *testing.T) {
 	pool := pgtest.New(t)
 
-	for _, want := range []string{"seeded 7 users and 8 new claims\n", "seeded 7 users and 0 new claims\n"} {
+	for _, want := range []string{"seeded 7 users and 9 new claims\n", "seeded 7 users and 0 new claims\n"} {
 		var out bytes.Buffer
 		if err := seedCommand(t.Context(), pool.Config().ConnString(), seedPassword, testBcryptCost, &out); err != nil {
 			t.Fatalf("seedCommand: %v", err)
