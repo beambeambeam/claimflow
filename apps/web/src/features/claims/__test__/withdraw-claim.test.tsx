@@ -256,4 +256,50 @@ describe("Claim Detail: withdraw", { timeout: 40_000 }, () => {
     });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("F07-TEST-11: Cancel and Escape close the dialog without sending anything", async () => {
+    const { user } = await open(withdrawable());
+
+    await user.click(screen.getByRole("button", { name: "Withdraw" }));
+    await user.click(within(dialog()).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Withdraw" }));
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("F07-TEST-11: Escape does not close the dialog while the withdrawal is sending", async () => {
+    const { user } = await open(withdrawable());
+    stalled = true;
+
+    await user.click(screen.getByRole("button", { name: "Withdraw" }));
+    await user.click(
+      within(dialog()).getByRole("button", { name: "Withdraw claim" })
+    );
+    await waitFor(() => {
+      expect(sent).toHaveLength(1);
+    });
+    await user.keyboard("{Escape}");
+
+    within(dialog()).getByRole("button", { name: "Withdraw claim" });
+  });
+
+  it("F07-TEST-11: a failure that is not a problem document shows the generic toast and closes the dialog", async () => {
+    const { user } = await open(withdrawable());
+    withdrawResponse = () => HttpResponse.error();
+
+    await user.click(screen.getByRole("button", { name: "Withdraw" }));
+    await user.click(
+      within(dialog()).getByRole("button", { name: "Withdraw claim" })
+    );
+
+    await screen.findAllByText("Something went wrong.", {}, slow);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 });

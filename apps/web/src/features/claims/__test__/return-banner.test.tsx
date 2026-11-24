@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { describe, expect, it } from "vite-plus/test";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
 
 import { apiUrl, renderAt, serveApi } from "#/__test__/support";
 
@@ -38,14 +38,20 @@ const returned = claim({
   ],
 });
 
+let current = returned;
+
 const server = setupServer(
   http.get(`${apiUrl}/auth/me`, () => HttpResponse.json({ data: requester })),
   http.get(`${apiUrl}/claims/${claimId}`, () =>
-    HttpResponse.json({ data: returned })
+    HttpResponse.json({ data: current })
   )
 );
 
 serveApi(server);
+
+beforeEach(() => {
+  current = returned;
+});
 
 describe("Claim Detail of a returned claim", () => {
   it("F06-TEST-14 (banner and count; Edit and Resubmit are #44): shows the latest return reason with who returned it and when, and the number of returns", async () => {
@@ -62,5 +68,20 @@ describe("Claim Detail of a returned claim", () => {
     within(screen.getByRole("region", { name: "Summary" })).getByText(
       "Returned 2 / 3"
     );
+  }, 20_000);
+
+  it("F06-TEST-14: shows the banner without a reason when the return entry has none", async () => {
+    current = claim({
+      status: "RETURNED",
+      returnCount: 1,
+      allowedActions: [],
+      history: [{ ...entry(2, "", "2026-11-04T09:30:00Z"), comment: null }],
+    });
+
+    renderAt(`/claims/${claimId}`);
+
+    await screen.findByRole("heading", { name: "CLM-2026-000123" }, slow);
+
+    screen.getByText("Returned by Malee R. on 4 Nov 2026");
   }, 20_000);
 });
