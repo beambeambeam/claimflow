@@ -1,7 +1,7 @@
 \partsection{D-01}{Readiness checklist}
 \label{ev:ready}
 \textbf{READY for maintained Sprint 1 functionality on \texttt{v0.1.0.0} / \revision{}.}
-The released artifact passed CI and public smoke. A deployed synthetic claim showed the stricter BR-04 rule, preserved owner and unassigned-reviewer denial, and stored a valid rejection that the requester could read. Prior acceptance and the regression suites support preserved F-01 through F-04 behavior. This decision covers the maintained Sprint 1 scope.
+The release passed CI and public smoke. The live probes exercised login (F-01), synthetic claim submission (F-02), My Claims and requester history (F-03), and the rejection boundary and access checks (F-04) in B-07 and B-08. Only the local F-04 E2E journeys were rerun for this change. E2E runs on a local seeded stack outside CI, per \prlink{96}. The ready decision combines these selected checks with Lab 6 acceptance and the release regression suites.
 
 \begin{longtable}{@{}R{4cm}R{12.1cm}@{}}
 \toprule
@@ -11,7 +11,7 @@ Automated regression & \textbf{Pass}. Main web had 139 passes and main Go had 30
 Selected deployed behavior & \textbf{Pass}. 4 authenticated HTTP checks and 6 live browser checks passed with synthetic users. The first HTTP probe was rerun after correcting its response assertion. Lab 6 partner acceptance is historical (A-01, B-07, B-08). \\
 Defects by severity & \textbf{0 open in tracked Sprint 1 UAT}. Major \#87 and minor \#86 were fixed, retested and closed in Lab 6 (C-04). No new product defect surfaced in the Lab 7 checks. \\
 Configuration and secrets & \textbf{Pass for release configuration}. The release used the existing Lab 5 workload identity and deploy pipeline. No schema, service setting, or secret change was required for BR-04. Demo credentials stay in private course handoff. Students should confirm grader access before submission. \\
-Documentation and run instructions & \textbf{Pass}. Versioned SRS, F-04, System SDS and STS, traceability and OpenAPI agree on the new rule. GitHub review and deployment steps are recorded above. Use the repository README for local seed and app setup, and B-06/B-07 for the release and behavior checks. \\
+Documentation and run instructions & \textbf{Pass}. Versioned SRS, F-04, System SDS and STS, traceability and OpenAPI agree on the new rule. Use the repository README for local setup and B-06 to B-08 for release and behavior checks. \\
 \bottomrule
 \end{longtable}
 
@@ -21,6 +21,7 @@ Documentation and run instructions & \textbf{Pass}. Versioned SRS, F-04, System 
 \textbf{Item} & \textbf{Impact} & \textbf{Priority} & \textbf{Disposition} \\ \midrule \endhead
 Authenticated deploy tests run on demand & Green pipeline smoke cannot catch drift in boundary or access behavior. & High & Before Final Delivery, add the gated synthetic smoke in Part C. \\
 Trim/count logic in Go and web & Separate implementations depend on shared semantics. Divergence can block a valid reason in the dialog. & Medium & Keep the boundary vectors in both test layers. Proposed reviewer \texttt{Kiatisakk} checks parity when a later decision path reuses the rule. \\
+F01-TEST-20 login timeouts under concurrent load & Local web checks timed out during login. The isolated run passed with \texttt{--retry=2}, which can mask intermittent failures. & Medium & Proposed owner \texttt{beambeambeam} reproduces under load and reruns the isolated suite without retries before Final Delivery. \\
 \bottomrule
 \end{longtable}
 
@@ -46,7 +47,7 @@ Pair work & Both students planned the change, drafted the specification, and pre
 \end{longtable}
 
 \textbf{AI-use declaration.}
-We both used AI to plan Lab 7. We used \texttt{grill-with-docs} to examine the proposed change against the project documentation, then \texttt{to-spec} to draft the specification, and \texttt{to-ticket} to draft the GitHub issue.
+We both used AI to plan Lab 7. We used \texttt{grill-with-docs} to examine the proposed change against the project documentation, then \texttt{to-spec} to draft the specification, and \texttt{to-ticket} to draft the GitHub issue. We also used AI assistance during implementation and used \texttt{code-review} to help review changes. AI assisted with release documentation, report preparation, and the HTTP and browser evidence in B-06 to B-08. Both students should confirm this declaration before submission.
 
 \textbf{Known limitations.}
-No new independent partner UAT was recorded for this revision. The waiver is documented through the team's issue comment. Historical Lab 6 data and the two synthetic Lab 7 test claims stay in the demo. The team should confirm the private grading-account handoff and deployment availability through grading.
+Independent partner UAT evidence comes from the accepted Lab 6 release. The waiver is documented through the team's issue comment. Deployment evidence is pinned to \texttt{c32e645} and \revision{}. Later main deployments, including a Sprint 2 release via \prlink{102}, may change what the live URL serves. Historical Lab 6 data and the two synthetic Lab 7 claims stay in the demo. The team should confirm private grader access and deployment availability through grading.

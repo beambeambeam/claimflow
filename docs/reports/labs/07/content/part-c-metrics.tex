@@ -8,7 +8,7 @@ C-01 \newline Completed Lab 7 requests \newline \textbf{1 completed} &
 Count Issues with label \texttt{lab7} closed as completed from 22 Nov 00:00 through the 24 Nov snapshot. Excludes PRs, duplicates and cancellations. &
 \issuelink{99} (L7/01), the only Issue in this cohort, closed as completed on 24 Nov at 17:48:07. Incorporated by release \prlink{106}. Neither a duplicate nor a cancellation. \\
 C-02 \newline Merged maintenance PRs \newline \textbf{3 merged} &
-Count merged PRs in the L7/01 release chain on 24 Nov. Scope is contract, implementation and main release. &
+Count merged PRs in the L7/01 release chain on 24 Nov. Sprint 2 PRs \prlink{100} and \prlink{104} also merged that day into \texttt{sprint-2} and fall outside this scope. &
 \prlink{101}: 16:18:19, \texttt{lab-7}, \texttt{124cf9a}. \newline
 \prlink{105}: 17:31:06, \texttt{lab-7}, \texttt{8b660a1}. \newline
 \prlink{106}: 17:48:05, \texttt{main}, \texttt{c32e645}. \\
@@ -26,6 +26,9 @@ Count \texttt{CI} and \texttt{Deploy demo} runs created on \texttt{main} on 24 N
 \runlink{45453647851}: Deploy demo at 17:54:12, success, attempt 1. Both at \texttt{c32e645}. \\
 \bottomrule
 \end{longtable}
+
+\textbf{PR CI outside C-05.}
+On 24 November, contract PR run \runlink{45426025815} at 15:29:03 on \texttt{d4a8fea} was superseded by run \runlink{45426122732} and cancelled. Implementation PR run \runlink{45435957782} at 16:20:22 failed its generated-code check. See B-05 on p.~\pageref{ev:release}.
 
 \textbf{Action from the metrics.}
 Both main workflows succeeded and the release web run passed 139 cases. The deploy workflow verifies service health, so all four authenticated boundary and access checks required a separate run. Before Final Delivery, the release owner (\texttt{beambeambeam}, proposed) should add a gated synthetic post-deploy smoke for those four checks. Keep credentials in managed secrets, emit only status and state summaries, and have \texttt{Kiatisakk} review the evidence before sign-off.

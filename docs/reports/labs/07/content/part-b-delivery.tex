@@ -138,7 +138,7 @@ Generation left no diff. API scan found no vulnerabilities. \\
 \textbf{24 Nov 2026 (UTC)} & \textbf{Recorded action and review evidence} \\ \midrule \endhead
 16:16--16:18 & Contract \prlink{101} approved, then squashed to \texttt{lab-7} as \texttt{124cf9a}. See A-03. \\
 16:20--16:28 & OpenAPI contract commit \texttt{ea1537b} came first. Test commits \texttt{405c906} and \texttt{6cabc3e} preceded code \texttt{b51c058}. Implementation proceeded at the maintainer's direction while OpenAPI teammate review was pending. \\
-17:16:23 & On \texttt{3e4b572}, \texttt{Kiatisakk} \href{\repo/pull/105\#pullrequestreview-6043999986}{confirmed the OpenAPI diff matched F-04}. The reviewer checked metadata generation, API RED/GREEN, and 50 focused web tests. Requested changes were to record the late review and list RED/GREEN versions per test. The reviewer relied on CI and the PR for full gates and E2E. \\
+17:16:23 & On \texttt{3e4b572}, \texttt{Kiatisakk} opened the \href{\repo/pull/105\#pullrequestreview-6043999986}{review} with “Requesting changes for two process items” and wrote, “I have now reviewed that diff and it matches the contract, so no contract change is needed.” The reviewer checked generation, API RED/GREEN, and 50 focused web tests. The requests were to record the late review and list RED/GREEN versions per test. \\
 17:20--17:31 & \texttt{4993321} documented the review. \texttt{9b1fc9c} listed each test's versions. \texttt{Kiatisakk} approved at 17:28:21 after a docs-only follow-up and confirmed the component counts. \prlink{105} squashed to \texttt{lab-7} as \texttt{8b660a1} at 17:31:06. \\
 17:47--17:48 & \texttt{Kiatisakk} approved \prlink{106} at 17:47:07 after checking the branch contents, generated rule, and required CI. The reviewer left the four authenticated checks for after deploy. \prlink{106} merged to \texttt{main} at 17:48:05. \issuelink{99} closed as completed at 17:48:07. \\
 17:53:02 & Semantic-release published \texttt{v0.1.0.0}. Remote \texttt{main} and that tag both resolved to \releaseSHA{}. \\
@@ -147,6 +147,8 @@ Generation left no diff. API scan found no vulnerabilities. \\
 The release review calls \texttt{871d373} an approved head. Git identifies it as the tree ID shared by the actual approved \prlink{105} head \texttt{9b1fc9c}, staging squash \texttt{8b660a1} and release merge \texttt{c32e645}. The release's first parent is \texttt{214d1d5} and its second parent is \texttt{8b660a1}. This preserves the \texttt{feat!:} release signal. The 19 changed files cover L7/01 only. The separate Sprint 2 contract PR \#100 and release path \#102 are outside this change.
 
 \textbf{CI.}
+Early PR run \runlink{45435957782} started at 16:20:22 on OpenAPI commit \texttt{ea1537b}. The API job's generated-code check found diffs in the Go and web clients and exited 1. Commit \texttt{b51c058} regenerated the clients.
+
 The five required jobs (\texttt{api}, \texttt{test}, \texttt{code\_quality}, \texttt{image}, \texttt{build}) passed on \prlink{101} run \runlink{45434761904}, \prlink{105} run \runlink{45447692201}, and \prlink{106} run \runlink{45449479661}. The release job was skipped on PRs. On main run \runlink{45452555188}, all five jobs and the release job succeeded. The release CI ran at \texttt{c32e645}, from 17:48:08 to 17:54:08.
 
 Main CI ran these test commands in \texttt{apps/api} and \texttt{apps/web}, respectively.
