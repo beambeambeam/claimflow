@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
 )
@@ -69,5 +71,61 @@ func TestF06TEST02ReturnReasonFollowsTheRejectRuleBR04(t *testing.T) {
 				t.Fatalf("claim = %+v after the refused reason, want it unchanged", after)
 			}
 		})
+	}
+}
+
+// returnAndResubmit sends the claim back with a reason and has its requester submit it again, and returns the claim as
+// the requester left it.
+func returnAndResubmit(t *testing.T, pool *pgxpool.Pool, reviewer Actor, current *Claim) Claim {
+	t.Helper()
+
+	service := newService(pool)
+
+	returned, err := service.Act(t.Context(), reviewer, current.ID, current.Version, ActionReturn, "Please attach the receipt.")
+	if err != nil {
+		t.Fatalf("Act return: %v", err)
+	}
+
+	resubmitted, err := service.Act(t.Context(), Actor{ID: current.Requester.ID}, current.ID, returned.Version, ActionSubmit, "")
+	if err != nil {
+		t.Fatalf("Act submit: %v", err)
+	}
+
+	return resubmitted
+}
+
+// F06-TEST-07 (F06-AC-05, BR-14): a claim that was returned MaxReturns times and resubmitted cannot be returned again:
+// the refusal is an invalid transition for the return limit. The reviewer can still approve it.
+func TestF06TEST07FourthReturnIsRefusedAndApproveStillWorks(t *testing.T) {
+	pool := pgtest.New(t)
+	created, reviewer := submittedClaim(t, pool)
+	service := newService(pool)
+
+	current := created
+	for range MaxReturns {
+		current = returnAndResubmit(t, pool, reviewer, &current)
+	}
+
+	if current.Status != db.ClaimStatusSUBMITTED || current.ReturnCount != MaxReturns {
+		t.Fatalf("claim = %s with return count %d, want SUBMITTED with %d", current.Status, current.ReturnCount, MaxReturns)
+	}
+
+	_, err := service.Act(t.Context(), reviewer, current.ID, current.Version, ActionReturn, "One more thing.")
+	if !errors.Is(err, ErrInvalidTransition) || !errors.Is(err, ErrReturnLimit) {
+		t.Fatalf("Act return error = %v, want ErrInvalidTransition for the return limit", err)
+	}
+
+	after, err := service.Get(t.Context(), reviewer, current.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	if after.Status != db.ClaimStatusSUBMITTED || after.ReturnCount != MaxReturns || after.Version != current.Version {
+		t.Fatalf("claim = %+v after the refused return, want it unchanged", after)
+	}
+
+	approved, err := service.Act(t.Context(), reviewer, current.ID, current.Version, ActionApprove, "")
+	if err != nil || approved.Status != db.ClaimStatusAPPROVED {
+		t.Fatalf("Act approve = %s, %v; want APPROVED", approved.Status, err)
 	}
 }

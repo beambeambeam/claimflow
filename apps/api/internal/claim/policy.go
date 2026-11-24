@@ -20,6 +20,9 @@ const (
 	ActionSubmit  Action = "submit"
 )
 
+// MaxReturns is how many times a claim can be returned to its requester (BR-14).
+const MaxReturns = 3
+
 // Subject is what the claim policy reads about a claim. A claim with no assigned reviewer has the nil UUID there.
 type Subject struct {
 	RequesterID        uuid.UUID

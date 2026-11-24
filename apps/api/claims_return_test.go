@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
@@ -79,4 +80,39 @@ func TestF06TEST05OnlyASubmittedClaimCanBeReturned(t *testing.T) {
 
 		decodeProblem(t, decide(t, router, token, id, "return", `"0"`, reason), http.StatusForbidden, "FORBIDDEN")
 	})
+}
+
+// F06-AC-05 at the HTTP seam, with F06-TEST-07: a SUBMITTED claim with return count 3 cannot be returned, 409
+// INVALID_TRANSITION for BR-14 on returnCount. The reviewer's allowedActions have no return, and approve still works.
+func TestF06TEST07ReturnLimitIs409AndApproveStillWorks(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	token := loginAs(t, router, "rev.malee")
+	id := submittedBy(t, router, "req.anan")
+
+	if _, err := pool.Exec(t.Context(), `UPDATE claims SET return_count = 3 WHERE id = $1`, id); err != nil {
+		t.Fatalf("set return count: %v", err)
+	}
+
+	if claim := openClaim(t, router, token, id).Data; claim.ReturnCount != 3 || !slices.Equal(claim.AllowedActions, []string{"approve", "reject"}) {
+		t.Fatalf("claim = %+v, want return count 3 and approve, reject", claim)
+	}
+
+	before := readState(t, pool, id)
+	rec := decide(t, router, token, id, "return", `"0"`, `{"comment": "One more thing."}`)
+
+	decodeProblem(t, rec, http.StatusConflict, "INVALID_TRANSITION")
+
+	want := []fieldError{{Field: "returnCount", Rule: "BR-14", Message: "This claim has already been returned 3 times."}}
+	if got := problemErrors(t, rec); !slices.Equal(got, want) {
+		t.Fatalf("errors = %+v, want %+v", got, want)
+	}
+
+	if after := readState(t, pool, id); after != before {
+		t.Fatalf("stored = %+v after the refused return, want %+v", after, before)
+	}
+
+	if claim := decodeClaim(t, decide(t, router, token, id, "approve", `"0"`, "")).Data; claim.Status != "APPROVED" {
+		t.Fatalf("status = %s, want APPROVED", claim.Status)
+	}
 }

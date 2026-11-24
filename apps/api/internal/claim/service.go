@@ -22,6 +22,8 @@ var (
 	ErrNotFound = errors.New("claim: not found")
 	// ErrInvalidTransition means the claim's status does not allow the action (BR-03).
 	ErrInvalidTransition = errors.New("claim: invalid transition")
+	// ErrReturnLimit is an invalid transition for a return of a claim that was already returned MaxReturns times (BR-14).
+	ErrReturnLimit = fmt.Errorf("%w: the return limit is reached", ErrInvalidTransition)
 	// ErrConflict means the claim changed since the caller read it: the version is not the current one (BR-13).
 	ErrConflict = errors.New("claim: changed since it was read")
 )
