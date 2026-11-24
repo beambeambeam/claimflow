@@ -106,6 +106,32 @@ func (q *Queries) DecideClaim(ctx context.Context, arg DecideClaimParams) (int64
 	return result.RowsAffected(), nil
 }
 
+const deleteClaimLineItems = `-- name: DeleteClaimLineItems :exec
+DELETE FROM line_items WHERE claim_id = $1
+`
+
+func (q *Queries) DeleteClaimLineItems(ctx context.Context, claimID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteClaimLineItems, claimID)
+	return err
+}
+
+const deleteDraftClaim = `-- name: DeleteDraftClaim :execrows
+DELETE FROM claims WHERE id = $1 AND version = $2 AND status = 'DRAFT'
+`
+
+type DeleteDraftClaimParams struct {
+	ID      uuid.UUID
+	Version int32
+}
+
+func (q *Queries) DeleteDraftClaim(ctx context.Context, arg DeleteDraftClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteDraftClaim, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
 DELETE FROM session WHERE expires_at <= $1
 `
@@ -682,6 +708,37 @@ func (q *Queries) NextClaimSequence(ctx context.Context) (int64, error) {
 	var seq int64
 	err := row.Scan(&seq)
 	return seq, err
+}
+
+const updateClaimContent = `-- name: UpdateClaimContent :execrows
+UPDATE claims
+SET title = $1, purpose = $2, total_satang = $3,
+    version = version + 1, updated_at = $4
+WHERE id = $5 AND version = $6
+`
+
+type UpdateClaimContentParams struct {
+	Title       string
+	Purpose     string
+	TotalSatang money.Satang
+	Now         pgtype.Timestamptz
+	ID          uuid.UUID
+	Version     int32
+}
+
+func (q *Queries) UpdateClaimContent(ctx context.Context, arg UpdateClaimContentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateClaimContent,
+		arg.Title,
+		arg.Purpose,
+		arg.TotalSatang,
+		arg.Now,
+		arg.ID,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertSeedAccount = `-- name: UpsertSeedAccount :exec

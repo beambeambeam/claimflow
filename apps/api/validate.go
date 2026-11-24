@@ -41,7 +41,7 @@ const maxRequestBody = 1 << 20
 // handler runs (SDS §1.3, "OpenAPI request validation"). The others check their own bounds in the handler. A shape
 // error is a 400 that names every broken field; business limits are the module's 422. Each entry is the operation name
 // that oapi-codegen gives the embedded spec, as in operationPermissions.
-var validatedOperations = []string{"CreateClaim"}
+var validatedOperations = []string{"CreateClaim", "UpdateClaim"}
 
 // messageExtension is the schema extension that holds the message of a 400 field error on that schema. The web form
 // reads the same extension, so both show one text.

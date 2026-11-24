@@ -105,3 +105,15 @@ SELECT sqlc.arg(id), sqlc.arg(claim_no), u.id, u.reviewer_id, sqlc.arg(title), s
 FROM "user" u
 WHERE u.username = sqlc.arg(requester)
 ON CONFLICT (claim_no) DO NOTHING;
+
+-- name: UpdateClaimContent :execrows
+UPDATE claims
+SET title = sqlc.arg(title), purpose = sqlc.arg(purpose), total_satang = sqlc.arg(total_satang),
+    version = version + 1, updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: DeleteClaimLineItems :exec
+DELETE FROM line_items WHERE claim_id = sqlc.arg(claim_id);
+
+-- name: DeleteDraftClaim :execrows
+DELETE FROM claims WHERE id = sqlc.arg(id) AND version = sqlc.arg(version) AND status = 'DRAFT';

@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveClaim, createClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim } from '../sdk.gen';
-import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse } from '../types.gen';
+import { approveClaim, createClaim, deleteClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, updateClaim } from '../sdk.gen';
+import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -227,6 +227,25 @@ export const createClaimMutation = (options?: Partial<Options<CreateClaimData>>)
   return mutationOptions;
 };
 
+/**
+ * Delete a draft and its line items (F-05).
+ *
+ * Only the requester can delete a draft.
+ */
+export const deleteClaimMutation = (options?: Partial<Options<DeleteClaimData>>): UseMutationOptions<DeleteClaimResponse, DeleteClaimError, Options<DeleteClaimData>> => {
+  const mutationOptions: UseMutationOptions<DeleteClaimResponse, DeleteClaimError, Options<DeleteClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await deleteClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
 export const getClaimQueryKey = (options: Options<GetClaimData>) => createQueryKey('getClaim', options);
 
 /**
@@ -246,6 +265,25 @@ export const getClaimOptions = (options: Options<GetClaimData>) => queryOptions<
   },
   queryKey: getClaimQueryKey(options)
 });
+
+/**
+ * Edit a draft or returned claim (F-05).
+ *
+ * Only the requester can edit. The server recalculates the total (BR-08).
+ */
+export const updateClaimMutation = (options?: Partial<Options<UpdateClaimData>>): UseMutationOptions<UpdateClaimResponse, UpdateClaimError, Options<UpdateClaimData>> => {
+  const mutationOptions: UseMutationOptions<UpdateClaimResponse, UpdateClaimError, Options<UpdateClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await updateClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
 
 /**
  * Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.

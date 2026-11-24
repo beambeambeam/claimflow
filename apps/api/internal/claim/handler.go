@@ -170,19 +170,9 @@ func (h Handler) RejectClaim(ctx context.Context, request api.RejectClaimRequest
 // module's errors to problems. A missing If-Match is 428 and a malformed one 400, both before the claim is read
 // (F-04 §1.4, step 1).
 func (h Handler) decide(ctx context.Context, rawID string, ifMatch *string, action Action, body *api.ClaimDecision) (Claim, error) {
-	version, err := parseVersion(ifMatch)
+	actor, id, version, err := mutationTarget(ctx, rawID, ifMatch)
 	if err != nil {
 		return Claim{}, err
-	}
-
-	user, ok := auth.UserFrom(ctx)
-	if !ok {
-		return Claim{}, errUnauthenticated
-	}
-
-	id, err := uuid.Parse(rawID)
-	if err != nil {
-		return Claim{}, httperr.ErrValidation
 	}
 
 	var comment string
@@ -190,12 +180,83 @@ func (h Handler) decide(ctx context.Context, rawID string, ifMatch *string, acti
 		comment = *body.Comment
 	}
 
-	decided, err := h.service.Act(ctx, Actor{ID: user.ID}, id, version, action, comment)
+	decided, err := h.service.Act(ctx, actor, id, version, action, comment)
 	if err != nil {
-		return Claim{}, problem(err)
+		return Claim{}, actionProblem(err, action)
 	}
 
 	return decided, nil
+}
+
+// UpdateClaim replaces a draft or returned claim's content.
+func (h Handler) UpdateClaim(ctx context.Context, request api.UpdateClaimRequestObject) (api.UpdateClaimResponseObject, error) {
+	actor, id, version, err := mutationTarget(ctx, request.Id, request.Params.IfMatch)
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := h.service.Edit(ctx, actor, id, version, input(request.Body))
+	if err != nil {
+		return nil, actionProblem(err, ActionEdit)
+	}
+
+	return api.UpdateClaim200JSONResponse{ClaimChangedJSONResponse: changedBody(&updated)}, nil
+}
+
+// DeleteClaim removes a draft and its line items.
+func (h Handler) DeleteClaim(ctx context.Context, request api.DeleteClaimRequestObject) (api.DeleteClaimResponseObject, error) {
+	actor, id, version, err := mutationTarget(ctx, request.Id, request.Params.IfMatch)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.service.Delete(ctx, actor, id, version); err != nil {
+		return nil, actionProblem(err, ActionDelete)
+	}
+
+	return api.DeleteClaim204Response{}, nil
+}
+
+// mutationTarget reads If-Match before looking up the claim.
+func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, uuid.UUID, int, error) {
+	version, err := parseVersion(ifMatch)
+	if err != nil {
+		return Actor{}, uuid.Nil, 0, err
+	}
+
+	user, ok := auth.UserFrom(ctx)
+	if !ok {
+		return Actor{}, uuid.Nil, 0, errUnauthenticated
+	}
+
+	id, err := uuid.Parse(rawID)
+	if err != nil {
+		return Actor{}, uuid.Nil, 0, httperr.ErrValidation
+	}
+
+	return Actor{ID: user.ID}, id, version, nil
+}
+
+var transitionErrors = map[Action]FieldError{
+	ActionApprove: transitionError,
+	ActionReject:  transitionError,
+	ActionEdit:    {Field: "status", Rule: "BR-10", Message: "Only a draft or a returned claim can be edited."},
+	ActionDelete:  {Field: "status", Rule: "BR-10", Message: "Only a draft can be deleted."},
+}
+
+func actionProblem(err error, action Action) error {
+	if errors.Is(err, ErrInvalidTransition) {
+		return fmt.Errorf("claim action: %w", httperr.InvalidTransition(apiFieldError(transitionErrors[action])))
+	}
+
+	return problem(err)
+}
+
+func changedBody(claim *Claim) api.ClaimChangedJSONResponse {
+	return api.ClaimChangedJSONResponse{
+		Body:    api.ClaimEnvelope{Data: claimBody(claim)},
+		Headers: api.ClaimChangedResponseHeaders{ETag: etag(claim.Version)},
+	}
 }
 
 // moduleProblems maps each error of the module to its problem response (SDS §4.2).
@@ -206,7 +267,6 @@ var moduleProblems = []struct {
 	{ErrNotFound, errClaimNotFound},
 	{ErrForbidden, httperr.ErrForbidden},
 	{ErrConflict, httperr.ErrConflict},
-	{ErrInvalidTransition, httperr.InvalidTransition(apiFieldError(transitionError))},
 }
 
 // problem maps a module error to its problem response. ErrForbidden is also BR-15 on Create. A ValidationError
@@ -275,7 +335,7 @@ func apiFieldError(field FieldError) api.FieldError {
 }
 
 // input maps the request body to the module's input. The body has no total, and any total in the JSON is ignored.
-func input(body *api.CreateClaimJSONRequestBody) Input {
+func input(body *api.ClaimInput) Input {
 	items := make([]LineItemInput, 0, len(body.Items))
 	for _, item := range body.Items {
 		items = append(items, LineItemInput{

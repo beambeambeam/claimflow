@@ -252,11 +252,7 @@ func checkAct(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUI
 		return transition{}, err
 	}
 
-	step, err := check(actor.ID, found.subject(), a)
-	if errors.Is(err, ErrInvalidTransition) && version != found.Version {
-		return transition{}, ErrConflict
-	}
-
+	err = checkVersionedAction(actor, found.subject(), a, version, found.Version)
 	if err != nil {
 		return transition{}, err
 	}
@@ -265,7 +261,7 @@ func checkAct(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUI
 		return transition{}, err
 	}
 
-	return step, nil
+	return transitions[a], nil
 }
 
 // record writes a decision: the claim moves by step if its version is still version, and one history entry is added.
@@ -377,14 +373,33 @@ func insertItems(ctx context.Context, queries *db.Queries, id uuid.UUID, items [
 	return nil
 }
 
-// load reads a claim with its line items and history.
-func load(ctx context.Context, queries *db.Queries, id uuid.UUID) (Claim, error) {
+// checkVersionedAction reports a stale version rather than an invalid transition when the status changed.
+func checkVersionedAction(actor Actor, subject Subject, action Action, version, current int) error {
+	err := check(actor.ID, subject, action)
+	if errors.Is(err, ErrInvalidTransition) && version != current {
+		return ErrConflict
+	}
+
+	return err
+}
+
+func findClaim(ctx context.Context, queries *db.Queries, id uuid.UUID) (db.GetClaimRow, error) {
 	row, err := queries.GetClaim(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Claim{}, ErrNotFound
+		return db.GetClaimRow{}, ErrNotFound
 	}
 	if err != nil { // coverage-ignore
-		return Claim{}, fmt.Errorf("get claim: %w", err)
+		return db.GetClaimRow{}, fmt.Errorf("get claim: %w", err)
+	}
+
+	return row, nil
+}
+
+// load reads a claim with its line items and history.
+func load(ctx context.Context, queries *db.Queries, id uuid.UUID) (Claim, error) {
+	row, err := findClaim(ctx, queries, id)
+	if err != nil {
+		return Claim{}, err
 	}
 
 	items, err := queries.ListClaimLineItems(ctx, id)

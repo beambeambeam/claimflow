@@ -25,6 +25,12 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 	statuses := []db.ClaimStatus{db.ClaimStatusDRAFT, db.ClaimStatusSUBMITTED, db.ClaimStatusAPPROVED, db.ClaimStatusREJECTED}
 
 	none := func(db.ClaimStatus) []Action { return []Action{} }
+	own := func(status db.ClaimStatus) []Action {
+		if status == db.ClaimStatusDRAFT {
+			return []Action{ActionEdit, ActionDelete}
+		}
+		return []Action{}
+	}
 
 	// subject builds the claim as the actor relates to it. "own and assigned" is the corrupted assignment that points at the requester.
 	relations := map[string]struct {
@@ -37,7 +43,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 				return Subject{RequesterID: actor, AssignedReviewerID: other, Status: status}
 			},
 			visible: func(db.ClaimStatus) bool { return true },
-			actions: none,
+			actions: own,
 		},
 		"assigned": {
 			subject: func(actor uuid.UUID, status db.ClaimStatus) Subject {
@@ -71,7 +77,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 				return Subject{RequesterID: actor, AssignedReviewerID: actor, Status: status}
 			},
 			visible: func(db.ClaimStatus) bool { return true },
-			actions: none,
+			actions: own,
 		},
 	}
 
@@ -85,7 +91,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 						t.Fatalf("visible = %t, want %t", visible, want)
 					}
 
-					// The requester has no action until Sprint 2. A claim assigned to its own requester gives no action (BR-01).
+					// A claim assigned to its own requester gives no reviewer action (BR-01).
 					if want := relation.actions(status); actions == nil || !slices.Equal(actions, want) {
 						t.Fatalf("actions = %#v, want %#v", actions, want)
 					}

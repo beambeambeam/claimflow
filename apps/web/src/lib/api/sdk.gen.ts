@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses } from './types.gen';
-import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse } from './zod.gen';
+import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, DeleteClaimData, DeleteClaimErrors, DeleteClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses, UpdateClaimData, UpdateClaimErrors, UpdateClaimResponses } from './types.gen';
+import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zDeleteClaimHeaders, zDeleteClaimPath, zDeleteClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse, zUpdateClaimBody, zUpdateClaimHeaders, zUpdateClaimPath, zUpdateClaimResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -132,6 +132,23 @@ export const createClaim = <ThrowOnError extends boolean = false>(options: Optio
 });
 
 /**
+ * Delete a draft and its line items (F-05).
+ *
+ * Only the requester can delete a draft.
+ */
+export const deleteClaim = <ThrowOnError extends boolean = false>(options: Options<DeleteClaimData, ThrowOnError>): RequestResult<DeleteClaimResponses, DeleteClaimErrors, ThrowOnError> => (options.client ?? client).delete<DeleteClaimResponses, DeleteClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    headers: zDeleteClaimHeaders.optional(),
+    path: zDeleteClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zDeleteClaimResponse.parseAsync(data),
+  url: '/claims/{id}',
+  ...options
+});
+
+/**
  * A visible claim with its line items, history, and the actions the session user may take (F-03).
  *
  * The claim policy decides visibility (SDS §5.2): own, or assigned and not `DRAFT`. A claim that is not visible is a 403 with no claim data. A malformed id is a 400.
@@ -145,6 +162,27 @@ export const getClaim = <ThrowOnError extends boolean = false>(options: Options<
   responseValidator: async (data) => await zGetClaimResponse.parseAsync(data),
   url: '/claims/{id}',
   ...options
+});
+
+/**
+ * Edit a draft or returned claim (F-05).
+ *
+ * Only the requester can edit. The server recalculates the total (BR-08).
+ */
+export const updateClaim = <ThrowOnError extends boolean = false>(options: Options<UpdateClaimData, ThrowOnError>): RequestResult<UpdateClaimResponses, UpdateClaimErrors, ThrowOnError> => (options.client ?? client).put<UpdateClaimResponses, UpdateClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zUpdateClaimBody,
+    headers: zUpdateClaimHeaders.optional(),
+    path: zUpdateClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zUpdateClaimResponse.parseAsync(data),
+  url: '/claims/{id}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
 });
 
 /**
