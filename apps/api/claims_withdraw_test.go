@@ -29,3 +29,75 @@ func TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16(t *testing.T) 
 		})
 	}
 }
+
+// F07-TEST-01 (F07-AC-01, FR-11, FR-07, NFR-06): the owner withdraws a SUBMITTED claim with no body, and a RETURNED claim
+// with a comment. Each is WITHDRAWN with version + 1, the new ETag, no decision time, and one WITHDRAW history entry that
+// holds the owner and the trimmed comment, or no comment.
+func TestF07TEST01OwnerWithdrawsASubmittedOrReturnedClaim(t *testing.T) {
+	t.Run("a submitted claim, with no body", func(t *testing.T) {
+		pool := pgtest.New(t)
+		router := seededClaimRouter(t, pool)
+		id := submittedBy(t, router, "req.anan")
+
+		recorder := decide(t, router, loginAs(t, router, "req.anan"), id, "withdraw", `"0"`, "")
+		claim := decodeClaim(t, recorder).Data
+
+		if got := recorder.Header().Get("ETag"); got != `"1"` {
+			t.Fatalf("ETag = %q, want \"1\"", got)
+		}
+
+		if claim.Status != "WITHDRAWN" || claim.Version != 1 || claim.DecidedAt != "" {
+			t.Fatalf("claim = %+v, want WITHDRAWN, version 1, no decidedAt", claim)
+		}
+
+		if len(claim.History) != 2 {
+			t.Fatalf("history = %+v, want 2 entries", claim.History)
+		}
+
+		last := claim.History[1]
+		if last.Action != "WITHDRAW" || last.FromStatus == nil || *last.FromStatus != "SUBMITTED" || last.ToStatus != "WITHDRAWN" ||
+			last.Actor.Name != "Anan K." || last.Comment != nil {
+			t.Fatalf("last history = %+v, want WITHDRAW SUBMITTED -> WITHDRAWN by Anan K. with no comment", last)
+		}
+
+		if claim.AllowedActions == nil || len(claim.AllowedActions) != 0 {
+			t.Fatalf("allowedActions = %v, want an empty list", claim.AllowedActions)
+		}
+
+		if state := readState(t, pool, id); state.Status != "WITHDRAWN" || state.Version != 1 || state.Decided || state.History != 2 {
+			t.Fatalf("stored = %+v, want WITHDRAWN, version 1, not decided, 2 history rows", state)
+		}
+	})
+
+	t.Run("a returned claim, with a comment", func(t *testing.T) {
+		pool := pgtest.New(t)
+		router := seededClaimRouter(t, pool)
+		id := submittedBy(t, router, "req.anan")
+
+		returned := decide(t, router, loginAs(t, router, "rev.malee"), id, "return", `"0"`, `{"comment": "Please attach the receipt."}`)
+		if returned.Code != 200 || returned.Header().Get("ETag") != `"1"` {
+			t.Fatalf("return = %d with ETag %q, want 200 with \"1\"", returned.Code, returned.Header().Get("ETag"))
+		}
+
+		recorder := decide(t, router, loginAs(t, router, "req.anan"), id, "withdraw", `"1"`, `{"comment": "  No longer needed  "}`)
+		claim := decodeClaim(t, recorder).Data
+
+		if got := recorder.Header().Get("ETag"); got != `"2"` {
+			t.Fatalf("ETag = %q, want \"2\"", got)
+		}
+
+		if claim.Status != "WITHDRAWN" || claim.Version != 2 || claim.DecidedAt != "" || len(claim.History) != 3 {
+			t.Fatalf("claim = %+v, want WITHDRAWN, version 2, no decidedAt, 3 history entries", claim)
+		}
+
+		last := claim.History[2]
+		if last.Action != "WITHDRAW" || last.FromStatus == nil || *last.FromStatus != "RETURNED" || last.ToStatus != "WITHDRAWN" ||
+			last.Actor.Name != "Anan K." || last.Comment == nil || *last.Comment != "No longer needed" {
+			t.Fatalf("last history = %+v, want WITHDRAW RETURNED -> WITHDRAWN by Anan K. with the trimmed comment", last)
+		}
+
+		if state := readState(t, pool, id); state.Status != "WITHDRAWN" || state.Version != 2 || state.Decided || state.History != 3 {
+			t.Fatalf("stored = %+v, want WITHDRAWN, version 2, not decided, 3 history rows", state)
+		}
+	})
+}
