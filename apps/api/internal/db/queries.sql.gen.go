@@ -439,17 +439,17 @@ func (q *Queries) InsertLineItem(ctx context.Context, arg InsertLineItemParams) 
 
 const insertSeedClaim = `-- name: InsertSeedClaim :execrows
 INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
-                    first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+                    return_count, first_submitted_at, submitted_at, decided_at, created_at, updated_at)
 SELECT $1, $2, u.id,
        CASE WHEN $3::claim_status <> 'DRAFT' THEN u.reviewer_id END,
        $4, $5, $3::claim_status,
-       $6, $7,
-       CASE WHEN $3::claim_status <> 'DRAFT' THEN $8::timestamptz END,
-       CASE WHEN $3::claim_status <> 'DRAFT' THEN $8::timestamptz END,
-       $9::timestamptz, $8::timestamptz,
-       coalesce($9::timestamptz, $8::timestamptz)
+       $6, $7, $8,
+       CASE WHEN $3::claim_status <> 'DRAFT' THEN $9::timestamptz END,
+       CASE WHEN $3::claim_status <> 'DRAFT' THEN $9::timestamptz END,
+       $10::timestamptz, $9::timestamptz,
+       coalesce($10::timestamptz, $9::timestamptz)
 FROM "user" u
-WHERE u.username = $10
+WHERE u.username = $11
 ON CONFLICT (claim_no) DO NOTHING
 `
 
@@ -461,6 +461,7 @@ type InsertSeedClaimParams struct {
 	Purpose     string
 	TotalSatang money.Satang
 	Version     int32
+	ReturnCount int16
 	CreatedAt   pgtype.Timestamptz
 	DecidedAt   pgtype.Timestamptz
 	Requester   string
@@ -476,6 +477,7 @@ func (q *Queries) InsertSeedClaim(ctx context.Context, arg InsertSeedClaimParams
 		arg.Purpose,
 		arg.TotalSatang,
 		arg.Version,
+		arg.ReturnCount,
 		arg.CreatedAt,
 		arg.DecidedAt,
 		arg.Requester,

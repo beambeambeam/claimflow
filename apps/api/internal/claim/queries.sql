@@ -104,11 +104,11 @@ WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
 -- name: InsertSeedClaim :execrows
 -- InsertSeedClaim adds a demo claim unless its claim number exists. A draft has no reviewer or submission times.
 INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
-                    first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+                    return_count, first_submitted_at, submitted_at, decided_at, created_at, updated_at)
 SELECT sqlc.arg(id), sqlc.arg(claim_no), u.id,
        CASE WHEN sqlc.arg(status)::claim_status <> 'DRAFT' THEN u.reviewer_id END,
        sqlc.arg(title), sqlc.arg(purpose), sqlc.arg(status)::claim_status,
-       sqlc.arg(total_satang), sqlc.arg(version),
+       sqlc.arg(total_satang), sqlc.arg(version), sqlc.arg(return_count),
        CASE WHEN sqlc.arg(status)::claim_status <> 'DRAFT' THEN sqlc.arg(created_at)::timestamptz END,
        CASE WHEN sqlc.arg(status)::claim_status <> 'DRAFT' THEN sqlc.arg(created_at)::timestamptz END,
        sqlc.narg(decided_at)::timestamptz, sqlc.arg(created_at)::timestamptz,

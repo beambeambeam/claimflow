@@ -20,7 +20,8 @@ type seedItem struct {
 }
 
 // seedClaim is one sample claim of F-04 §4. A draft has no history. For submitted claims, decision is empty for a claim that
-// still waits, or APPROVE or REJECT for one its reviewer has decided. reason is the comment of the decision.
+// still waits, APPROVE or REJECT for one its reviewer has decided, or RETURN for one that waits for its requester. reason is
+// the comment of the decision.
 type seedClaim struct {
 	claimNo   string
 	requester string
@@ -78,12 +79,20 @@ var seedClaims = []seedClaim{
 		items: []seedItem{{db.ExpenseCategorySUPPLIES, "Printer paper", 100000}, {db.ExpenseCategorySUPPLIES, "Folders", 25000}},
 		draft: true,
 	},
+	{
+		claimNo: "CLM-2026-900008", requester: "req.anan", title: "Client site taxi", purpose: "Taxi to the client site and back",
+		items:      []seedItem{{db.ExpenseCategoryTRAVEL, "Taxi to the client site", 125000}},
+		decision:   db.ClaimActionRETURN,
+		reason:     "Please attach the taxi receipt.",
+		createdAgo: 30 * time.Hour,
+	},
 }
 
 // decisionStatuses is the status a claim has after each decision.
 var decisionStatuses = map[db.ClaimAction]db.ClaimStatus{
 	db.ClaimActionAPPROVE: db.ClaimStatusAPPROVED,
 	db.ClaimActionREJECT:  db.ClaimStatusREJECTED,
+	db.ClaimActionRETURN:  db.ClaimStatusRETURNED,
 }
 
 // seedClaimRows adds the sample claims that do not exist yet, each with its line items and history, as of now. ids holds
@@ -95,10 +104,14 @@ func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid
 		claim := &seedClaims[i]
 		createdAt := now.Add(-claim.createdAgo)
 		decidedAt := createdAt.Add(2 * time.Hour)
-		status, version, decided := db.ClaimStatusSUBMITTED, int32(0), pgtype.Timestamptz{}
-		if claim.draft {
+		status, version, returns, decided := db.ClaimStatusSUBMITTED, int32(0), int16(0), pgtype.Timestamptz{}
+		switch {
+		case claim.draft:
 			status = db.ClaimStatusDRAFT
-		} else if claim.decision != "" {
+		case claim.decision == db.ClaimActionRETURN:
+			// A return is a step in the review: the claim has no decision time.
+			status, version, returns = db.ClaimStatusRETURNED, 1, 1
+		case claim.decision != "":
 			status, version, decided = decisionStatuses[claim.decision], 1, pgtype.Timestamptz{Time: decidedAt, Valid: true}
 		}
 
@@ -111,7 +124,7 @@ func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid
 
 		inserted, err := queries.InsertSeedClaim(ctx, db.InsertSeedClaimParams{
 			ID: id, ClaimNo: claim.claimNo, Title: claim.title, Purpose: claim.purpose, Status: status, TotalSatang: total,
-			Version: version, CreatedAt: pgtype.Timestamptz{Time: createdAt, Valid: true}, DecidedAt: decided,
+			Version: version, ReturnCount: returns, CreatedAt: pgtype.Timestamptz{Time: createdAt, Valid: true}, DecidedAt: decided,
 			Requester: claim.requester,
 		})
 		if err != nil { // coverage-ignore
@@ -152,7 +165,7 @@ func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid
 		err = queries.InsertClaimHistory(ctx, db.InsertClaimHistoryParams{
 			ClaimID: id, ActorID: ids[reviewers[claim.requester]], Action: claim.decision,
 			FromStatus: db.NullClaimStatus{ClaimStatus: db.ClaimStatusSUBMITTED, Valid: true}, ToStatus: status,
-			Comment: pgtype.Text{String: claim.reason, Valid: claim.reason != ""}, Now: decided,
+			Comment: pgtype.Text{String: claim.reason, Valid: claim.reason != ""}, Now: pgtype.Timestamptz{Time: decidedAt, Valid: true},
 		})
 		if err != nil { // coverage-ignore
 			return 0, fmt.Errorf("insert decision of %s: %w", claim.claimNo, err)
