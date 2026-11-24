@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-01 (new endpoint), SR-04 (`RETURN`, `RESUBMIT` with the version check), SR-06
 - **Depends on:** F-04 (decision flow, reason rule, Decision Panel), F-05 (edit path, `submit` endpoint, owner action bar)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claims.return_count`; §3.2 `RETURN`, `RESUBMIT`; §3.3; §4.1 versions; §4.3 `POST /claims/{id}/return`, `POST /claims/{id}/submit`; §5.2 `return`; §7.2 badges and "Returned n / 3"
-- **Version:** 0.1 · **Last updated:** 2026-11-23
+- **Version:** 0.2 · **Last updated:** 2026-11-24
 
 ---
 
@@ -74,7 +74,7 @@ Both are 409 `INVALID_TRANSITION` with `field = "status"`; BR-14 uses `field = "
 
 ### 1.6 Return reason
 
-The reason uses the reject rule of F-04 §1.5 with the same constants: required, trimmed length from `MinReasonLength` to `MaxCommentLength` (BR-04), stored trimmed. Tests use the constants, not literal numbers, so the Lab 7 change L7/01 (#99, minimum 5 → 10) changes no test here. The field error is on `comment` with rule BR-04 and the F-04 messages.
+The reason uses the reject rule of F-04 §1.5 with the same constants: required, trimmed length from `MinReasonLength` to `MaxCommentLength` (BR-04), stored trimmed. Go tests use the constants, not literal numbers, so the Lab 7 change L7/01 (#99, minimum 5 → 10) changes no Go test here. The field error is on `comment` with rule BR-04 and the F-04 messages. The web has no copy of the limits: the Return dialog behaves like the Reject dialog and reads the same `ClaimDecision.comment` schema (§2.1).
 
 ### 1.7 Resubmission rules
 
@@ -129,7 +129,7 @@ Fixed clock `2026-11-25T10:00:00+07:00`. `req.anan`'s claim is assigned to `rev.
 | Element | Behavior |
 | --- | --- |
 | **Return** | Third button next to **Approve** and **Reject**, shown only when `return` is in `allowedActions`. Label "Return (n / 3)", where n is `returnCount`. |
-| Return dialog | Like the Reject dialog (F-04 §2.2): "Reason for return" required, live counter `0/500`, the same length limits from the shared constants, **Confirm return** disabled until the trimmed reason is long enough. |
+| Return dialog | The Reject dialog of F-04 §2.2 with the title "Return claim", the field "Reason for return", and **Return** and **Cancel**. It has the same counter, client checks, and 422 handling as Reject, from the same `ClaimDecision.comment` schema. As of F-04 0.7 that is the `0/500` counter and the API's 422 message under the field; the button is disabled only while sending. If L7/01 (#101) adds `x-min-length` and disables **Reject** below it, **Return** follows in the same way, with no change to this contract. |
 | No returns left | When `returnCount` is 3 the panel shows "Returned 3 / 3 – approve or reject." instead of the Return button. |
 | Success | Toast "Claim returned.", then back to the Review Queue (the claim left the queue). |
 | Errors | As F-04 §2.2: 422 under the field, 409 reload toast and refetch, 409 `INVALID_TRANSITION` toast with the message. |
@@ -177,7 +177,7 @@ The amber **Returned** badge shows in My Claims. The Review Queue does not list 
 | F06-AC-08 | BR-07 | Resubmission checks the 90-day window from `firstSubmittedAt`: with `firstSubmittedAt` 2026-11-20, an item dated 2026-08-22 → 200, 2026-08-21 → 422 BR-07; after a 422 the claim stays `RETURNED` with no new history. |
 | F06-AC-09 | FR-10, BR-10 | The owner edits a `RETURNED` claim with the F-05 edit path → 200; a non-owner → 403; the reviewer cannot resubmit → 403. |
 | F06-AC-10 | NFR-06 | If the history insert fails during a return or a resubmission, the response is 500 and status, `returnCount`, `submittedAt`, and `version` are unchanged. |
-| F06-AC-11 | FR-09, NFR-08 | The Decision Panel shows "Return (n / 3)" only when `return` is allowed, opens a reason dialog with the reject limits and a counter, and on success returns to the queue with "Claim returned."; with `returnCount` 3 it shows "Returned 3 / 3 – approve or reject." |
+| F06-AC-11 | FR-09, NFR-08 | The Decision Panel shows "Return (n / 3)" only when `return` is allowed, opens a reason dialog that behaves like the Reject dialog (same counter, client checks, and 422 message under the field), and on success returns to the queue with "Claim returned."; with `returnCount` 3 it shows "Returned 3 / 3 – approve or reject." |
 | F06-AC-12 | FR-10, NFR-08 | The owner's Claim Detail for a `RETURNED` claim shows the amber banner with the reviewer, date, and latest return reason, "Returned n / 3", **Edit**, and **Resubmit**; resubmit success shows "Claim resubmitted." |
 | F06-AC-13 | FR-09, FR-10 | End to end: `req.anan` submits; `rev.malee` returns with a reason; `req.anan` sees the reason, edits an item, and resubmits; `rev.malee` approves. History shows `SUBMIT`, `RETURN`, `RESUBMIT`, `APPROVE` in order. |
 
@@ -197,7 +197,7 @@ The amber **Returned** badge shows in My Claims. The Review Queue does not list 
 | F06-TEST-10 | F06-AC-08 | Integration (module) | `RETURNED` claims with `first_submitted_at` 2026-11-20T09:00+07:00 and one item dated 2026-08-22 / 2026-08-21 | `Act(SUBMIT)` | Success; `ValidationError` BR-07 on `items[0].expenseDate`, claim `RETURNED`, no new history |
 | F06-TEST-11 | F06-AC-09 | Integration | `req.anan`'s `RETURNED` claim at version `v` | `PUT` as `req.anan` with new items; `PUT` as `req.ploy`; `POST …/submit` as `rev.malee` | 200 with the new total; 403; 403 |
 | F06-TEST-12 | F06-AC-10 | Integration (module) | Test-only trigger raising on `INSERT` into `claim_history` | `Act(RETURN)` on a `SUBMITTED` claim; `Act(SUBMIT)` on a `RETURNED` claim | Error each time; status, `return_count`, `submitted_at`, `version` unchanged |
-| F06-TEST-13 | F06-AC-11 | Component | MSW claim with `allowedActions` `[approve, reject, return]`, `returnCount` 1; return 200, 422, 409; a claim with `returnCount` 3 and `[approve, reject]` | Render the Decision Panel; return with short and valid reasons | Button "Return (1 / 3)"; confirm disabled below the minimum; counter shown; "Claim returned." and navigation to the queue; field error on 422; reload toast on 409; "Returned 3 / 3 – approve or reject." for the second claim |
+| F06-TEST-13 | F06-AC-11 | Component | MSW claim with `allowedActions` `[approve, reject, return]`, `returnCount` 1; return 200, 422, 409; a claim with `returnCount` 3 and `[approve, reject]` | Render the Decision Panel; return with short and valid reasons | Button "Return (1 / 3)"; the dialog matches the Reject case of F04-TEST-21 (counter, client checks, button disabled while sending); "Claim returned." and navigation to the queue; field error on 422; reload toast on 409; "Returned 3 / 3 – approve or reject." for the second claim |
 | F06-TEST-14 | F06-AC-12 | Component | MSW `RETURNED` claim with a `RETURN` history entry, `returnCount` 2, `allowedActions` `[edit, submit, withdraw]`; submit 200 | Render Claim Detail as the owner; click **Resubmit** | Banner with reviewer, date, and reason; "Returned 2 / 3"; Edit and Resubmit buttons; "Claim resubmitted." |
 | F06-TEST-15 | F06-AC-13 | E2E | Seeded database | Full return-and-resubmit flow in §5 | History in order `SUBMIT`, `RETURN`, `RESUBMIT`, `APPROVE`; final status Approved |
 | F06-TEST-16 | F04-AC-19 (seed) | Integration | Empty database | Run seed twice | The F-06 returned claim exists once with `returnCount` 1 and 2 history rows |
@@ -216,3 +216,4 @@ The Sprint 2 Product DoD applies. For F-06 the evidence is:
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-23 | Initial contract, from the F-06 feature spec and tickets #43–#44 | beambeambeam |
+| 0.2 | 2026-11-24 | Review fixes (PR #100): the Return dialog behaves like the Reject dialog and reads the same schema, so it adds no client minimum of its own (§1.6, §2.1, F06-AC-11, F06-TEST-13) | beambeambeam |
