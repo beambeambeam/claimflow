@@ -141,7 +141,7 @@ export const zClaimDecision = z.object({
  * The optional body of withdraw (F-07).
  */
 export const zClaimWithdrawal = z.object({
-  comment: z.string().optional()
+  comment: z.string().max(500).optional()
 });
 
 export const zClaimEnvelope = z.object({

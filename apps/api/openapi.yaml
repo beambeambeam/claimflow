@@ -840,7 +840,8 @@ components:
       properties:
         comment:
           type: string
-          description: Optional note on why the claim is withdrawn.
+          description: Optional note on why the claim is withdrawn, at most 500 characters.
+          maxLength: 500
     ClaimEnvelope:
       type: object
       required: [data]

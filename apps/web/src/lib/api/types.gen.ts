@@ -133,7 +133,7 @@ export type ClaimDecision = {
  */
 export type ClaimWithdrawal = {
   /**
-   * Optional note on why the claim is withdrawn.
+   * Optional note on why the claim is withdrawn, at most 500 characters.
    */
   comment?: string;
 };
