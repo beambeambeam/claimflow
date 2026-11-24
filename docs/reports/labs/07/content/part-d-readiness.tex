@@ -1,0 +1,52 @@
+\partsection{D-01}{Readiness checklist}
+\label{ev:ready}
+\textbf{READY for maintained Sprint 1 functionality on \texttt{v0.1.0.0} / \revision{}.}
+The released artifact passed CI and public smoke. A deployed synthetic claim showed the stricter BR-04 rule, preserved owner and unassigned-reviewer denial, and stored a valid rejection that the requester could read. Prior acceptance and the regression suites support preserved F-01 through F-04 behavior. This decision covers the maintained Sprint 1 scope.
+
+\begin{longtable}{@{}R{4cm}R{12.1cm}@{}}
+\toprule
+\textbf{Gate} & \textbf{Evidence and disposition} \\ \midrule \endhead
+Version and deploy & \textbf{Pass}. Main and release tag resolve to \releaseSHA{}. Deploy demo \runlink{45453647851} served \revision{} with 100\% traffic and passed all public smoke checks. The live version and smoke were independently rechecked in this report session (B-06). \\
+Automated regression & \textbf{Pass}. Main web had 139 passes and main Go had 300 passes, both with 0 failures and 0 skips. Go coverage was 100\% (785/785). Local named F-04 cases and both seeded E2E journeys passed. Earlier concurrent web runs timed out in F01-TEST-20. The isolated retry run and released CI passed. Pre-merge release jobs were skipped by design (B-04, B-05). \\
+Selected deployed behavior & \textbf{Pass}. All 4 authenticated HTTP checks passed with synthetic users. The first HTTP probe was rerun after correcting its response assertion. Lab 6 partner acceptance is historical (A-01, B-07). \\
+Defects by severity & \textbf{0 open in tracked Sprint 1 UAT}. Major \#87 and minor \#86 were fixed, retested and closed in Lab 6 (C-04). No new product defect surfaced in the Lab 7 checks. \\
+Configuration and secrets & \textbf{Pass for release configuration}. The release used the existing Lab 5 workload identity and deploy pipeline. No schema, service setting, or secret change was required for BR-04. Demo credentials stay in private course handoff. Students should confirm grader access before submission. \\
+Documentation and run instructions & \textbf{Pass}. Versioned SRS, F-04, System SDS and STS, traceability and OpenAPI agree on the new rule. GitHub review and deployment steps are recorded above. Use the repository README for local seed and app setup, and B-06/B-07 for the release and behavior checks. \\
+\bottomrule
+\end{longtable}
+
+\textbf{Deferred engineering work.}
+\begin{longtable}{@{}R{3.5cm}R{6.1cm}R{2cm}R{4cm}@{}}
+\toprule
+\textbf{Item} & \textbf{Impact} & \textbf{Priority} & \textbf{Disposition} \\ \midrule \endhead
+Authenticated deploy tests run on demand & Green pipeline smoke cannot catch drift in boundary or access behavior. & High & Before Final Delivery, add the gated synthetic smoke in Part C. \\
+Trim/count logic in Go and web & Separate implementations depend on shared semantics. Divergence can block a valid reason in the dialog. & Medium & Keep the boundary vectors in both test layers. Proposed reviewer \texttt{Kiatisakk} checks parity when a later decision path reuses the rule. \\
+\bottomrule
+\end{longtable}
+
+\clearpage
+\partsection{D-02}{Retrospective}
+\textbf{What helped?}
+The revised STS made the 9/10 boundary testable before changing the service. The same checks turned green and verified that refusal left history and version intact.
+
+\textbf{What hurt?}
+Implementation started while the OpenAPI review was pending, so sequence evidence needed a follow-up. Running suites concurrently also caused login timeouts and made the local web result harder to interpret.
+
+\textbf{What will change?}
+Record contract approval before implementation and run the web coverage check in isolation. Before Final Delivery, make the four authenticated demo checks part of the release evidence.
+
+\partsection{D-03}{Contributions and AI use}
+\begin{longtable}{@{}R{4cm}R{12.1cm}@{}}
+\toprule
+\textbf{Contributor} & \textbf{Work on the maintenance change} \\ \midrule \endhead
+\texttt{Kiatisakk} & Reviewed the request baseline and scope in \#99. Authored and revised Part A in \#101. Reviewed OpenAPI, generation, tests and evidence on \#105, requested fixes to the record, then approved \#105 and \#106. \\
+\texttt{beambeambeam} & Opened and updated \#99 and recorded the course waiver. Reviewed and approved Part A in \#101. Authored the OpenAPI, test, implementation and verification changes in \#105 and authored release PR \#106. \\
+Pair work & Both students planned the change, drafted the specification, and prepared the ticket together. \#105 records Part B as individual work with teammate review. \\
+\bottomrule
+\end{longtable}
+
+\textbf{AI-use declaration.}
+We both used AI to plan Lab 7. We used \texttt{grill-with-docs} to examine the proposed change against the project documentation, then \texttt{to-spec} to draft the specification, and \texttt{to-ticket} to draft the GitHub issue.
+
+\textbf{Known limitations.}
+No new independent partner UAT was recorded for this revision. The waiver is documented through the team's issue comment. Historical Lab 6 data and the synthetic Lab 7 test claim stay in the demo. The team should confirm the private grading-account handoff and deployment availability through grading.

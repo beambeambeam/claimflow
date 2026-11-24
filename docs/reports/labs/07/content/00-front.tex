@@ -1,0 +1,42 @@
+\thispagestyle{plain}
+\reporttitle
+
+\medskip
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & \textbf{Student 1} & \textbf{Student 2} \\ \midrule
+Name & \studentOneName & \studentTwoName \\
+Student ID & \studentOneId & \studentTwoId \\
+GitHub & \href{https://github.com/Kiatisakk}{@Kiatisakk} &
+  \href{https://github.com/beambeambeam}{@beambeambeam} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{longtable}{@{}R{3.8cm}R{12.5cm}@{}}
+\toprule
+\textbf{Project} & Theme 5, ClaimFlow (Department Expense Reimbursement System). Staff submit claims and the assigned reviewer approves or rejects them. \\
+\textbf{Sprint 1 scope} & F-01 Authentication and session, F-02 Submit claim, F-03 My claims, and F-04 Review decision. Lab 7 changes the minimum length of an F-04 rejection reason from 5 to 10 trimmed Unicode code points. \\
+\textbf{Repository} & \url{https://github.com/beambeambeam/claimflow} \\
+\textbf{Sprint 1 baseline} & \texttt{v0.0.3.0} at \texttt{ac5bce5}, release \prlink{69}. \\
+\textbf{Accepted Lab 6} & \texttt{bb5a0d1}, release \prlink{93}, Cloud Run \texttt{claimflow-00010-985}. \\
+\textbf{Pre-change version} & \texttt{214d1d5} on \texttt{main}, Cloud Run \texttt{claimflow-00015-vh7}. \\
+\textbf{Submitted version} & \href{\repo/releases/tag/v0.1.0.0}{\texttt{v0.1.0.0}} at \releaseSHA{} on \texttt{main}. \\
+\textbf{Deployed version} & Same commit at \url{https://claimflow-5bcxewbqkq-as.a.run.app}, revision \revision{}. \\
+\textbf{Readiness} & \textbf{READY} for the maintained Sprint 1 scope. Automated gates, public smoke and all four authenticated HTTP checks passed. \\
+\bottomrule
+\end{longtable}
+
+\section*{Contents and evidence}
+\begin{longtable}{@{}R{0.8cm}R{2.3cm}R{12.8cm}@{}}
+\toprule
+\textbf{Part} & \textbf{Pages} & \textbf{Content and evidence IDs} \\ \midrule
+A & \pages{A} & Request and baselines (A-01), impact trace and contract revisions (A-02), STS and pre-code review (A-03). \\
+B & \pages{B} & Test-first results (B-01, B-02), contract and implementation diffs (B-03), regression (B-04), integration and CI (B-05), deployment and HTTP checks (B-06, B-07). \\
+C & \pages{C} & Five metrics, source records, and one action (C-01 to C-05). \\
+D & \pages{D} & Readiness, defects, debt, ownership, retrospective, and disclosures (D-01 to D-03). \\
+\bottomrule
+\end{longtable}
+
+Times are UTC. The release merged, deployed and was checked on 25 November 2026 in Thailand (ICT, UTC+7). Evidence excerpts contain the information used to assess the report. Links provide access to the original records.
