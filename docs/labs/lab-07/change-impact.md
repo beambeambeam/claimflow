@@ -47,7 +47,7 @@ After any 422, the claim's status, `version`, and history are unchanged, as befo
 | Contract revision | `78fe104` | – | This branch, `docs/lab-7-reject-reason-contract`, 2026-11-24. SRS 0.3, F-04 0.8, SDS 0.18, traceability. Docs only |
 | Change-impact document | The commit that adds this file | – | Docs only |
 | Instructor/TA approval | Not required, per the course announcement "Lab 7 Spec Sheet Change" |
-| Teammate review of the contract | TBD | – | PR into `lab-7`, reviewed by `beambeambeam` before any code change |
+| Teammate review of the Part A contract | `d9feee9` | – | `beambeambeam` approved [PR #101](https://github.com/beambeambeam/claimflow/pull/101#pullrequestreview-6043052471) on 2026-11-24 |
 | Red test commit | TBD | – | Part B |
 | Green implementation commit | TBD | – | Part B |
 | Accepted `main` release | TBD | TBD | Part B |
@@ -67,7 +67,7 @@ Intervening development between `bb5a0d1` and `214d1d5`: four docs-only PRs (#94
 
 ### 3.2 Places that state the old rule
 
-Part A revises the documents. Part B changes the rest after the review, in this order: (1) the OpenAPI descriptions and `x-min-length`, plus the `openapi-ts.config.ts` and `contract.ts` readers for it, as a contract change that the teammate reviews before any code (#99 Validation 1); (2) tests (red); (3) code; (4) `bun run generate`, committed with the change. Every line below was checked on `214d1d5`.
+Part A revises the documents. Part B starts with the OpenAPI descriptions and `x-min-length`. The teammate reviews that diff before the RED run (#99 Validation 1). After RED, Part B updates the generator (`openapi-ts.config.ts`), the metadata reader (`contract.ts`), and the application code, then runs `bun run generate` and commits the generated files with the change. Every line below was checked on `214d1d5`.
 
 | Place | Lines | States | Part |
 | --- | --- | --- | --- |
@@ -223,5 +223,6 @@ The BR-04 and NFR-08 rows keep their recorded passes and red/green commits (`2a2
 
 | Item | Value |
 | --- | --- |
-| Teammate review of the contract | Reviewer `beambeambeam` · PR: TBD · Date: TBD |
-| Rule | No code change starts before the review is recorded |
+| Teammate review of the Part A contract | `beambeambeam` approved `d9feee9` on [PR #101](https://github.com/beambeambeam/claimflow/pull/101#pullrequestreview-6043052471) on 2026-11-24 |
+| Teammate review of the Part B OpenAPI contract | Pending |
+| Rule | Part B tests and implementation start after the teammate's OpenAPI review is recorded |
