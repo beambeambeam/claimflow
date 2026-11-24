@@ -221,6 +221,8 @@ func TestF05TEST10DraftMutationsRequireCurrentIfMatch(t *testing.T) {
 			missing := "/api/v1/claims/00000000-0000-0000-0000-000000000001" + op.suffix
 			decodeProblem(t, draftRequest(t, router, token, op.method, missing, "", op.body), http.StatusPreconditionRequired, "PRECONDITION_REQUIRED")
 			decodeProblem(t, draftRequest(t, router, token, op.method, missing, `"0"`, op.body), http.StatusNotFound, "NOT_FOUND")
+			malformed := "/api/v1/claims/not-a-uuid" + op.suffix
+			decodeProblem(t, draftRequest(t, router, token, op.method, malformed, `"0"`, op.body), http.StatusBadRequest, "BAD_REQUEST")
 		})
 	}
 
