@@ -60,14 +60,14 @@ Intervening development between `bb5a0d1` and `214d1d5`: four docs-only PRs (#94
 
 | Requirement | Feature | SRS | Feature SDS (F-04) | System SDS | AC | STS tests | Code modules |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| BR-04 reject reason | F-04 (S1) | §7 BR-04 **revised** | §1.5 **revised**; §1.6 boundary row **revised**; §2.2 Reject row **revised**; §1.4 step 6 and §3 unchanged | §2.2 `claim_history.comment` **revised**; §3.3, §4.2 unchanged | F04-AC-06, F04-AC-18 **revised**; F04-AC-05 unchanged | F04-TEST-06, 07, 21 **revised**; F04-TEST-05, 24 unchanged | `apps/api/internal/claim/rules.go` (`MinReasonLength`, `checkComment`); `apps/api/openapi.yaml` descriptions and the generated files (§3.2) |
-| NFR-08 field messages naming the rule | F-04 (S1) | §8 NFR-08 unchanged | §1.5 messages **revised**; §2.2 | §4.2 unchanged | F04-AC-06, F04-AC-18 **revised** | F04-TEST-06, 07, 21 **revised**; F04-TEST-24 unchanged | `rules.go` messages; `apps/web/src/features/reviews/components/decision-panel.tsx` (minimum and field message, Part B) |
-| FR-06 reject with a reason | F-04 (S1) | §6 FR-06 unchanged | §1.3 unchanged | §3.2 unchanged | F04-AC-05 unchanged | F04-TEST-05, 24 unchanged | `apps/api/internal/claim/service.go` `Act`, `handler.go` `RejectClaim`: unchanged |
+| BR-04 reject reason | F-04 (S1) | §7 BR-04 **revised** | §1.5 **revised**; §1.6 boundary row **revised**; §2.2 Reject row **revised**; §1.4 step 6 and §3 unchanged | §2.2 `claim_history.comment` **revised**; §3.3, §4.2 unchanged | F04-AC-06, F04-AC-18 **revised**; F04-AC-05 unchanged | F04-TEST-06, 07, 21, 24 **revised**; F04-TEST-05 unchanged | `apps/api/internal/claim/rules.go` (`MinReasonLength`, `checkComment`); `apps/api/openapi.yaml` descriptions and `x-min-length`; `apps/web/openapi-ts.config.ts` and `apps/web/src/lib/contract.ts` (they carry the extension to the dialog); the generated files (§3.2) |
+| NFR-08 field messages naming the rule | F-04 (S1) | §8 NFR-08 unchanged | §1.5 messages **revised**; §2.2 | §4.2 unchanged | F04-AC-06, F04-AC-18 **revised** | F04-TEST-06, 07, 21, 24 **revised** | `rules.go` messages; `apps/web/src/features/reviews/components/decision-panel.tsx` (minimum and field message, Part B) |
+| FR-06 reject with a reason | F-04 (S1) | §6 FR-06 unchanged | §1.3 unchanged | §3.2 unchanged | F04-AC-05 unchanged | F04-TEST-05 unchanged; F04-TEST-24 keeps its reason and gains disabled-Reject steps | `apps/api/internal/claim/service.go` `Act`, `handler.go` `RejectClaim`: unchanged |
 | BR-04 return, final reject | F-06 (S2), F-08 (S3) | §7 BR-04 **revised** | Not in Sprint 1. The F-06 draft in PR #100 uses `MinReasonLength`, not a literal, and names L7/01 | – | F06-AC-02 (planned, PR #100) | F06-TEST-02, 03 (planned) | Inherit `MinReasonLength` when built |
 
 ### 3.2 Places that state the old rule
 
-Part A revises the documents. Part B changes the rest after the review, in this order: tests (red), then code and the OpenAPI descriptions, then `bun run generate`. Every line below was checked on `214d1d5`.
+Part A revises the documents. Part B changes the rest after the review, in this order: (1) the OpenAPI descriptions and `x-min-length`, plus the `openapi-ts.config.ts` and `contract.ts` readers for it, as a contract change that the teammate reviews before any code (#99 Validation 1); (2) tests (red); (3) code; (4) `bun run generate`, committed with the change. Every line below was checked on `214d1d5`.
 
 | Place | Lines | States | Part |
 | --- | --- | --- | --- |
@@ -82,7 +82,8 @@ Part A revises the documents. Part B changes the rest after the review, in this 
 | `apps/api/claims_review_test.go` (F04-TEST-07) | 470–473 | Messages, 4-character case | B, red first |
 | `apps/web/src/features/reviews/__test__/decision-panel.test.tsx` (F04-TEST-21) | 232, 244 | Mocked 422 message; new 9/10-character step | B, red first |
 | `apps/web/src/features/reviews/components/decision-panel.tsx`, `apps/web/src/lib/contract.ts` | – | No minimum in the dialog | B |
-| `apps/web/e2e/f04-review-decision.spec.ts` (F04-TEST-24) | 50 | "Enter a reason (5 to 500 characters)." | B |
+| `apps/web/e2e/f04-review-decision.spec.ts` (F04-TEST-24) | 50 | Clicks Reject with an empty reason and expects "Enter a reason (5 to 500 characters)."; with Reject disabled that request cannot be sent, so the step asserts the disabled button instead | B, red first |
+| `apps/web/openapi-ts.config.ts` | 7, 8, 20, 27 | Parses and emits only `x-message` and `x-max-length`, so it drops `x-min-length` | B |
 
 Not changed, with the reason:
 
@@ -202,7 +203,7 @@ New:
 | F04-TEST-06 | Integration (module) | `SUBMITTED` claim | `Act(REJECT)` with no comment, `"   "`, 4, 5, 500, 501 characters; `Act(APPROVE)` with 501 → `ValidationError{comment, BR-04}` ×3, ok, ok, BR-04 error; BR-04 error | `Act(REJECT)` with no comment, `"   "`, 9, 10, 500, 501 characters; `Act(APPROVE)` with 501 → same expected results |
 | F04-TEST-07 | Integration | `SUBMITTED` claim | `POST …/reject` with no `comment`, `"   "`, a 4-character reason → 422 each, `comment`, BR-04, "Enter a reason (5 to 500 characters)." ×2, "Reason must be at least 5 characters." | `POST …/reject` with no `comment`, `"   "`, a 9-character reason → 422 each, `comment`, BR-04, "Enter a reason (10 to 500 characters)." ×2, "Reason must be at least 10 characters." |
 
-F04-TEST-21 (component, covers F04-AC-18) adds one step to its Reject case: type a 9-character reason, then a 10-character one. Expected: **Reject** is disabled with "Reason must be at least 10 characters." at 9 characters and enabled at 10; the existing 422, success, 409, and 403 steps are unchanged. F04-TEST-06 and 07 cover F04-AC-06. F04-TEST-24 keeps its input, "Receipt missing" (15 characters).
+F04-TEST-21 (component, covers F04-AC-18) adds one step to its Reject case: type a 9-character reason, then a 10-character one. Expected: **Reject** is disabled with "Reason must be at least 10 characters." at 9 characters and enabled at 10; the existing 422 step now submits a 10-character reason that the mock refuses (the old 2-character "No" can no longer be sent), and the success, 409, and 403 steps are unchanged. F04-TEST-24 (E2E, covers F04-AC-05 and F04-AC-18) adds two steps before its reject: the empty reason and a 9-character reason each leave **Reject** disabled; the 9-character one shows the message. It keeps its reason, "Receipt missing" (15 characters). F04-TEST-06 and 07 cover F04-AC-06.
 
 ### 5.7 System SDS §2.2 `claim_history.comment` (0.17 → 0.18)
 
