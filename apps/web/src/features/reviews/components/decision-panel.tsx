@@ -21,7 +21,7 @@ import {
 } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim } from "#/lib/api/types.gen";
 import { zClaimDecision } from "#/lib/api/zod.gen";
-import { contractMaxLength } from "#/lib/contract";
+import { contractMaxLength, maxReturns } from "#/lib/contract";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 // The text and button variants of each decision (F-04 §2.2, F-06 §2.1): `trigger` opens the dialog, `variant` confirms it. A reject or a return needs a reason; an approve may have a comment.
@@ -201,9 +201,6 @@ const DecisionDialog = ({
     </Dialog>
   );
 };
-
-// How many times a claim can be returned (BR-14); the API gives the count, and `return` in allowedActions says whether one is left.
-const maxReturns = 3;
 
 // The Approve, Reject, and Return buttons of a claim (F-04 §2.2, F-06 §2.1). They show only for the actions the policy gave this member.
 // `onDenied` runs when a decision gets a 403.

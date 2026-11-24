@@ -24,6 +24,7 @@ import type {
   HistoryEntry,
   LineItem,
 } from "#/lib/api/types.gen";
+import { maxReturns } from "#/lib/contract";
 import { formatDate } from "#/lib/format";
 
 import { ClaimAccessDenied, ClaimLoadFailure } from "./claim-load-failure";
@@ -204,7 +205,7 @@ const ClaimView = ({
           </MetadataListItem>
           {claim.status === "RETURNED" ? (
             <MetadataListItem label="Returns">
-              {`Returned ${claim.returnCount} / 3`}
+              {`Returned ${claim.returnCount} / ${maxReturns}`}
             </MetadataListItem>
           ) : null}
           <MetadataListItem label="Submitted">
