@@ -1,6 +1,7 @@
 \clearpage
 \partsection{B-08}{Live browser checks}
 \label{ev:browser}
+\textbf{Manual browser walkthrough.}
 The report session exercised the deployed web UI on 24 November 2026 at 18:35--18:36 UTC (25 November, 01:35--01:36 ICT). The version page reported \texttt{c32e645}, matching the full SHA for \revision{} in B-06 on p.~\pageref{ev:deploy}. The requester \texttt{req.anan} submitted a fresh synthetic 250.00 THB travel claim, \texttt{CLM-2026-000024}, assigned to \texttt{rev.malee}.
 
 The owner opened the submitted claim and saw its details without Approve or Reject controls. The unassigned reviewer \texttt{rev.somchai} opened the same claim URL and got 403 from the claim detail request. The UI displayed the access denial without showing the claim. Both checks passed before any decision was made.

@@ -149,6 +149,14 @@ The release review calls \texttt{871d373} an approved head. Git identifies it as
 \textbf{CI.}
 The five required jobs (\texttt{api}, \texttt{test}, \texttt{code\_quality}, \texttt{image}, \texttt{build}) passed on \prlink{101} run \runlink{45434761904}, \prlink{105} run \runlink{45447692201}, and \prlink{106} run \runlink{45449479661}. The release job was skipped on PRs. On main run \runlink{45452555188}, all five jobs and the release job succeeded. The release CI ran at \texttt{c32e645}, from 17:48:08 to 17:54:08.
 
+Main CI ran these test commands in \texttt{apps/api} and \texttt{apps/web}, respectively.
+\begin{record}
+go tool -modfile=tools.mod gotestsum --junitfile .ci-reports/junit.xml \
+  -- -race -coverpkg=./... -coverprofile=coverage.out ./...
+bun run test:coverage --coverage.reporter=text-summary \
+  --coverage.reporter=cobertura --reporter=default --reporter=junit \
+  --outputFile.junit=.ci-reports/junit.xml
+\end{record}
 Selected main CI output, with ANSI formatting and runner prefixes removed:
 \begin{record}
 api   17:52:19  DONE 300 tests in 57.660s
@@ -157,7 +165,7 @@ api   17:52:35  No vulnerabilities found.
 test  17:48:50  Test Files  17 passed (17)
 test  17:48:50  Tests       139 passed (139)
 \end{record}
-The Go job ran \texttt{gotestsum} with \texttt{-race -coverpkg=./... -coverprofile=coverage.out ./...} in \texttt{apps/api}. Its JUnit artifact (14949441476) confirms 300 passed, 0 failed, 0 errors and 0 skips. The web job ran \texttt{bun run test:coverage} in \texttt{apps/web}, with text-summary, Cobertura, and JUnit outputs. It recorded 0 failures and 0 skips. Local Playwright was run separately, per \prlink{96}.
+The Go JUnit artifact (14949441476) confirms 300 passed, 0 failed, 0 errors and 0 skips. The web job recorded 0 failures and 0 skips. Local Playwright was run separately, per \prlink{96}.
 
 \clearpage
 \partsection{B-06}{Cloud Run deployment and public smoke}
