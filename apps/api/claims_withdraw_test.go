@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
@@ -98,6 +100,46 @@ func TestF07TEST01OwnerWithdrawsASubmittedOrReturnedClaim(t *testing.T) {
 
 		if state := readState(t, pool, id); state.Status != "WITHDRAWN" || state.Version != 2 || state.Decided || state.History != 3 {
 			t.Fatalf("stored = %+v, want WITHDRAWN, version 2, not decided, 3 history rows", state)
+		}
+	})
+}
+
+// F07-TEST-02 (F07-AC-02, FR-11): the comment is optional. An empty object stores no comment, 500 characters are accepted,
+// and 501 are a 400 from the contract, not a 422, with the claim unchanged.
+func TestF07TEST02WithdrawCommentIsOptionalWithAtMost500Characters(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		body    string
+		comment string // empty: no comment is stored
+	}{
+		{"an empty object", `{}`, ""},
+		{"500 characters", `{"comment": "` + strings.Repeat("a", 500) + `"}`, strings.Repeat("a", 500)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			pool := pgtest.New(t)
+			router := seededClaimRouter(t, pool)
+			id := submittedBy(t, router, "req.anan")
+
+			claim := decodeClaim(t, decide(t, router, loginAs(t, router, "req.anan"), id, "withdraw", `"0"`, test.body)).Data
+
+			last := claim.History[len(claim.History)-1]
+			if claim.Status != "WITHDRAWN" || (test.comment == "") != (last.Comment == nil) || (last.Comment != nil && *last.Comment != test.comment) {
+				t.Fatalf("claim = %s with comment %v, want WITHDRAWN with comment %q", claim.Status, last.Comment, test.comment)
+			}
+		})
+	}
+
+	t.Run("501 characters", func(t *testing.T) {
+		pool := pgtest.New(t)
+		router := seededClaimRouter(t, pool)
+		id := submittedBy(t, router, "req.anan")
+		before := readState(t, pool, id)
+
+		decodeProblem(t, decide(t, router, loginAs(t, router, "req.anan"), id, "withdraw", `"0"`, `{"comment": "`+strings.Repeat("a", 501)+`"}`),
+			http.StatusBadRequest, "BAD_REQUEST")
+
+		if after := readState(t, pool, id); after != before {
+			t.Fatalf("stored = %+v after the refused withdrawal, want %+v", after, before)
 		}
 	})
 }
