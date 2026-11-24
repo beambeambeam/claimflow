@@ -263,7 +263,9 @@ Both GREEN commands exited 0.
 
 The revised service test had 5 failed and 11 passed subtests on RED, then 16 passed on GREEN. The HTTP test had 5 failed and 4 passed subtests on RED, then 9 passed on GREEN. The old API accepted the 9-character reason and returned the old field message for missing or blank reasons. GREEN checks the 10- and 500-character success cases and verifies that rejected requests leave the claim unchanged.
 
-The component RED run had 1 failure and 13 passes. Its 9-character assertion expected `ariaDisabled` to be `"true"` and received `null`. On the seeded stack, F04-TEST-24 also failed before the dialog change with `Expected: disabled` and `Received: enabled` on the empty reason.
+F04-TEST-21 ran with `bun run test run src/features/reviews/__test__/decision-panel.test.tsx` in `apps/web`. RED at `6cabc3e` had 1 failure and 13 passes. The 9-character assertion expected `ariaDisabled` to be `"true"` and received `null`. GREEN at `b51c058` passed all 14 tests.
+
+For F04-TEST-24, the RED run used the dialog and test from `6cabc3e` on a seeded stack with the updated API rule. The empty-reason assertion reported `Expected: disabled` and `Received: enabled`. The implementation in `b51c058` supplies the validation behavior. The seeded GREEN run passed at `0226536` after the Playwright locator was narrowed to the field description.
 
 ### Regression results
 
