@@ -17,7 +17,11 @@ import type { Claim } from "#/lib/api/types.gen";
 import { isProblem } from "#/lib/problem";
 
 import { ClaimForm } from "./claim-form";
-import { ClaimLoadFailure } from "./claim-load-failure";
+import {
+  ClaimAccessDenied,
+  ClaimLoadFailure,
+  ClaimNotFound,
+} from "./claim-load-failure";
 
 const EditClaimForm = ({
   claim,
@@ -37,15 +41,12 @@ const EditClaimForm = ({
     await navigate({ to: "/claims/$claimId", params: { claimId: claim.id } });
   };
 
-  if (edit.error?.status === 403 || edit.error?.status === 404) {
-    return (
-      <ClaimLoadFailure
-        error={edit.error}
-        onRetry={() => {
-          edit.reset();
-        }}
-      />
-    );
+  if (edit.error?.status === 403) {
+    return <ClaimAccessDenied />;
+  }
+
+  if (edit.error?.status === 404) {
+    return <ClaimNotFound />;
   }
 
   return (
@@ -110,7 +111,7 @@ export const EditClaimPage = ({ claimId }: { claimId: string }) => {
   const reload = async () => {
     const latest = await query.refetch();
 
-    return latest.data?.data;
+    return latest.isSuccess ? latest.data.data : undefined;
   };
 
   if (query.isPending) {

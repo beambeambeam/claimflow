@@ -39,8 +39,8 @@ const DeleteDraftDialog = ({
     <Dialog
       aria-labelledby={titleId}
       isOpen
-      onOpenChange={(open) => {
-        if (!open && !deleting) {
+      onOpenChange={() => {
+        if (!deleting) {
           onCancel();
         }
       }}

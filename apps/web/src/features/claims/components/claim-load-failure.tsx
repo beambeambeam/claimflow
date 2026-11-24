@@ -9,6 +9,12 @@ export const ClaimAccessDenied = () => (
   </Text>
 );
 
+export const ClaimNotFound = () => (
+  <Text type="body" color="secondary">
+    Claim not found.
+  </Text>
+);
+
 export const ClaimLoadFailure = ({
   error,
   onRetry,
@@ -22,11 +28,7 @@ export const ClaimLoadFailure = ({
     }
 
     if (error.status === 404) {
-      return (
-        <Text type="body" color="secondary">
-          Claim not found.
-        </Text>
-      );
+      return <ClaimNotFound />;
     }
   }
 

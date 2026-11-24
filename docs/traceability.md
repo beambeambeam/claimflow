@@ -102,7 +102,7 @@ Reverse check: every feature F-01–F-10 and every responsibility SR-01–SR-07 
 
 ### F-05 test results
 
-The Go race suite passed with 100% coverage on `e26fb74`. All 145 web unit and component tests passed on `3dda154` with two workers. The E2E spec passed on `d5e047e` in Chromium with seeded PostgreSQL and the built web app served by the API. The full Playwright run passed with `--timeout=60000`. Pull request CI and the merge commit remain pending.
+The Go race suite passed with 100% coverage on `e26fb74`. The initial web CI run passed 145 tests but missed the coverage gate. The PR #104 follow-up covers draft recovery under F05-TEST-22 and 23. The local CI command passed all 157 web tests with 100% statement, branch, function, and line coverage. The E2E spec passed on `d5e047e` in Chromium with seeded PostgreSQL and the built web app served by the API. The full Playwright run passed with `--timeout=60000`. Pull request CI and the merge commit remain pending.
 
 | Test | AC | Actual test | Result |
 | --- | --- | --- | --- |
