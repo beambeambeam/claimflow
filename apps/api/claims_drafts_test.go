@@ -72,3 +72,49 @@ func TestF05TEST03FinanceOfficerCannotSaveDraft(t *testing.T) {
 		t.Fatalf("finance draft: status %d, body %s", rec.Code, rec.Body)
 	}
 }
+
+func TestF05TEST09EditRequiresOwnerAndEditableStatus(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	owner := loginAs(t, router, "req.anan")
+	other := loginAs(t, router, "req.ploy")
+	draft := expectDraftResponse(t, draftRequest(t, router, owner, http.MethodPost, draftsPath, "", twoItemsBody("")), http.StatusCreated)
+	submitted := submittedBy(t, router, "req.anan")
+
+	rec := draftRequest(t, router, other, http.MethodPut, "/api/v1/claims/"+draft.Id, `"0"`, twoItemsBody(""))
+	decodeProblem(t, rec, http.StatusForbidden, "FORBIDDEN")
+	rec = draftRequest(t, router, owner, http.MethodPut, "/api/v1/claims/"+submitted, `"0"`, twoItemsBody(""))
+	expectTransition(t, rec, "BR-10", "Only a draft or a returned claim can be edited.")
+}
+
+func TestF05TEST19DeleteRequiresOwnerAndDraftStatus(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	owner := loginAs(t, router, "req.anan")
+	other := loginAs(t, router, "req.ploy")
+	draft := expectDraftResponse(t, draftRequest(t, router, owner, http.MethodPost, draftsPath, "", twoItemsBody("")), http.StatusCreated)
+	submitted := submittedBy(t, router, "req.anan")
+
+	rec := draftRequest(t, router, other, http.MethodDelete, "/api/v1/claims/"+draft.Id, `"0"`, "")
+	decodeProblem(t, rec, http.StatusForbidden, "FORBIDDEN")
+	rec = draftRequest(t, router, owner, http.MethodDelete, "/api/v1/claims/"+submitted, `"0"`, "")
+	expectTransition(t, rec, "BR-10", "Only a draft can be deleted.")
+
+	rec = draftRequest(t, router, owner, http.MethodDelete, "/api/v1/claims/"+draft.Id, `"0"`, "")
+	if rec.Code != http.StatusNoContent || rec.Body.Len() != 0 {
+		t.Fatalf("delete status = %d, body = %s", rec.Code, rec.Body)
+	}
+	decodeProblem(t, getWithSession(t, router, "/api/v1/claims/"+draft.Id, owner), http.StatusNotFound, "NOT_FOUND")
+	if n := rowCount(t, pool, "SELECT count(*) FROM line_items"); n != 3 {
+		t.Fatalf("line items = %d, want only the submitted claim's 3 items", n)
+	}
+}
+
+func expectTransition(t *testing.T, rec *httptest.ResponseRecorder, rule, message string) {
+	t.Helper()
+
+	decodeProblem(t, rec, http.StatusConflict, "INVALID_TRANSITION")
+	if got := problemErrors(t, rec); len(got) != 1 || got[0] != (fieldError{Field: "status", Rule: rule, Message: message}) {
+		t.Fatalf("transition errors = %+v", got)
+	}
+}
