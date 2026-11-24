@@ -12,12 +12,13 @@ type Action string
 
 // The actions of the claim policy.
 const (
-	ActionApprove Action = "approve"
-	ActionReject  Action = "reject"
-	ActionReturn  Action = "return"
-	ActionEdit    Action = "edit"
-	ActionDelete  Action = "delete"
-	ActionSubmit  Action = "submit"
+	ActionApprove  Action = "approve"
+	ActionReject   Action = "reject"
+	ActionReturn   Action = "return"
+	ActionEdit     Action = "edit"
+	ActionDelete   Action = "delete"
+	ActionSubmit   Action = "submit"
+	ActionWithdraw Action = "withdraw"
 )
 
 // MaxReturns is how many times a claim can be returned to its requester (BR-14).
@@ -59,6 +60,8 @@ func check(actor uuid.UUID, claim Subject, action Action) error {
 		if claim.RequesterID != actor || (claim.Status == db.ClaimStatusDRAFT && !claim.OwnerHasReviewer) {
 			return ErrForbidden
 		}
+	case ActionWithdraw:
+		// Stub: the owner rule comes with the behaviour.
 	case ActionApprove, ActionReject, ActionReturn:
 		if claim.RequesterID == actor || claim.AssignedReviewerID != actor {
 			return ErrForbidden
