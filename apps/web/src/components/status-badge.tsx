@@ -1,4 +1,5 @@
 import { Badge } from "@astryxdesign/core/Badge";
+import { Text } from "@astryxdesign/core/Text";
 
 import type { ClaimStatus } from "#/lib/api/types.gen";
 
@@ -20,5 +21,16 @@ const variants: Partial<Record<ClaimStatus, "blue" | "green" | "red">> = {
 };
 
 export const StatusBadge = ({ status }: { status: ClaimStatus }) => (
-  <Badge label={statusLabels[status]} variant={variants[status] ?? "neutral"} />
+  <Badge
+    label={
+      status === "WITHDRAWN" ? (
+        <Text hasStrikethrough type="inherit">
+          {statusLabels[status]}
+        </Text>
+      ) : (
+        statusLabels[status]
+      )
+    }
+    variant={variants[status] ?? "neutral"}
+  />
 );

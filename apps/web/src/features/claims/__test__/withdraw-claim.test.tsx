@@ -142,7 +142,8 @@ describe("Claim Detail: withdraw", { timeout: 40_000 }, () => {
     within(dialog()).getByText("0/500");
 
     await user.click(within(dialog()).getByLabelText("Comment (optional)"));
-    await user.paste("a".repeat(501));
+    await user.paste("a".repeat(500));
+    await user.keyboard("b");
 
     within(dialog()).getByText("500/500");
     expect(
