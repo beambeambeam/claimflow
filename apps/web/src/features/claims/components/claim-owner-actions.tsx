@@ -128,7 +128,12 @@ export const ClaimOwnerActions = ({
   const submit = useMutation({
     ...submitClaimMutation(),
     onSuccess: async () => {
-      showToast({ body: "Claim submitted." });
+      showToast({
+        body:
+          claim.status === "RETURNED"
+            ? "Claim resubmitted."
+            : "Claim submitted.",
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: detailKey }),
         refreshLists(),
@@ -183,7 +188,7 @@ export const ClaimOwnerActions = ({
           <Button
             isDisabled={remove.isPending}
             isLoading={submit.isPending}
-            label="Submit claim"
+            label={claim.status === "RETURNED" ? "Resubmit" : "Submit claim"}
             onClick={() => {
               onSubmitErrors([]);
               submit.mutate(options);
