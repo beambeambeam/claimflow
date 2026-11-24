@@ -161,7 +161,7 @@ The amber **Returned** badge shows in My Claims. The Review Queue does not list 
 
 - **Schema:** no migration. `claims.return_count` with CHECK 0–3 and the `RETURN` and `RESUBMIT` history actions are in `00002_claims.sql`.
 - **Queries (sqlc):** `ReturnClaim` (`status`, `return_count + 1`, `version + 1`, `updated_at` `WHERE id AND version`), `ResubmitClaim` (`status`, `submitted_at`, `version + 1` `WHERE id AND version`).
-- **Seed:** `bun run seed` adds one `RETURNED` claim for `req.anan` assigned to `rev.malee`, `returnCount` 1, with history `SUBMIT` then `RETURN` ("Please attach the taxi receipt."). Idempotent by `claim_no`. F04-TEST-22 counts this row.
+- **Seed:** `bun run seed` adds one `RETURNED` claim for `req.anan` assigned to `rev.malee`, `returnCount` 1, with history `SUBMIT` then `RETURN` ("Please attach the taxi receipt."). Idempotent by `claim_no`. It is a row of F-04 §4 (v0.9); the PR that adds it updates the F04-TEST-22 counts.
 
 ## 5. Acceptance criteria
 

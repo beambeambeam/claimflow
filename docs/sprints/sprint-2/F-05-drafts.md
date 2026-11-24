@@ -247,7 +247,7 @@ Drafts are listed with the grey **Draft** badge. Their Submitted column shows "�
 
 - **Schema:** no migration. `00002_claims.sql` already has the `DRAFT` status, nullable `assigned_reviewer_id`, `first_submitted_at`, `submitted_at`, the CHECK `status = 'DRAFT' OR assigned_reviewer_id IS NOT NULL`, `line_items … ON DELETE CASCADE`, and the `claim_history` FK without cascade.
 - **Queries (sqlc):** `InsertDraftClaim`, `UpdateClaimContent` (title, purpose, total, version, `updated_at` `WHERE id AND version`), `DeleteClaimLineItems`, `DeleteDraftClaim` (`WHERE id AND version AND status = 'DRAFT'`), `SubmitDraftClaim`.
-- **Seed:** `bun run seed` adds one `DRAFT` claim for `req.anan` ("Office supplies – draft", 2 items, no history). It stays idempotent by `claim_no`. F04-TEST-22 counts this row.
+- **Seed:** `bun run seed` adds one `DRAFT` claim for `req.anan` ("Office supplies – draft", 2 items, no history). It stays idempotent by `claim_no`. It is a row of F-04 §4 (v0.9); the PR that adds it updates the F04-TEST-22 counts.
 
 ## 5. Acceptance criteria
 

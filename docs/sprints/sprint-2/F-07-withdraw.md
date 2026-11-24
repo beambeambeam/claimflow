@@ -128,7 +128,7 @@ Operation ID `withdrawClaim`. It reuses the `ClaimId` and `IfMatch` parameters a
 
 - **Schema:** no migration. `WITHDRAWN` and the `WITHDRAW` history action are in `00002_claims.sql`.
 - **Queries (sqlc):** `WithdrawClaim` (`status`, `version + 1`, `updated_at` `WHERE id AND version`).
-- **Seed:** `bun run seed` adds one `WITHDRAWN` claim for `req.ploy` assigned to `rev.malee`, with history `SUBMIT` then `WITHDRAW` ("Booked by the company instead."). Idempotent by `claim_no`. F04-TEST-22 counts this row.
+- **Seed:** `bun run seed` adds one `WITHDRAWN` claim for `req.ploy` assigned to `rev.malee`, with history `SUBMIT` then `WITHDRAW` ("Booked by the company instead."). Idempotent by `claim_no`. It is a row of F-04 §4 (v0.9); the PR that adds it updates the F04-TEST-22 counts.
 
 ## 5. Acceptance criteria
 
