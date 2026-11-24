@@ -62,25 +62,26 @@ const (
 	MaxCommentLength = 500
 )
 
-// checkRules runs the field rules BR-05, BR-06, BR-07, and BR-12 (SDS §3.3, step 3) and returns a ValidationError with
-// one entry per broken field, or nil. Create calls it after the BR-15 check and before the first write. Dates are
-// calendar dates in Asia/Bangkok: an expense date may not be after today and may not be more than 90 days before it,
-// where today is the Bangkok date of now (the first submission is today).
-func checkRules(in Input, now time.Time) error {
+// checkRules checks item count, amounts, total, and when firstSubmittedAt is set, the expense date window.
+// The window runs from 90 days before the first submission through today's Bangkok calendar date (BR-07).
+func checkRules(in Input, now, firstSubmittedAt time.Time) error {
 	var fields []FieldError
 
 	if n := len(in.Items); n < MinItems || n > MaxItems {
 		fields = append(fields, FieldError{Field: "items", Rule: ruleItemLimits, Message: "A claim needs 1 to 20 line items."})
 	}
 
-	nowInBangkok := now.In(bangkok)
-	today := time.Date(nowInBangkok.Year(), nowInBangkok.Month(), nowInBangkok.Day(), 0, 0, 0, 0, time.UTC)
+	var today, earliest time.Time
+	if !firstSubmittedAt.IsZero() {
+		today = calendarDate(now.In(bangkok))
+		earliest = calendarDate(firstSubmittedAt.In(bangkok)).AddDate(0, 0, -MaxExpenseAgeDays)
+	}
 
 	var total money.Satang
 
 	for i := range in.Items {
 		total += in.Items[i].Amount
-		fields = append(fields, checkItem(i, &in.Items[i], today)...)
+		fields = append(fields, checkItem(i, &in.Items[i], today, earliest)...)
 	}
 
 	if total > MaxTotal {
@@ -94,9 +95,13 @@ func checkRules(in Input, now time.Time) error {
 	return nil
 }
 
-// checkItem runs the rules of line item i: its amount (BR-05, BR-12) and its expense date (BR-07) against today, the
-// Bangkok date of the first submission.
-func checkItem(i int, item *LineItemInput, today time.Time) []FieldError {
+// calendarDate compares calendar dates independently of the timestamp's time and zone.
+func calendarDate(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+// checkItem checks the amount (BR-05, BR-12) and the date when the expense window applies (BR-07).
+func checkItem(i int, item *LineItemInput, today, earliest time.Time) []FieldError {
 	var fields []FieldError
 
 	switch {
@@ -106,12 +111,16 @@ func checkItem(i int, item *LineItemInput, today time.Time) []FieldError {
 		fields = append(fields, FieldError{Field: itemField(i, "amount"), Rule: ruleMeals, Message: "A Meals item cannot be more than 1,500.00 THB."})
 	}
 
-	date := time.Date(item.ExpenseDate.Year(), item.ExpenseDate.Month(), item.ExpenseDate.Day(), 0, 0, 0, 0, time.UTC)
+	if today.IsZero() {
+		return fields
+	}
+
+	date := calendarDate(item.ExpenseDate)
 
 	switch {
 	case date.After(today):
 		fields = append(fields, FieldError{Field: itemField(i, "expenseDate"), Rule: ruleDate, Message: "Expense date cannot be in the future."})
-	case date.Before(today.AddDate(0, 0, -MaxExpenseAgeDays)):
+	case date.Before(earliest):
 		fields = append(fields, FieldError{Field: itemField(i, "expenseDate"), Rule: ruleDate, Message: "Expense date cannot be more than 90 days before the claim was first submitted."})
 	}
 

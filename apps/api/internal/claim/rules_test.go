@@ -81,7 +81,7 @@ func runRuleCases(t *testing.T, cases []ruleCase) {
 		t.Run(test.name, func(t *testing.T) {
 			input := Input{Title: "Title", Purpose: "Purpose", Items: test.items}
 
-			_, err := service.Create(t.Context(), actor, input)
+			_, err := service.Create(t.Context(), actor, input, true)
 			if got := violations(t, err); !sameViolations(got, test.want) {
 				t.Fatalf("violations = %v, want %v", got, test.want)
 			}
@@ -168,7 +168,7 @@ func TestF02TEST11ExpenseDateWindow(t *testing.T) {
 			line := item("TRAVEL", 100)
 			line.ExpenseDate = date
 
-			err = checkRules(Input{Items: []LineItemInput{line}}, test.now)
+			err = checkRules(Input{Items: []LineItemInput{line}}, test.now, test.now)
 			if test.field == "" {
 				if err != nil {
 					t.Fatalf("checkRules = %v, want nil", err)
@@ -195,19 +195,19 @@ func TestCheckRulesReportsEveryViolation(t *testing.T) {
 	future := item("TRAVEL", 100)
 	future.ExpenseDate = time.Date(2026, time.November, 6, 0, 0, 0, 0, time.UTC)
 
-	err := checkRules(Input{Items: []LineItemInput{future, item("MEALS", 160000)}}, fixedNow)
+	err := checkRules(Input{Items: []LineItemInput{future, item("MEALS", 160000)}}, fixedNow, fixedNow)
 	if got, wanted := violations(t, err), []want{{"items[0].expenseDate", "BR-07"}, {"items[1].amount", "BR-12"}}; !sameViolations(got, wanted) {
 		t.Fatalf("violations = %v, want %v", got, wanted)
 	}
 
 	// An amount over the BR-05 range is one entry for that field even when BR-12 would also apply, and the total
 	// is reported with it.
-	err = checkRules(Input{Items: []LineItemInput{item("MEALS", 5000001)}}, fixedNow)
+	err = checkRules(Input{Items: []LineItemInput{item("MEALS", 5000001)}}, fixedNow, fixedNow)
 	if got, wanted := violations(t, err), []want{{"items[0].amount", "BR-05"}, {"total", "BR-06"}}; !sameViolations(got, wanted) {
 		t.Fatalf("violations = %v, want %v", got, wanted)
 	}
 
-	err = checkRules(Input{}, fixedNow)
+	err = checkRules(Input{}, fixedNow, fixedNow)
 	if got, wanted := violations(t, err), []want{{"items", "BR-05"}}; !sameViolations(got, wanted) {
 		t.Fatalf("violations = %v, want %v", got, wanted)
 	}

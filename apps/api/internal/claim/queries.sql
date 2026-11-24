@@ -16,6 +16,11 @@ VALUES (sqlc.arg(id), sqlc.arg(claim_no), sqlc.arg(requester_id), sqlc.narg(assi
         sqlc.arg(purpose), sqlc.arg(status), sqlc.arg(total_satang), sqlc.narg(first_submitted_at),
         sqlc.narg(submitted_at), sqlc.arg(now), sqlc.arg(now));
 
+-- name: InsertDraftClaim :exec
+INSERT INTO claims (id, claim_no, requester_id, title, purpose, status, total_satang, created_at, updated_at)
+VALUES (sqlc.arg(id), sqlc.arg(claim_no), sqlc.arg(requester_id), sqlc.arg(title), sqlc.arg(purpose),
+        'DRAFT', sqlc.arg(total_satang), sqlc.arg(now), sqlc.arg(now));
+
 -- name: InsertLineItem :exec
 INSERT INTO line_items (id, claim_id, line_no, category, description, expense_date, amount_satang, receipt_ref)
 VALUES (sqlc.arg(id), sqlc.arg(claim_id), sqlc.arg(line_no), sqlc.arg(category), sqlc.arg(description),
@@ -30,7 +35,7 @@ VALUES (sqlc.arg(claim_id), sqlc.arg(actor_id), sqlc.arg(action), sqlc.narg(from
 -- GetClaim returns a claim with its requester and, when it has one, its assigned reviewer.
 SELECT c.id, c.claim_no, c.status, c.title, c.purpose, c.total_satang, c.return_count, c.version,
        c.first_submitted_at, c.submitted_at, c.decided_at, c.created_at, c.updated_at,
-       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position, r.reviewer_id AS owner_reviewer_id,
        a.id AS reviewer_id, a.name AS reviewer_name, a.position AS reviewer_position
 FROM claims c
 JOIN "user" r ON r.id = c.requester_id
@@ -89,14 +94,40 @@ SET status = sqlc.arg(status), version = version + 1, decided_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
 
 -- name: InsertSeedClaim :execrows
--- InsertSeedClaim adds a demo claim with the status it should have after its history, unless a claim with the same
--- claim_no exists. It returns the rows added: 0 means the claim was seeded before, so its children must not be added again.
+-- InsertSeedClaim adds a demo claim unless its claim number exists. A draft has no reviewer or submission times.
 INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
                     first_submitted_at, submitted_at, decided_at, created_at, updated_at)
-SELECT sqlc.arg(id), sqlc.arg(claim_no), u.id, u.reviewer_id, sqlc.arg(title), sqlc.arg(purpose), sqlc.arg(status),
-       sqlc.arg(total_satang), sqlc.arg(version), sqlc.arg(submitted_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz,
-       sqlc.narg(decided_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz,
-       coalesce(sqlc.narg(decided_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz)
+SELECT sqlc.arg(id), sqlc.arg(claim_no), u.id,
+       CASE WHEN sqlc.arg(status)::claim_status <> 'DRAFT' THEN u.reviewer_id END,
+       sqlc.arg(title), sqlc.arg(purpose), sqlc.arg(status)::claim_status,
+       sqlc.arg(total_satang), sqlc.arg(version),
+       CASE WHEN sqlc.arg(status)::claim_status <> 'DRAFT' THEN sqlc.arg(created_at)::timestamptz END,
+       CASE WHEN sqlc.arg(status)::claim_status <> 'DRAFT' THEN sqlc.arg(created_at)::timestamptz END,
+       sqlc.narg(decided_at)::timestamptz, sqlc.arg(created_at)::timestamptz,
+       coalesce(sqlc.narg(decided_at)::timestamptz, sqlc.arg(created_at)::timestamptz)
 FROM "user" u
 WHERE u.username = sqlc.arg(requester)
 ON CONFLICT (claim_no) DO NOTHING;
+
+-- name: UpdateClaimContent :execrows
+UPDATE claims
+SET title = sqlc.arg(title), purpose = sqlc.arg(purpose), total_satang = sqlc.arg(total_satang),
+    version = version + 1, updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: DeleteClaimLineItems :exec
+DELETE FROM line_items WHERE claim_id = sqlc.arg(claim_id);
+
+-- name: DeleteDraftClaim :execrows
+DELETE FROM claims WHERE id = sqlc.arg(id) AND version = sqlc.arg(version) AND status = 'DRAFT';
+
+-- name: SubmitDraftClaim :execrows
+UPDATE claims
+SET status = 'SUBMITTED', assigned_reviewer_id = sqlc.arg(reviewer_id), first_submitted_at = sqlc.arg(now),
+    submitted_at = sqlc.arg(now), updated_at = sqlc.arg(now), version = version + 1
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: ResubmitClaim :execrows
+UPDATE claims
+SET status = 'SUBMITTED', submitted_at = sqlc.arg(now), updated_at = sqlc.arg(now), version = version + 1
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);

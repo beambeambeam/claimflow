@@ -25,6 +25,12 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 	statuses := []db.ClaimStatus{db.ClaimStatusDRAFT, db.ClaimStatusSUBMITTED, db.ClaimStatusAPPROVED, db.ClaimStatusREJECTED}
 
 	none := func(db.ClaimStatus) []Action { return []Action{} }
+	own := func(status db.ClaimStatus) []Action {
+		if status == db.ClaimStatusDRAFT {
+			return []Action{ActionEdit, ActionDelete}
+		}
+		return []Action{}
+	}
 
 	// subject builds the claim as the actor relates to it. "own and assigned" is the corrupted assignment that points at the requester.
 	relations := map[string]struct {
@@ -37,7 +43,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 				return Subject{RequesterID: actor, AssignedReviewerID: other, Status: status}
 			},
 			visible: func(db.ClaimStatus) bool { return true },
-			actions: none,
+			actions: own,
 		},
 		"assigned": {
 			subject: func(actor uuid.UUID, status db.ClaimStatus) Subject {
@@ -71,7 +77,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 				return Subject{RequesterID: actor, AssignedReviewerID: actor, Status: status}
 			},
 			visible: func(db.ClaimStatus) bool { return true },
-			actions: none,
+			actions: own,
 		},
 	}
 
@@ -85,7 +91,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 						t.Fatalf("visible = %t, want %t", visible, want)
 					}
 
-					// The requester has no action until Sprint 2. A claim assigned to its own requester gives no action (BR-01).
+					// A claim assigned to its own requester gives no reviewer action (BR-01).
 					if want := relation.actions(status); actions == nil || !slices.Equal(actions, want) {
 						t.Fatalf("actions = %#v, want %#v", actions, want)
 					}
@@ -111,5 +117,32 @@ func TestF04TEST09PolicyGivesNoDecisionOnOwnClaim(t *testing.T) {
 		if slices.Contains(actions, action) {
 			t.Fatalf("actions = %v, want no %s (BR-01)", actions, action)
 		}
+	}
+}
+
+func TestF05TEST06DraftAndReturnedPolicy(t *testing.T) {
+	owner := uuid.New()
+	other := uuid.New()
+
+	for _, test := range []struct {
+		name              string
+		actor             uuid.UUID
+		status            db.ClaimStatus
+		reviewer, visible bool
+		actions           []Action
+	}{
+		{"draft with reviewer", owner, db.ClaimStatusDRAFT, true, true, []Action{ActionEdit, ActionDelete, ActionSubmit}},
+		{"draft without reviewer", owner, db.ClaimStatusDRAFT, false, true, []Action{ActionEdit, ActionDelete}},
+		{"submitted", owner, db.ClaimStatusSUBMITTED, true, true, nil},
+		{"returned", owner, db.ClaimStatusRETURNED, false, true, []Action{ActionEdit, ActionSubmit}},
+		{"draft owned by someone else", other, db.ClaimStatusDRAFT, true, false, nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			subject := Subject{RequesterID: owner, Status: test.status, OwnerHasReviewer: test.reviewer}
+			visible, actions := Allowed(test.actor, subject)
+			if visible != test.visible || actions == nil || !slices.Equal(actions, test.actions) {
+				t.Fatalf("visible = %t, actions = %v; want %t, %v", visible, actions, test.visible, test.actions)
+			}
+		})
 	}
 }

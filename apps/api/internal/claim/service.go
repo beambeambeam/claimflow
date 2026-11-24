@@ -46,11 +46,11 @@ func NewService(pool Pool, now func() time.Time) Service {
 	return Service{pool: pool, now: now}
 }
 
-// Create stores a claim and submits it in one transaction: the claim, its line items, and one SUBMIT history entry
+// Create stores a claim and its line items in one transaction. When submit is true it also writes a SUBMIT history entry
 // (F02-AC-01, F02-AC-02). The assigned reviewer is copied from the actor's reviewer at this moment and never changes
 // afterwards (BR-17). An actor with no reviewer gets ErrForbidden (BR-15). The total is the sum of the items; the
-// input has no total (BR-08). Saving a draft is F-05, which adds its own call.
-func (s Service) Create(ctx context.Context, actor Actor, in Input) (Claim, error) {
+// input has no total (BR-08). A draft has no reviewer or submission times.
+func (s Service) Create(ctx context.Context, actor Actor, in Input, submit bool) (Claim, error) {
 	now := s.now()
 
 	var created Claim
@@ -67,11 +67,15 @@ func (s Service) Create(ctx context.Context, actor Actor, in Input) (Claim, erro
 			return ErrForbidden
 		}
 
-		if err := checkRules(in, now); err != nil {
+		var submittedAt time.Time
+		if submit {
+			submittedAt = now
+		}
+		if err := checkRules(in, now, submittedAt); err != nil {
 			return err
 		}
 
-		id, err := insertSubmitted(ctx, queries, actor, member.ReviewerID, in, now)
+		id, err := insertClaim(ctx, queries, actor, member.ReviewerID, in, now, submit)
 		if err != nil { // coverage-ignore
 			return err
 		}
@@ -202,90 +206,75 @@ func summarize(row *db.ListRequesterClaimsRow) Summary {
 	}
 }
 
-// Act takes a decision on a claim for the actor, in one transaction (F-04 §1.2): the claim policy allows the action, the
-// comment is trimmed (empty is stored as no comment), the claim moves to the decided status with its version plus one
-// and its decision time set, and one history entry is added. version is the one the caller read. It checks in the order of
-// F-04 §1.4: a missing claim is ErrNotFound; a claim the actor may not decide is ErrForbidden; a status that does not
-// allow the action is ErrInvalidTransition; a comment that breaks BR-04 is a ValidationError; a changed version is
-// ErrConflict (BR-13). It returns the decided claim.
-func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int, a Action, comment string) (Claim, error) {
+// Act changes the claim's status and writes one history entry in the same transaction.
+// Actor, status, and field checks run before the conditional update, as in F-05 §1.4.
+func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int, action Action, comment string) (Claim, error) {
 	now := s.now()
-
-	var decided Claim
+	var acted Claim
 
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		queries := db.New(tx)
-
-		step, err := checkAct(ctx, queries, actor, id, version, a, comment)
+		row, err := findClaim(ctx, queries, id)
 		if err != nil {
 			return err
 		}
 
-		if err := record(ctx, queries, actor, id, version, step, comment, now); err != nil {
+		if err := checkVersionedAction(actor, claimSubject(&row), action, version, int(row.Version)); err != nil {
 			return err
 		}
 
-		decided, err = load(ctx, queries, id)
+		step, ok := transitions[action][row.Status]
+		if !ok {
+			return ErrInvalidTransition
+		}
 
+		if err := record(ctx, queries, actor, &row, version, action, step, comment, now); err != nil {
+			return err
+		}
+
+		acted, err = load(ctx, queries, id)
 		return err
 	})
 	if err != nil {
-		return Claim{}, fmt.Errorf("decide claim: %w", err)
+		return Claim{}, fmt.Errorf("act on claim: %w", err)
 	}
 
-	_, decided.AllowedActions = Allowed(actor.ID, decided.subject())
+	_, acted.AllowedActions = Allowed(actor.ID, acted.subject())
 
-	return decided, nil
+	return acted, nil
 }
 
-// checkAct runs the checks of Act before its first write and returns what the action does.
-//
-// A claim that is no longer SUBMITTED, read with a version other than the caller's, is ErrConflict: another decision
-// has won since the caller read the claim (BR-13). The caller's screen is stale, so its action is not "invalid".
-func checkAct(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUID, version int, a Action, comment string) (transition, error) {
-	found, err := load(ctx, queries, id)
+// record updates the claim only at the requested version, then appends the history entry.
+func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetClaimRow, version int, action Action, step transition, comment string, now time.Time) error {
+	var changed int64
+	var err error
+	if action == ActionSubmit {
+		changed, err = submitClaim(ctx, queries, row, version, now)
+		comment = ""
+	} else {
+		if err := checkComment(action, comment); err != nil {
+			return err
+		}
+		if int(row.Version) != version {
+			return ErrConflict
+		}
+		changed, err = queries.DecideClaim(ctx, db.DecideClaimParams{
+			Status: step.to, Now: timestamptz(now), ID: row.ID,
+			Version: row.Version,
+		})
+	}
 	if err != nil {
-		return transition{}, err
+		return fmt.Errorf("update claim status: %w", err)
 	}
-
-	step, err := check(actor.ID, found.subject(), a)
-	if errors.Is(err, ErrInvalidTransition) && version != found.Version {
-		return transition{}, ErrConflict
-	}
-
-	if err != nil {
-		return transition{}, err
-	}
-
-	if err := checkComment(a, comment); err != nil {
-		return transition{}, err
-	}
-
-	return step, nil
-}
-
-// record writes a decision: the claim moves by step if its version is still version, and one history entry is added.
-// A changed version is ErrConflict (BR-13).
-func record(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUID, version int, step transition, comment string, now time.Time) error {
-	changed, err := queries.DecideClaim(ctx, db.DecideClaimParams{
-		Status:  step.to,
-		Now:     timestamptz(now),
-		ID:      id,
-		Version: int32(version), //nolint:gosec // the handler reads a 31-bit version
-	})
-	if err != nil { // coverage-ignore
-		return fmt.Errorf("decide claim: %w", err)
-	}
-
 	if changed == 0 {
 		return ErrConflict
 	}
 
 	err = queries.InsertClaimHistory(ctx, db.InsertClaimHistoryParams{
-		ClaimID:    id,
+		ClaimID:    row.ID,
 		ActorID:    actor.ID,
 		Action:     step.history,
-		FromStatus: db.NullClaimStatus{ClaimStatus: step.from, Valid: true},
+		FromStatus: db.NullClaimStatus{ClaimStatus: row.Status, Valid: true},
 		ToStatus:   step.to,
 		Comment:    optionalComment(comment),
 		Now:        timestamptz(now),
@@ -297,6 +286,49 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUID,
 	return nil
 }
 
+func submitClaim(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, version int, now time.Time) (int64, error) {
+	items, err := queries.ListClaimLineItems(ctx, row.ID)
+	if err != nil { // coverage-ignore
+		return 0, fmt.Errorf("list items to submit: %w", err)
+	}
+
+	input := Input{Items: make([]LineItemInput, 0, len(items))}
+	for _, item := range items {
+		input.Items = append(input.Items, LineItemInput{
+			Category: item.Category, Amount: item.AmountSatang, ExpenseDate: item.ExpenseDate.Time,
+		})
+	}
+
+	firstSubmittedAt := now
+	if row.Status == db.ClaimStatusRETURNED {
+		firstSubmittedAt = row.FirstSubmittedAt.Time
+	}
+	if err := checkRules(input, now, firstSubmittedAt); err != nil {
+		return 0, err
+	}
+
+	if int(row.Version) != version {
+		return 0, ErrConflict
+	}
+
+	requestedVersion := row.Version
+	if row.Status == db.ClaimStatusDRAFT {
+		changed, err := queries.SubmitDraftClaim(ctx, db.SubmitDraftClaimParams{
+			ID: row.ID, Version: requestedVersion, ReviewerID: row.OwnerReviewerID, Now: timestamptz(now),
+		})
+		if err != nil { // coverage-ignore
+			return 0, fmt.Errorf("submit draft: %w", err)
+		}
+		return changed, nil
+	}
+
+	changed, err := queries.ResubmitClaim(ctx, db.ResubmitClaimParams{ID: row.ID, Version: requestedVersion, Now: timestamptz(now)})
+	if err != nil { // coverage-ignore
+		return 0, fmt.Errorf("resubmit claim: %w", err)
+	}
+	return changed, nil
+}
+
 // optionalComment trims comment and stores an empty one as NULL.
 func optionalComment(comment string) pgtype.Text {
 	trimmed := strings.TrimSpace(comment)
@@ -304,39 +336,59 @@ func optionalComment(comment string) pgtype.Text {
 	return pgtype.Text{String: trimmed, Valid: trimmed != ""}
 }
 
-// insertSubmitted writes the claim, its line items in request order, and the SUBMIT history entry, and returns the claim id.
-func insertSubmitted(ctx context.Context, queries *db.Queries, actor Actor, reviewerID uuid.NullUUID, in Input, now time.Time) (uuid.UUID, error) {
+// insertClaim writes the new claim and its items, with history only for a direct submission.
+func insertClaim(ctx context.Context, queries *db.Queries, actor Actor, reviewerID uuid.NullUUID, in Input, now time.Time, submit bool) (uuid.UUID, error) {
 	seq, err := queries.NextClaimSequence(ctx)
 	if err != nil { // coverage-ignore
 		return uuid.Nil, fmt.Errorf("next claim number: %w", err)
 	}
 
-	var total money.Satang
-	for _, item := range in.Items {
-		total += item.Amount
-	}
-
 	id := uuid.Must(uuid.NewV7())
-
-	err = queries.InsertClaim(ctx, db.InsertClaimParams{
-		ID:                 id,
-		ClaimNo:            claimNumber(now, seq),
-		RequesterID:        actor.ID,
-		AssignedReviewerID: reviewerID,
-		Title:              in.Title,
-		Purpose:            in.Purpose,
-		Status:             db.ClaimStatusSUBMITTED,
-		TotalSatang:        total,
-		FirstSubmittedAt:   timestamptz(now),
-		SubmittedAt:        timestamptz(now),
-		Now:                timestamptz(now),
-	})
+	params := db.InsertDraftClaimParams{
+		ID: id, ClaimNo: claimNumber(now, seq), RequesterID: actor.ID,
+		Title: in.Title, Purpose: in.Purpose, TotalSatang: inputTotal(in.Items), Now: timestamptz(now),
+	}
+	if submit {
+		err = queries.InsertClaim(ctx, db.InsertClaimParams{
+			ID: id, ClaimNo: params.ClaimNo, RequesterID: actor.ID, AssignedReviewerID: reviewerID,
+			Title: in.Title, Purpose: in.Purpose, Status: db.ClaimStatusSUBMITTED, TotalSatang: params.TotalSatang,
+			FirstSubmittedAt: params.Now, SubmittedAt: params.Now, Now: params.Now,
+		})
+	} else {
+		err = queries.InsertDraftClaim(ctx, params)
+	}
 	if err != nil { // coverage-ignore
 		return uuid.Nil, fmt.Errorf("insert claim: %w", err)
 	}
 
-	for i, item := range in.Items {
-		err = queries.InsertLineItem(ctx, db.InsertLineItemParams{
+	if err := insertItems(ctx, queries, id, in.Items); err != nil { // coverage-ignore
+		return uuid.Nil, err
+	}
+
+	if submit {
+		err = queries.InsertClaimHistory(ctx, db.InsertClaimHistoryParams{
+			ClaimID: id, ActorID: actor.ID, Action: db.ClaimActionSUBMIT, ToStatus: db.ClaimStatusSUBMITTED, Now: params.Now,
+		})
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("insert history: %w", err)
+		}
+	}
+
+	return id, nil
+}
+
+func inputTotal(items []LineItemInput) money.Satang {
+	var total money.Satang
+	for _, item := range items {
+		total += item.Amount
+	}
+	return total
+}
+
+// insertItems stores the line items in request order.
+func insertItems(ctx context.Context, queries *db.Queries, id uuid.UUID, items []LineItemInput) error {
+	for i, item := range items {
+		err := queries.InsertLineItem(ctx, db.InsertLineItemParams{
 			ID:           uuid.Must(uuid.NewV7()),
 			ClaimID:      id,
 			LineNo:       int16(i + 1), //nolint:gosec // BR-05 limits a claim to 20 items, and the table CHECK enforces it
@@ -347,33 +399,46 @@ func insertSubmitted(ctx context.Context, queries *db.Queries, actor Actor, revi
 			ReceiptRef:   item.ReceiptRef,
 		})
 		if err != nil { // coverage-ignore
-			return uuid.Nil, fmt.Errorf("insert line item %d: %w", i+1, err)
+			return fmt.Errorf("insert line item %d: %w", i+1, err)
 		}
 	}
+	return nil
+}
 
-	err = queries.InsertClaimHistory(ctx, db.InsertClaimHistoryParams{
-		ClaimID:    id,
-		ActorID:    actor.ID,
-		Action:     db.ClaimActionSUBMIT,
-		FromStatus: db.NullClaimStatus{},
-		ToStatus:   db.ClaimStatusSUBMITTED,
-		Now:        timestamptz(now),
-	})
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("insert history: %w", err)
+// checkVersionedAction reports a stale version rather than an invalid transition when the status changed.
+func checkVersionedAction(actor Actor, subject Subject, action Action, version, current int) error {
+	err := check(actor.ID, subject, action)
+	if errors.Is(err, ErrInvalidTransition) && version != current {
+		return ErrConflict
 	}
 
-	return id, nil
+	return err
+}
+
+func findClaim(ctx context.Context, queries *db.Queries, id uuid.UUID) (db.GetClaimRow, error) {
+	row, err := queries.GetClaim(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.GetClaimRow{}, ErrNotFound
+	}
+	if err != nil { // coverage-ignore
+		return db.GetClaimRow{}, fmt.Errorf("get claim: %w", err)
+	}
+
+	return row, nil
+}
+
+func claimSubject(row *db.GetClaimRow) Subject {
+	return Subject{
+		RequesterID: row.RequesterID, AssignedReviewerID: row.ReviewerID.UUID, Status: row.Status,
+		OwnerHasReviewer: row.OwnerReviewerID.Valid, ReturnCount: int(row.ReturnCount),
+	}
 }
 
 // load reads a claim with its line items and history.
 func load(ctx context.Context, queries *db.Queries, id uuid.UUID) (Claim, error) {
-	row, err := queries.GetClaim(ctx, id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Claim{}, ErrNotFound
-	}
-	if err != nil { // coverage-ignore
-		return Claim{}, fmt.Errorf("get claim: %w", err)
+	row, err := findClaim(ctx, queries, id)
+	if err != nil {
+		return Claim{}, err
 	}
 
 	items, err := queries.ListClaimLineItems(ctx, id)
@@ -404,6 +469,7 @@ func load(ctx context.Context, queries *db.Queries, id uuid.UUID) (Claim, error)
 		Items:            lineItems(items),
 		History:          historyEntries(history),
 		AllowedActions:   []Action{},
+		ownerReviewerID:  row.OwnerReviewerID,
 	}
 
 	if row.ReviewerID.Valid {

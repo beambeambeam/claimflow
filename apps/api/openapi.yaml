@@ -162,10 +162,16 @@ paths:
           $ref: "#/components/responses/Problem"
     post:
       operationId: createClaim
-      summary: Create a claim and submit it for review (F-02). Sprint 1 always submits.
+      summary: Create a claim and submit it for review, or save it as a draft (F-02, F-05).
       description: >-
         Needs the `claim:create` route permission, and an assigned reviewer (BR-15). The server calculates the total and ignores any `total` in the request (BR-08).
       tags: [claims]
+      parameters:
+        - name: draft
+          in: query
+          description: Save as a draft when true. Omit it or send false to submit immediately.
+          schema:
+            type: boolean
       requestBody:
         required: true
         content:
@@ -174,7 +180,7 @@ paths:
               $ref: "#/components/schemas/ClaimInput"
       responses:
         "201":
-          description: The claim is stored with status `SUBMITTED`.
+          description: The claim is stored with status `SUBMITTED` or `DRAFT`.
           headers:
             ETag:
               description: The claim's `version` in quotes, such as `"0"`.
@@ -237,6 +243,64 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+    put:
+      operationId: updateClaim
+      summary: Edit a draft or returned claim (F-05).
+      description: Only the requester can edit. The server recalculates the total (BR-08).
+      tags: [claims]
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/ClaimChanged"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "428":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteClaim
+      summary: Delete a draft and its line items (F-05).
+      description: Only the requester can delete a draft.
+      tags: [claims]
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "204":
+          description: The draft and its line items were deleted.
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "428":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /claims/{id}/approve:
     post:
       operationId: approveClaim
@@ -256,6 +320,34 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/Decided"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "428":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /claims/{id}/submit:
+    post:
+      operationId: submitClaim
+      summary: Submit a draft for review (F-05).
+      description: Only the requester can submit. On first submission, the reviewer and submission times are recorded with the transition.
+      tags: [claims]
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          $ref: "#/components/responses/ClaimChanged"
         "400":
           $ref: "#/components/responses/Problem"
         "401":
@@ -327,6 +419,18 @@ components:
   responses:
     Decided:
       description: The decided claim, with its new `ETag`.
+      headers:
+        ETag:
+          description: The claim's new `version` in quotes, such as `"4"`.
+          required: true
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ClaimEnvelope"
+    ClaimChanged:
+      description: The changed claim, with its new `ETag`.
       headers:
         ETag:
           description: The claim's new `version` in quotes, such as `"4"`.
@@ -651,7 +755,7 @@ components:
             $ref: "#/components/schemas/HistoryEntry"
         allowedActions:
           type: array
-          description: The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the requester in Sprint 1.
+          description: The actions this actor may take on this claim now, from the claim policy (SDS §5.2).
           items:
             type: string
     ClaimDecision:
