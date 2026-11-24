@@ -128,6 +128,16 @@ export type ClaimDecision = {
   comment?: string;
 };
 
+/**
+ * The optional body of withdraw (F-07).
+ */
+export type ClaimWithdrawal = {
+  /**
+   * Optional note on why the claim is withdrawn.
+   */
+  comment?: string;
+};
+
 export type ClaimEnvelope = {
   data: Claim;
 };
@@ -873,3 +883,63 @@ export type ReturnClaimResponses = {
 };
 
 export type ReturnClaimResponse = ReturnClaimResponses[keyof ReturnClaimResponses];
+
+export type WithdrawClaimData = {
+  body?: ClaimWithdrawal;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}/withdraw';
+};
+
+export type WithdrawClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type WithdrawClaimError = WithdrawClaimErrors[keyof WithdrawClaimErrors];
+
+export type WithdrawClaimResponses = {
+  /**
+   * The decided claim, with its new `ETag`.
+   */
+  200: ClaimEnvelope;
+};
+
+export type WithdrawClaimResponse = WithdrawClaimResponses[keyof WithdrawClaimResponses];

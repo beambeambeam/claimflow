@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, DeleteClaimData, DeleteClaimErrors, DeleteClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses, ReturnClaimData, ReturnClaimErrors, ReturnClaimResponses, SubmitClaimData, SubmitClaimErrors, SubmitClaimResponses, UpdateClaimData, UpdateClaimErrors, UpdateClaimResponses } from './types.gen';
-import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zDeleteClaimHeaders, zDeleteClaimPath, zDeleteClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse, zReturnClaimBody, zReturnClaimHeaders, zReturnClaimPath, zReturnClaimResponse, zSubmitClaimHeaders, zSubmitClaimPath, zSubmitClaimResponse, zUpdateClaimBody, zUpdateClaimHeaders, zUpdateClaimPath, zUpdateClaimResponse } from './zod.gen';
+import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, DeleteClaimData, DeleteClaimErrors, DeleteClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses, ReturnClaimData, ReturnClaimErrors, ReturnClaimResponses, SubmitClaimData, SubmitClaimErrors, SubmitClaimResponses, UpdateClaimData, UpdateClaimErrors, UpdateClaimResponses, WithdrawClaimData, WithdrawClaimErrors, WithdrawClaimResponses } from './types.gen';
+import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zDeleteClaimHeaders, zDeleteClaimPath, zDeleteClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse, zReturnClaimBody, zReturnClaimHeaders, zReturnClaimPath, zReturnClaimResponse, zSubmitClaimHeaders, zSubmitClaimPath, zSubmitClaimResponse, zUpdateClaimBody, zUpdateClaimHeaders, zUpdateClaimPath, zUpdateClaimResponse, zWithdrawClaimBody, zWithdrawClaimHeaders, zWithdrawClaimPath, zWithdrawClaimResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -258,6 +258,27 @@ export const returnClaim = <ThrowOnError extends boolean = false>(options: Optio
   }).parseAsync(data),
   responseValidator: async (data) => await zReturnClaimResponse.parseAsync(data),
   url: '/claims/{id}/return',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Withdraw a submitted or returned claim (F-07).
+ *
+ * The owner withdraws their own claim while it is `SUBMITTED` or `RETURNED`, with an optional comment. The claim becomes `WITHDRAWN`, which is final; it has no decision time and leaves the reviewer's queue. Any other status is a 409 `INVALID_TRANSITION` (BR-16). Only the owner can withdraw: the assigned reviewer and other members get 403. The body is optional; an empty body equals `{}`.
+ */
+export const withdrawClaim = <ThrowOnError extends boolean = false>(options: Options<WithdrawClaimData, ThrowOnError>): RequestResult<WithdrawClaimResponses, WithdrawClaimErrors, ThrowOnError> => (options.client ?? client).post<WithdrawClaimResponses, WithdrawClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zWithdrawClaimBody.optional(),
+    headers: zWithdrawClaimHeaders.optional(),
+    path: zWithdrawClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zWithdrawClaimResponse.parseAsync(data),
+  url: '/claims/{id}/withdraw',
   ...options,
   headers: {
     'Content-Type': 'application/json',

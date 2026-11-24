@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveClaim, createClaim, deleteClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, returnClaim, submitClaim, updateClaim } from '../sdk.gen';
-import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, ReturnClaimData, ReturnClaimError, ReturnClaimResponse, SubmitClaimData, SubmitClaimError, SubmitClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse } from '../types.gen';
+import { approveClaim, createClaim, deleteClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, returnClaim, submitClaim, updateClaim, withdrawClaim } from '../sdk.gen';
+import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, ReturnClaimData, ReturnClaimError, ReturnClaimResponse, SubmitClaimData, SubmitClaimError, SubmitClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse, WithdrawClaimData, WithdrawClaimError, WithdrawClaimResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -351,6 +351,25 @@ export const returnClaimMutation = (options?: Partial<Options<ReturnClaimData>>)
   const mutationOptions: UseMutationOptions<ReturnClaimResponse, ReturnClaimError, Options<ReturnClaimData>> = {
     mutationFn: async (fnOptions) => {
       const { data } = await returnClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Withdraw a submitted or returned claim (F-07).
+ *
+ * The owner withdraws their own claim while it is `SUBMITTED` or `RETURNED`, with an optional comment. The claim becomes `WITHDRAWN`, which is final; it has no decision time and leaves the reviewer's queue. Any other status is a 409 `INVALID_TRANSITION` (BR-16). Only the owner can withdraw: the assigned reviewer and other members get 403. The body is optional; an empty body equals `{}`.
+ */
+export const withdrawClaimMutation = (options?: Partial<Options<WithdrawClaimData>>): UseMutationOptions<WithdrawClaimResponse, WithdrawClaimError, Options<WithdrawClaimData>> => {
+  const mutationOptions: UseMutationOptions<WithdrawClaimResponse, WithdrawClaimError, Options<WithdrawClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await withdrawClaim({
         ...options,
         ...fnOptions,
         throwOnError: true
