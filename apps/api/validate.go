@@ -42,7 +42,7 @@ const maxRequestBody = 1 << 20
 // handler runs (SDS §1.3, "OpenAPI request validation"). The others check their own bounds in the handler. A shape
 // error is a 400 that names every broken field; business limits are the module's 422. Each entry is the operation name
 // that oapi-codegen gives the embedded spec, as in operationPermissions.
-var validatedOperations = []string{"CreateClaim", "UpdateClaim"}
+var validatedOperations = []string{"CreateClaim", "UpdateClaim", "WithdrawClaim"}
 
 // messageExtension is the schema extension that holds the message of a 400 field error on that schema. The web form
 // reads the same extension, so both show one text.
@@ -62,6 +62,7 @@ func requestValidation(spec *openapi3.T, validated []string) gin.HandlerFunc {
 	type bodyCheck struct {
 		schema    *openapi3.Schema
 		versioned bool
+		required  bool
 	}
 	checks := map[string]bodyCheck{}
 
@@ -74,6 +75,7 @@ func requestValidation(spec *openapi3.T, validated []string) gin.HandlerFunc {
 			checks[ginRoute(method, path)] = bodyCheck{
 				schema:    operation.RequestBody.Value.Content.Get("application/json").Schema.Value,
 				versioned: operation.Parameters.GetByInAndName(openapi3.ParameterInHeader, "If-Match") != nil,
+				required:  operation.RequestBody.Value.Required,
 			}
 		}
 	}
@@ -102,6 +104,13 @@ func requestValidation(spec *openapi3.T, validated []string) gin.HandlerFunc {
 		}
 
 		c.Request.Body = io.NopCloser(bytes.NewReader(raw))
+
+		// An optional body may be absent: it equals an empty object (F-07 §3).
+		if len(raw) == 0 && !check.required {
+			c.Next()
+
+			return
+		}
 
 		var value any
 		if err := json.Unmarshal(raw, &value); err != nil {

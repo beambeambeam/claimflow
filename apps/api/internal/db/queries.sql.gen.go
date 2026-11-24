@@ -886,3 +886,26 @@ func (q *Queries) UpsertSeedUser(ctx context.Context, arg UpsertSeedUserParams) 
 	err := row.Scan(&id)
 	return id, err
 }
+
+const withdrawClaim = `-- name: WithdrawClaim :execrows
+UPDATE claims
+SET status = 'WITHDRAWN', version = version + 1, updated_at = $1
+WHERE id = $2 AND version = $3
+`
+
+type WithdrawClaimParams struct {
+	Now     pgtype.Timestamptz
+	ID      uuid.UUID
+	Version int32
+}
+
+// WithdrawClaim moves a claim to WITHDRAWN and adds one to the version, but only while the version is still the one the
+// caller read (BR-13). A withdrawal is not a decision, so decided_at stays NULL. It returns the rows changed: 0 means the
+// claim changed since.
+func (q *Queries) WithdrawClaim(ctx context.Context, arg WithdrawClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, withdrawClaim, arg.Now, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

@@ -275,7 +275,7 @@ func TestReturnedClaimCanBeEditedAndUsesItsOriginalReviewAssignment(t *testing.T
 	input := validInput()
 	input.Items[0].ExpenseDate = first.AddDate(0, 0, -90)
 	edited, err := service.Edit(t.Context(), owner, original.ID, original.Version, input)
-	if err != nil || edited.Status != db.ClaimStatusRETURNED || !slices.Equal(edited.AllowedActions, []Action{ActionEdit, ActionSubmit}) {
+	if err != nil || edited.Status != db.ClaimStatusRETURNED || !slices.Equal(edited.AllowedActions, []Action{ActionEdit, ActionSubmit, ActionWithdraw}) {
 		t.Fatalf("edit returned: claim = %+v, error = %v", edited, err)
 	}
 	if err := service.Delete(t.Context(), owner, edited.ID, edited.Version); !errors.Is(err, ErrInvalidTransition) {

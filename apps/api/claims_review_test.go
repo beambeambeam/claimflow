@@ -218,9 +218,9 @@ func TestF04TEST03AssignedReviewerGetsTheReviewActions(t *testing.T) {
 		t.Fatalf("claim = %+v, want SUBMITTED, one SUBMIT entry, actions [approve reject return]", claim)
 	}
 
-	// The requester sees the same claim and has no action on it.
-	if own := openClaim(t, router, loginAs(t, router, "req.anan"), id).Data; len(own.AllowedActions) != 0 {
-		t.Fatalf("requester allowedActions = %v, want none", own.AllowedActions)
+	// The requester sees the same claim and may only withdraw it (F-07).
+	if own := openClaim(t, router, loginAs(t, router, "req.anan"), id).Data; len(own.AllowedActions) != 1 || own.AllowedActions[0] != "withdraw" {
+		t.Fatalf("requester allowedActions = %v, want only withdraw", own.AllowedActions)
 	}
 }
 

@@ -137,6 +137,13 @@ export const zClaimDecision = z.object({
   comment: z.string().register(z.globalRegistry, { maxLength: 500 }).optional()
 });
 
+/**
+ * The optional body of withdraw (F-07).
+ */
+export const zClaimWithdrawal = z.object({
+  comment: z.string().max(500).optional()
+});
+
 export const zClaimEnvelope = z.object({
   data: zClaim
 });
@@ -350,3 +357,18 @@ export const zReturnClaimPath = z.object({
  * The decided claim, with its new `ETag`.
  */
 export const zReturnClaimResponse = zClaimEnvelope;
+
+export const zWithdrawClaimBody = zClaimWithdrawal;
+
+export const zWithdrawClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zWithdrawClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The decided claim, with its new `ETag`.
+ */
+export const zWithdrawClaimResponse = zClaimEnvelope;

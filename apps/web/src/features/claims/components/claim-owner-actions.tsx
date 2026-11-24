@@ -5,9 +5,11 @@ import {
   Layout,
   LayoutContent,
   LayoutFooter,
+  VStack,
 } from "@astryxdesign/core/Layout";
 import { Link } from "@astryxdesign/core/Link";
-import { Heading } from "@astryxdesign/core/Text";
+import { Heading, Text } from "@astryxdesign/core/Text";
+import { TextArea } from "@astryxdesign/core/TextArea";
 import { useToast } from "@astryxdesign/core/Toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -18,9 +20,95 @@ import {
   deleteClaimMutation,
   getClaimQueryKey,
   submitClaimMutation,
+  withdrawClaimMutation,
 } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim, FieldError, Problem } from "#/lib/api/types.gen";
+import { zClaimWithdrawal } from "#/lib/api/zod.gen";
 import { isProblem } from "#/lib/problem";
+
+// The limit of the withdrawal comment, from the contract. The server checks it; the counter only shows it.
+const withdrawCommentLimit =
+  zClaimWithdrawal.shape.comment.unwrap().maxLength ?? undefined;
+
+// The counter shows the limit but does not stop typing, so the text is cut at it.
+const limitComment = (value: string) =>
+  withdrawCommentLimit === undefined
+    ? value
+    : value.slice(0, withdrawCommentLimit);
+
+const WithdrawDialog = ({
+  claimNo,
+  comment,
+  onCancel,
+  onChange,
+  onWithdraw,
+  withdrawing,
+}: {
+  claimNo: string;
+  comment: string;
+  onCancel: () => void;
+  onChange: (comment: string) => void;
+  onWithdraw: () => void;
+  withdrawing: boolean;
+}) => {
+  const titleId = useId();
+
+  return (
+    <Dialog
+      aria-labelledby={titleId}
+      isOpen
+      onOpenChange={(open) => {
+        if (!open && !withdrawing) {
+          onCancel();
+        }
+      }}
+      purpose="form"
+      width={480}
+    >
+      <Layout
+        content={
+          <LayoutContent>
+            <VStack gap={4} hAlign="stretch">
+              <Heading id={titleId} level={2}>
+                Withdraw {claimNo}?
+              </Heading>
+              <Text type="body">
+                You can&apos;t edit or resubmit a withdrawn claim.
+              </Text>
+              <TextArea
+                label="Comment (optional)"
+                maxLength={withdrawCommentLimit}
+                onChange={(value) => {
+                  onChange(limitComment(value));
+                }}
+                value={comment}
+              />
+            </VStack>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter>
+            <HStack gap={2} hAlign="end">
+              <Button
+                isDisabled={withdrawing}
+                label="Cancel"
+                onClick={onCancel}
+                variant="ghost"
+              />
+              <Button
+                isDisabled={withdrawing}
+                isLoading={withdrawing}
+                label="Withdraw claim"
+                onClick={onWithdraw}
+                variant="destructive"
+              />
+            </HStack>
+          </LayoutFooter>
+        }
+      />
+    </Dialog>
+  );
+};
 
 const DeleteDraftDialog = ({
   claimNo,
@@ -86,6 +174,8 @@ export const ClaimOwnerActions = ({
   onSubmitErrors: (fields: FieldError[]) => void;
 }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const [withdrawComment, setWithdrawComment] = useState("");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
@@ -171,12 +261,29 @@ export const ClaimOwnerActions = ({
     },
   });
 
+  const withdraw = useMutation({
+    ...withdrawClaimMutation(),
+    onSuccess: async () => {
+      setConfirmWithdraw(false);
+      showToast({ body: "Claim withdrawn." });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: detailKey }),
+        refreshLists(),
+      ]);
+    },
+    onError: (error) => {
+      setConfirmWithdraw(false);
+      handleFailure(isProblem(error) ? error : undefined);
+    },
+  });
+
   const allowed = claim.allowedActions;
   const canEdit = allowed.includes("edit");
   const canSubmit = allowed.includes("submit");
   const canDelete = allowed.includes("delete");
+  const canWithdraw = allowed.includes("withdraw");
 
-  if (!canEdit && !canSubmit && !canDelete) {
+  if (!canEdit && !canSubmit && !canDelete && !canWithdraw) {
     return null;
   }
 
@@ -186,7 +293,7 @@ export const ClaimOwnerActions = ({
         {canEdit ? <Link href={`/claims/${claim.id}/edit`}>Edit</Link> : null}
         {canSubmit ? (
           <Button
-            isDisabled={remove.isPending}
+            isDisabled={remove.isPending || withdraw.isPending}
             isLoading={submit.isPending}
             label={claim.status === "RETURNED" ? "Resubmit" : "Submit claim"}
             onClick={() => {
@@ -206,7 +313,32 @@ export const ClaimOwnerActions = ({
             variant="secondary"
           />
         ) : null}
+        {canWithdraw ? (
+          <Button
+            isDisabled={submit.isPending}
+            label="Withdraw"
+            onClick={() => {
+              setWithdrawComment("");
+              setConfirmWithdraw(true);
+            }}
+            variant="secondary"
+          />
+        ) : null}
       </HStack>
+      {canWithdraw && confirmWithdraw ? (
+        <WithdrawDialog
+          claimNo={claim.claimNo}
+          comment={withdrawComment}
+          onCancel={() => {
+            setConfirmWithdraw(false);
+          }}
+          onChange={setWithdrawComment}
+          onWithdraw={() => {
+            withdraw.mutate({ ...options, body: { comment: withdrawComment } });
+          }}
+          withdrawing={withdraw.isPending}
+        />
+      ) : null}
       {canDelete && confirmDelete ? (
         <DeleteDraftDialog
           claimNo={claim.claimNo}
