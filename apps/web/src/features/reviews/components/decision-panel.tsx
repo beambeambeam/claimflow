@@ -7,22 +7,24 @@ import {
   LayoutFooter,
   VStack,
 } from "@astryxdesign/core/Layout";
-import { Heading } from "@astryxdesign/core/Text";
+import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextArea } from "@astryxdesign/core/TextArea";
 import { useToast } from "@astryxdesign/core/Toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useId, useState } from "react";
 
 import {
   approveClaimMutation,
   rejectClaimMutation,
+  returnClaimMutation,
 } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim } from "#/lib/api/types.gen";
 import { zClaimDecision } from "#/lib/api/zod.gen";
 import { contractMaxLength } from "#/lib/contract";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
-// The text and button variants of each decision (F-04 §2.2): `trigger` opens the dialog, `variant` confirms it. A reject needs a reason; an approve may have a comment.
+// The text and button variants of each decision (F-04 §2.2, F-06 §2.1): `trigger` opens the dialog, `variant` confirms it. A reject or a return needs a reason; an approve may have a comment.
 const decisions = {
   approve: {
     title: (claimNo: string) => `Approve claim ${claimNo}?`,
@@ -41,6 +43,15 @@ const decisions = {
     variant: "destructive",
     done: "Claim rejected.",
     mutation: rejectClaimMutation,
+  },
+  return: {
+    title: (claimNo: string) => `Return claim ${claimNo}?`,
+    label: "Reason for return",
+    confirm: "Return",
+    trigger: "secondary",
+    variant: "primary",
+    done: "Claim returned.",
+    mutation: returnClaimMutation,
   },
 } as const;
 
@@ -67,6 +78,7 @@ const DecisionDialog = ({
   const titleId = useId();
   const queryClient = useQueryClient();
   const showToast = useToast();
+  const navigate = useNavigate();
   const [comment, setComment] = useState("");
 
   // The claim and the queue are read again after every answer, so they show the claim as it is now.
@@ -81,6 +93,11 @@ const DecisionDialog = ({
       showToast({ body: text.done });
       onClose();
       refetch();
+
+      if (decision === "return") {
+        // The claim left the queue, so the reviewer goes back to it (F-06 §2.1).
+        void navigate({ to: "/reviews" });
+      }
     },
     onError: (error) => {
       const status = isProblem(error) ? error.status : null;
@@ -185,7 +202,10 @@ const DecisionDialog = ({
   );
 };
 
-// The Approve and Reject buttons of a claim (F-04 §2.2). They show only for the actions the policy gave this member.
+// How many times a claim can be returned (BR-14); the API gives the count, and `return` in allowedActions says whether one is left.
+const maxReturns = 3;
+
+// The Approve, Reject, and Return buttons of a claim (F-04 §2.2, F-06 §2.1). They show only for the actions the policy gave this member.
 // `onDenied` runs when a decision gets a 403.
 export const DecisionPanel = ({
   claim,
@@ -204,9 +224,12 @@ export const DecisionPanel = ({
     return null;
   }
 
+  const canReturn = allowed.includes("return");
+  const returnsUsed = `Returned ${claim.returnCount} / ${maxReturns}`;
+
   return (
     <>
-      <HStack gap={2}>
+      <HStack gap={2} vAlign="center">
         {allowed.map((decision) => (
           <Button
             key={decision}
@@ -217,6 +240,10 @@ export const DecisionPanel = ({
             variant={decisions[decision].trigger}
           />
         ))}
+        {canReturn ? <Text type="body">{returnsUsed}</Text> : null}
+        {!canReturn && claim.returnCount >= maxReturns ? (
+          <Text type="body">{`${returnsUsed} – approve or reject.`}</Text>
+        ) : null}
       </HStack>
       {open === null ? null : (
         <DecisionDialog
