@@ -349,6 +349,35 @@ func (q *Queries) InsertClaimHistory(ctx context.Context, arg InsertClaimHistory
 	return err
 }
 
+const insertDraftClaim = `-- name: InsertDraftClaim :exec
+INSERT INTO claims (id, claim_no, requester_id, title, purpose, status, total_satang, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5,
+        'DRAFT', $6, $7, $7)
+`
+
+type InsertDraftClaimParams struct {
+	ID          uuid.UUID
+	ClaimNo     string
+	RequesterID uuid.UUID
+	Title       string
+	Purpose     string
+	TotalSatang money.Satang
+	Now         pgtype.Timestamptz
+}
+
+func (q *Queries) InsertDraftClaim(ctx context.Context, arg InsertDraftClaimParams) error {
+	_, err := q.db.Exec(ctx, insertDraftClaim,
+		arg.ID,
+		arg.ClaimNo,
+		arg.RequesterID,
+		arg.Title,
+		arg.Purpose,
+		arg.TotalSatang,
+		arg.Now,
+	)
+	return err
+}
+
 const insertLineItem = `-- name: InsertLineItem :exec
 INSERT INTO line_items (id, claim_id, line_no, category, description, expense_date, amount_satang, receipt_ref)
 VALUES ($1, $2, $3, $4, $5,

@@ -405,7 +405,12 @@ export type ListClaimsResponse = ListClaimsResponses[keyof ListClaimsResponses];
 export type CreateClaimData = {
   body: ClaimInput;
   path?: never;
-  query?: never;
+  query?: {
+    /**
+     * Save as a draft when true. Omit it or send false to submit immediately.
+     */
+    draft?: boolean;
+  };
   url: '/claims';
 };
 
@@ -436,7 +441,7 @@ export type CreateClaimError = CreateClaimErrors[keyof CreateClaimErrors];
 
 export type CreateClaimResponses = {
   /**
-   * The claim is stored with status `SUBMITTED`.
+   * The claim is stored with status `SUBMITTED` or `DRAFT`.
    */
   201: ClaimEnvelope;
 };

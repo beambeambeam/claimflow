@@ -247,8 +247,12 @@ export const zListClaimsResponse = zClaimPage;
 
 export const zCreateClaimBody = zClaimInput;
 
+export const zCreateClaimQuery = z.object({
+  draft: z.boolean().optional()
+});
+
 /**
- * The claim is stored with status `SUBMITTED`.
+ * The claim is stored with status `SUBMITTED` or `DRAFT`.
  */
 export const zCreateClaimResponse = zClaimEnvelope;
 

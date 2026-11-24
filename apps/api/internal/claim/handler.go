@@ -49,7 +49,7 @@ func NewHandler(service Service) Handler {
 	return Handler{service: service}
 }
 
-// CreateClaim submits the claim of the request body for the session user. The route permission claim:create has
+// CreateClaim submits or saves the claim of the request body for the session user. The route permission claim:create has
 // already been checked. ErrForbidden, which is BR-15 here, becomes 403. The identity comes from the session only.
 func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequestObject) (api.CreateClaimResponseObject, error) {
 	user, ok := auth.UserFrom(ctx)
@@ -57,7 +57,7 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 		return nil, errUnauthenticated
 	}
 
-	created, err := h.service.Create(ctx, Actor{ID: user.ID}, input(request.Body))
+	created, err := h.service.Create(ctx, Actor{ID: user.ID}, input(request.Body), request.Params.Draft == nil || !*request.Params.Draft)
 	if err != nil {
 		return nil, problem(err)
 	}

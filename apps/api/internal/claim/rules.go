@@ -65,7 +65,7 @@ const (
 // checkRules runs the field rules BR-05, BR-06, BR-07, and BR-12 (SDS §3.3, step 3) and returns a ValidationError with
 // one entry per broken field, or nil. Create calls it after the BR-15 check and before the first write. Dates are
 // calendar dates in Asia/Bangkok: an expense date may not be after today and may not be more than 90 days before it,
-// where today is the Bangkok date of now (the first submission is today).
+// where today is the Bangkok date of now. A zero submission time skips BR-07 for drafts and edits.
 func checkRules(in Input, now time.Time) error {
 	var fields []FieldError
 
@@ -74,7 +74,10 @@ func checkRules(in Input, now time.Time) error {
 	}
 
 	nowInBangkok := now.In(bangkok)
-	today := time.Date(nowInBangkok.Year(), nowInBangkok.Month(), nowInBangkok.Day(), 0, 0, 0, 0, time.UTC)
+	var today time.Time
+	if !now.IsZero() {
+		today = time.Date(nowInBangkok.Year(), nowInBangkok.Month(), nowInBangkok.Day(), 0, 0, 0, 0, time.UTC)
+	}
 
 	var total money.Satang
 
@@ -104,6 +107,10 @@ func checkItem(i int, item *LineItemInput, today time.Time) []FieldError {
 		fields = append(fields, FieldError{Field: itemField(i, "amount"), Rule: ruleItemLimits, Message: "Amount must be between 0.01 and 20,000.00 THB."})
 	case item.Category == db.ExpenseCategoryMEALS && item.Amount > MaxMealsAmount:
 		fields = append(fields, FieldError{Field: itemField(i, "amount"), Rule: ruleMeals, Message: "A Meals item cannot be more than 1,500.00 THB."})
+	}
+
+	if today.IsZero() {
+		return fields
 	}
 
 	date := time.Date(item.ExpenseDate.Year(), item.ExpenseDate.Month(), item.ExpenseDate.Day(), 0, 0, 0, 0, time.UTC)

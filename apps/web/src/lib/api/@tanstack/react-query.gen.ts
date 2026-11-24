@@ -209,7 +209,7 @@ export const listClaimsInfiniteOptions = (options: Options<ListClaimsData>) => {
 };
 
 /**
- * Create a claim and submit it for review (F-02). Sprint 1 always submits.
+ * Create a claim and submit it for review, or save it as a draft (F-02, F-05).
  *
  * Needs the `claim:create` route permission, and an assigned reviewer (BR-15). The server calculates the total and ignores any `total` in the request (BR-08).
  */

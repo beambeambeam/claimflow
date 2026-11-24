@@ -46,11 +46,11 @@ func NewService(pool Pool, now func() time.Time) Service {
 	return Service{pool: pool, now: now}
 }
 
-// Create stores a claim and submits it in one transaction: the claim, its line items, and one SUBMIT history entry
+// Create stores a claim and its line items in one transaction. When submit is true it also writes a SUBMIT history entry
 // (F02-AC-01, F02-AC-02). The assigned reviewer is copied from the actor's reviewer at this moment and never changes
 // afterwards (BR-17). An actor with no reviewer gets ErrForbidden (BR-15). The total is the sum of the items; the
-// input has no total (BR-08). Saving a draft is F-05, which adds its own call.
-func (s Service) Create(ctx context.Context, actor Actor, in Input) (Claim, error) {
+// input has no total (BR-08). A draft has no reviewer or submission times.
+func (s Service) Create(ctx context.Context, actor Actor, in Input, submit bool) (Claim, error) {
 	now := s.now()
 
 	var created Claim
@@ -67,11 +67,15 @@ func (s Service) Create(ctx context.Context, actor Actor, in Input) (Claim, erro
 			return ErrForbidden
 		}
 
-		if err := checkRules(in, now); err != nil {
+		var submittedAt time.Time
+		if submit {
+			submittedAt = now
+		}
+		if err := checkRules(in, submittedAt); err != nil {
 			return err
 		}
 
-		id, err := insertSubmitted(ctx, queries, actor, member.ReviewerID, in, now)
+		id, err := insertClaim(ctx, queries, actor, member.ReviewerID, in, now, submit)
 		if err != nil { // coverage-ignore
 			return err
 		}
@@ -304,39 +308,59 @@ func optionalComment(comment string) pgtype.Text {
 	return pgtype.Text{String: trimmed, Valid: trimmed != ""}
 }
 
-// insertSubmitted writes the claim, its line items in request order, and the SUBMIT history entry, and returns the claim id.
-func insertSubmitted(ctx context.Context, queries *db.Queries, actor Actor, reviewerID uuid.NullUUID, in Input, now time.Time) (uuid.UUID, error) {
+// insertClaim writes the new claim and its items, with history only for a direct submission.
+func insertClaim(ctx context.Context, queries *db.Queries, actor Actor, reviewerID uuid.NullUUID, in Input, now time.Time, submit bool) (uuid.UUID, error) {
 	seq, err := queries.NextClaimSequence(ctx)
 	if err != nil { // coverage-ignore
 		return uuid.Nil, fmt.Errorf("next claim number: %w", err)
 	}
 
-	var total money.Satang
-	for _, item := range in.Items {
-		total += item.Amount
-	}
-
 	id := uuid.Must(uuid.NewV7())
-
-	err = queries.InsertClaim(ctx, db.InsertClaimParams{
-		ID:                 id,
-		ClaimNo:            claimNumber(now, seq),
-		RequesterID:        actor.ID,
-		AssignedReviewerID: reviewerID,
-		Title:              in.Title,
-		Purpose:            in.Purpose,
-		Status:             db.ClaimStatusSUBMITTED,
-		TotalSatang:        total,
-		FirstSubmittedAt:   timestamptz(now),
-		SubmittedAt:        timestamptz(now),
-		Now:                timestamptz(now),
-	})
+	params := db.InsertDraftClaimParams{
+		ID: id, ClaimNo: claimNumber(now, seq), RequesterID: actor.ID,
+		Title: in.Title, Purpose: in.Purpose, TotalSatang: inputTotal(in.Items), Now: timestamptz(now),
+	}
+	if submit {
+		err = queries.InsertClaim(ctx, db.InsertClaimParams{
+			ID: id, ClaimNo: params.ClaimNo, RequesterID: actor.ID, AssignedReviewerID: reviewerID,
+			Title: in.Title, Purpose: in.Purpose, Status: db.ClaimStatusSUBMITTED, TotalSatang: params.TotalSatang,
+			FirstSubmittedAt: params.Now, SubmittedAt: params.Now, Now: params.Now,
+		})
+	} else {
+		err = queries.InsertDraftClaim(ctx, params)
+	}
 	if err != nil { // coverage-ignore
 		return uuid.Nil, fmt.Errorf("insert claim: %w", err)
 	}
 
-	for i, item := range in.Items {
-		err = queries.InsertLineItem(ctx, db.InsertLineItemParams{
+	if err := insertItems(ctx, queries, id, in.Items); err != nil { // coverage-ignore
+		return uuid.Nil, err
+	}
+
+	if submit {
+		err = queries.InsertClaimHistory(ctx, db.InsertClaimHistoryParams{
+			ClaimID: id, ActorID: actor.ID, Action: db.ClaimActionSUBMIT, ToStatus: db.ClaimStatusSUBMITTED, Now: params.Now,
+		})
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("insert history: %w", err)
+		}
+	}
+
+	return id, nil
+}
+
+func inputTotal(items []LineItemInput) money.Satang {
+	var total money.Satang
+	for _, item := range items {
+		total += item.Amount
+	}
+	return total
+}
+
+// insertItems stores the line items in request order.
+func insertItems(ctx context.Context, queries *db.Queries, id uuid.UUID, items []LineItemInput) error {
+	for i, item := range items {
+		err := queries.InsertLineItem(ctx, db.InsertLineItemParams{
 			ID:           uuid.Must(uuid.NewV7()),
 			ClaimID:      id,
 			LineNo:       int16(i + 1), //nolint:gosec // BR-05 limits a claim to 20 items, and the table CHECK enforces it
@@ -347,23 +371,10 @@ func insertSubmitted(ctx context.Context, queries *db.Queries, actor Actor, revi
 			ReceiptRef:   item.ReceiptRef,
 		})
 		if err != nil { // coverage-ignore
-			return uuid.Nil, fmt.Errorf("insert line item %d: %w", i+1, err)
+			return fmt.Errorf("insert line item %d: %w", i+1, err)
 		}
 	}
-
-	err = queries.InsertClaimHistory(ctx, db.InsertClaimHistoryParams{
-		ClaimID:    id,
-		ActorID:    actor.ID,
-		Action:     db.ClaimActionSUBMIT,
-		FromStatus: db.NullClaimStatus{},
-		ToStatus:   db.ClaimStatusSUBMITTED,
-		Now:        timestamptz(now),
-	})
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("insert history: %w", err)
-	}
-
-	return id, nil
+	return nil
 }
 
 // load reads a claim with its line items and history.

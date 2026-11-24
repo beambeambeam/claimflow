@@ -81,7 +81,7 @@ func runRuleCases(t *testing.T, cases []ruleCase) {
 		t.Run(test.name, func(t *testing.T) {
 			input := Input{Title: "Title", Purpose: "Purpose", Items: test.items}
 
-			_, err := service.Create(t.Context(), actor, input)
+			_, err := service.Create(t.Context(), actor, input, true)
 			if got := violations(t, err); !sameViolations(got, test.want) {
 				t.Fatalf("violations = %v, want %v", got, test.want)
 			}

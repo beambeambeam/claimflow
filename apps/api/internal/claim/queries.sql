@@ -16,6 +16,11 @@ VALUES (sqlc.arg(id), sqlc.arg(claim_no), sqlc.arg(requester_id), sqlc.narg(assi
         sqlc.arg(purpose), sqlc.arg(status), sqlc.arg(total_satang), sqlc.narg(first_submitted_at),
         sqlc.narg(submitted_at), sqlc.arg(now), sqlc.arg(now));
 
+-- name: InsertDraftClaim :exec
+INSERT INTO claims (id, claim_no, requester_id, title, purpose, status, total_satang, created_at, updated_at)
+VALUES (sqlc.arg(id), sqlc.arg(claim_no), sqlc.arg(requester_id), sqlc.arg(title), sqlc.arg(purpose),
+        'DRAFT', sqlc.arg(total_satang), sqlc.arg(now), sqlc.arg(now));
+
 -- name: InsertLineItem :exec
 INSERT INTO line_items (id, claim_id, line_no, category, description, expense_date, amount_satang, receipt_ref)
 VALUES (sqlc.arg(id), sqlc.arg(claim_id), sqlc.arg(line_no), sqlc.arg(category), sqlc.arg(description),
