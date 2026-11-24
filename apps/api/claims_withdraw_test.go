@@ -143,3 +143,111 @@ func TestF07TEST02WithdrawCommentIsOptionalWithAtMost500Characters(t *testing.T)
 		}
 	})
 }
+
+// F07-TEST-04 (F07-AC-04, FR-11, NFR-02): only the owner can withdraw. The assigned reviewer gets 403, and so does another
+// requester, with no claim data. The claim is unchanged.
+func TestF07TEST04OnlyTheOwnerCanWithdraw(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	id := submittedBy(t, router, "req.anan")
+	before := readState(t, pool, id)
+
+	for _, username := range []string{"rev.malee", "req.ploy"} {
+		recorder := decide(t, router, loginAs(t, router, username), id, "withdraw", `"0"`, "")
+		decodeProblem(t, recorder, http.StatusForbidden, "FORBIDDEN")
+
+		for _, leaked := range []string{`"data"`, "claimNo", "Bangkok workshop travel"} {
+			if strings.Contains(recorder.Body.String(), leaked) {
+				t.Fatalf("%s: body holds %q: %s", username, leaked, recorder.Body)
+			}
+		}
+	}
+
+	if after := readState(t, pool, id); after != before {
+		t.Fatalf("stored = %+v after the refused withdrawals, want %+v", after, before)
+	}
+}
+
+// F07-TEST-06 (F07-AC-05, BR-13): a stale version is a 409 CONFLICT, a missing If-Match is a 428, and a malformed one is a
+// 400. Each leaves the claim as it was.
+func TestF07TEST06WithdrawNeedsTheCurrentIfMatch(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	id := submittedBy(t, router, "req.anan")
+	token := loginAs(t, router, "req.anan")
+	before := readState(t, pool, id)
+
+	decodeProblem(t, decide(t, router, token, id, "withdraw", `"1"`, ""), http.StatusConflict, "CONFLICT")
+	decodeProblem(t, decide(t, router, token, id, "withdraw", "", ""), http.StatusPreconditionRequired, "PRECONDITION_REQUIRED")
+	decodeProblem(t, decide(t, router, token, id, "withdraw", "abc", ""), http.StatusBadRequest, "BAD_REQUEST")
+
+	if after := readState(t, pool, id); after != before {
+		t.Fatalf("stored = %+v after the refused withdrawals, want %+v", after, before)
+	}
+}
+
+// F07-TEST-07 (F07-AC-06, BR-03, BR-13, BR-10): WITHDRAWN is final. The reviewer's approve, reject, and return get 409
+// CONFLICT with the version read before the withdrawal and 409 INVALID_TRANSITION for BR-03 with the current one; the
+// owner's submit, edit, and delete get 409 INVALID_TRANSITION for BR-03, BR-10, and BR-10.
+func TestF07TEST07AWithdrawnClaimCannotBeActedOnAgain(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	id := submittedBy(t, router, "req.anan")
+	owner := loginAs(t, router, "req.anan")
+	reviewer := loginAs(t, router, "rev.malee")
+
+	if claim := decodeClaim(t, decide(t, router, owner, id, "withdraw", `"0"`, "")).Data; claim.Version != 1 {
+		t.Fatalf("version = %d after the withdrawal, want 1", claim.Version)
+	}
+
+	before := readState(t, pool, id)
+	reason := `{"comment": "Please attach the receipt."}`
+
+	for _, step := range []struct{ action, body, message string }{
+		{"approve", "", "Only a submitted claim can be approved or rejected."},
+		{"reject", reason, "Only a submitted claim can be approved or rejected."},
+		{"return", reason, "Only a submitted claim can be returned."},
+	} {
+		decodeProblem(t, decide(t, router, reviewer, id, step.action, `"0"`, step.body), http.StatusConflict, "CONFLICT")
+		expectTransition(t, decide(t, router, reviewer, id, step.action, `"1"`, step.body), "BR-03", step.message)
+	}
+
+	path := "/api/v1/claims/" + id
+	expectTransition(t, decide(t, router, owner, id, "submit", `"1"`, ""), "BR-03", "Only a draft or a returned claim can be submitted.")
+	expectTransition(t, draftRequest(t, router, owner, http.MethodPut, path, `"1"`, threeItemsBody()), "BR-10", "Only a draft or a returned claim can be edited.")
+	expectTransition(t, draftRequest(t, router, owner, http.MethodDelete, path, `"1"`, ""), "BR-10", "Only a draft can be deleted.")
+
+	if after := readState(t, pool, id); after != before {
+		t.Fatalf("stored = %+v after the refused steps, want %+v", after, before)
+	}
+}
+
+// F07-TEST-10 (F07-AC-08, FR-11): a withdrawn claim leaves the reviewer's review list. The owner and the assigned reviewer
+// can still open it and see the WITHDRAW entry, and neither has an action on it.
+func TestF07TEST10AWithdrawnClaimLeavesTheReviewQueueButStaysReadable(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	id := submittedBy(t, router, "req.anan")
+	owner := loginAs(t, router, "req.anan")
+	reviewer := loginAs(t, router, "rev.malee")
+
+	if queue := listClaims(t, router, reviewer, "?scope=review"); queue.Total != 1 {
+		t.Fatalf("review queue total = %d before the withdrawal, want 1", queue.Total)
+	}
+
+	decodeClaim(t, decide(t, router, owner, id, "withdraw", `"0"`, `{"comment": "No longer needed"}`))
+
+	if queue := listClaims(t, router, reviewer, "?scope=review"); queue.Total != 0 || len(queue.Data) != 0 {
+		t.Fatalf("review queue = %+v after the withdrawal, want it empty", queue)
+	}
+
+	for name, token := range map[string]string{"owner": owner, "reviewer": reviewer} {
+		claim := openClaim(t, router, token, id).Data
+		last := claim.History[len(claim.History)-1]
+
+		if claim.Status != "WITHDRAWN" || last.Action != "WITHDRAW" || last.Comment == nil || *last.Comment != "No longer needed" ||
+			claim.AllowedActions == nil || len(claim.AllowedActions) != 0 {
+			t.Fatalf("%s sees %s with last history %+v and actions %v, want WITHDRAWN, the WITHDRAW entry, and no actions", name, claim.Status, last, claim.AllowedActions)
+		}
+	}
+}
