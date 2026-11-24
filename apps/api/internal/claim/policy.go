@@ -50,22 +50,20 @@ func check(actor uuid.UUID, claim Subject, action Action) error {
 		if claim.Status == db.ClaimStatusDRAFT || (action == ActionEdit && claim.Status == db.ClaimStatusRETURNED) {
 			return nil
 		}
+		return ErrInvalidTransition
 	case ActionSubmit:
 		if claim.RequesterID != actor || (claim.Status == db.ClaimStatusDRAFT && !claim.OwnerHasReviewer) {
 			return ErrForbidden
-		}
-		if _, ok := transitions[action][claim.Status]; ok {
-			return nil
 		}
 	case ActionApprove, ActionReject:
 		if claim.RequesterID == actor || claim.AssignedReviewerID != actor {
 			return ErrForbidden
 		}
-		if _, ok := transitions[action][claim.Status]; ok {
-			return nil
-		}
 	}
 
+	if _, ok := transitions[action][claim.Status]; ok {
+		return nil
+	}
 	return ErrInvalidTransition
 }
 

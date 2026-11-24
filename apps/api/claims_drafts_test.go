@@ -224,6 +224,30 @@ func TestF05TEST10DraftMutationsRequireCurrentIfMatch(t *testing.T) {
 		})
 	}
 
+	t.Run("checks If-Match before edit input", func(t *testing.T) {
+		const invalidBody = `{"items":[]}`
+		rec := draftRequest(t, router, token, http.MethodPut, path, "", invalidBody)
+		decodeProblem(t, rec, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED")
+
+		rec = draftRequest(t, router, token, http.MethodPut, path, "abc", invalidBody)
+		decodeProblem(t, rec, http.StatusBadRequest, "BAD_REQUEST")
+		if fields := problemErrors(t, rec); len(fields) != 0 {
+			t.Fatalf("malformed If-Match reported body fields: %+v", fields)
+		}
+
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodPut, path, strings.NewReader(invalidBody))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Add("If-Match", `"0"`)
+		request.Header.Add("If-Match", `"1"`)
+		request.AddCookie(&http.Cookie{Name: "sid", Value: token, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
+		rec = httptest.NewRecorder()
+		router.ServeHTTP(rec, request)
+		decodeProblem(t, rec, http.StatusBadRequest, "BAD_REQUEST")
+		if fields := problemErrors(t, rec); len(fields) != 0 {
+			t.Fatalf("duplicate If-Match reported body fields: %+v", fields)
+		}
+	})
+
 	if stored := expectDraftResponse(t, getWithSession(t, router, path, token), http.StatusOK); !reflect.DeepEqual(stored, draft) {
 		t.Fatalf("refused mutation changed draft: %+v", stored)
 	}

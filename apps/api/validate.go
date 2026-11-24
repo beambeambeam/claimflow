@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
+	"github.com/beambeambeam/claimflow/apps/api/internal/claim"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
 
@@ -58,7 +59,11 @@ const defaultShapeMessage = "Enter a valid value."
 func requestValidation(spec *openapi3.T, validated []string) gin.HandlerFunc {
 	defineCalendarDate()
 
-	checks := map[string]*openapi3.Schema{}
+	type bodyCheck struct {
+		schema    *openapi3.Schema
+		versioned bool
+	}
+	checks := map[string]bodyCheck{}
 
 	for path, item := range spec.Paths.Map() {
 		for method, operation := range item.Operations() {
@@ -66,16 +71,27 @@ func requestValidation(spec *openapi3.T, validated []string) gin.HandlerFunc {
 				continue
 			}
 
-			checks[ginRoute(method, path)] = operation.RequestBody.Value.Content.Get("application/json").Schema.Value
+			checks[ginRoute(method, path)] = bodyCheck{
+				schema:    operation.RequestBody.Value.Content.Get("application/json").Schema.Value,
+				versioned: operation.Parameters.GetByInAndName(openapi3.ParameterInHeader, "If-Match") != nil,
+			}
 		}
 	}
 
 	return func(c *gin.Context) {
-		schema, ok := checks[c.Request.Method+" "+c.FullPath()]
+		check, ok := checks[c.Request.Method+" "+c.FullPath()]
 		if !ok {
 			c.Next()
 
 			return
+		}
+
+		// Edit checks the precondition before the body, and both before reading the claim (F-05 §1.4).
+		if check.versioned {
+			if invalid := claim.ValidateIfMatch(c.Request.Header.Values("If-Match")); invalid != nil {
+				reject(c, invalid)
+				return
+			}
 		}
 
 		raw, err := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, maxRequestBody))
@@ -94,14 +110,14 @@ func requestValidation(spec *openapi3.T, validated []string) gin.HandlerFunc {
 			return
 		}
 
-		err = schema.VisitJSON(value, openapi3.MultiErrors())
+		err = check.schema.VisitJSON(value, openapi3.MultiErrors())
 		if err == nil {
 			c.Next()
 
 			return
 		}
 
-		if fields := shapeErrors(err, schema); len(fields) > 0 {
+		if fields := shapeErrors(err, check.schema); len(fields) > 0 {
 			reject(c, httperr.InvalidFields(fields))
 
 			return

@@ -229,9 +229,9 @@ func (h Handler) SubmitClaim(ctx context.Context, request api.SubmitClaimRequest
 
 // mutationTarget reads If-Match before looking up the claim.
 func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, uuid.UUID, int, error) {
-	version, err := parseVersion(ifMatch)
-	if err != nil {
-		return Actor{}, uuid.Nil, 0, err
+	version, invalid := parseVersion(ifMatch)
+	if invalid != nil {
+		return Actor{}, uuid.Nil, 0, invalid
 	}
 
 	user, ok := auth.UserFrom(ctx)
@@ -302,9 +302,22 @@ func etag(version int) string {
 	return strconv.Quote(strconv.Itoa(version))
 }
 
+// ValidateIfMatch checks the version header ahead of request body validation.
+func ValidateIfMatch(values []string) *httperr.Error {
+	switch len(values) {
+	case 0:
+		return httperr.ErrPreconditionRequired
+	case 1:
+		_, invalid := parseVersion(&values[0])
+		return invalid
+	default:
+		return httperr.ErrValidation
+	}
+}
+
 // parseVersion reads the claim version from an If-Match value such as "3". A missing header is 428. A value that is not
 // a quoted version number is 400: no quotes, a weak validator, a sign or a fraction, or more than 31 bits.
-func parseVersion(ifMatch *string) (int, error) {
+func parseVersion(ifMatch *string) (int, *httperr.Error) {
 	if ifMatch == nil {
 		return 0, httperr.ErrPreconditionRequired
 	}
