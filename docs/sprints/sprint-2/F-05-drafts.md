@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-01 (new endpoints), SR-04 (`SUBMIT` from `DRAFT`, edit and delete with the version check), SR-06
 - **Depends on:** F-02 (claim rules, `ClaimInput`, New Claim form), F-03 (claim policy, Claim Detail), F-04 (`If-Match` handling)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claims`, `line_items`; §2.4 time; §3.1; §3.2 `SAVE_DRAFT`, `SUBMIT`, `DELETE`; §3.3; §4.1 versions; §4.3 `POST /claims?draft=true`, `PUT /claims/{id}`, `DELETE /claims/{id}`, `POST /claims/{id}/submit`; §5.2; §7.1 Edit Claim
-- **Version:** 0.1 · **Last updated:** 2026-11-23
+- **Version:** 0.2 · **Last updated:** 2026-11-24
 
 ---
 
@@ -90,7 +90,7 @@ This order applies to every Sprint 2 operation on an existing claim: `PUT`, `DEL
 | 1. `If-Match` header | missing / malformed | 428 `PRECONDITION_REQUIRED` / 400 |
 | 2. Claim exists | no | 404 `NOT_FOUND` |
 | 3. Claim visible to actor | no | 403 `FORBIDDEN`, no claim data |
-| 4. Actor relation allows the action | owner action by a non-owner; reviewer action by the owner (BR-01) or an unassigned member (BR-02); `submit` by an owner with no assigned reviewer (BR-15) | 403 `FORBIDDEN` |
+| 4. Actor relation allows the action | owner action by a non-owner; reviewer action by the owner (BR-01) or an unassigned member (BR-02); `submit` of a `DRAFT` by an owner with no assigned reviewer (BR-15; a `RETURNED` claim keeps its assigned reviewer, so BR-15 is not checked there, F-06 §1.7) | 403 `FORBIDDEN` |
 | 5. Status allows the action | §1.5 | 409 `INVALID_TRANSITION` with the rule in `errors[0].rule`; 409 `CONFLICT` instead when the `If-Match` version is not the current one (BR-13, F-04 revision 0.4) |
 | 6. Field rules | edit: BR-05, BR-06, BR-12; submit: BR-05, BR-06, BR-07, BR-12; return: BR-04 | 422 `VALIDATION_FAILED`, one `errors[]` entry per field |
 | 7. Conditional `UPDATE` / `DELETE` | version changed (BR-13) | 409 `CONFLICT` |
@@ -161,7 +161,7 @@ Fixed clock: `2026-11-25T10:00:00+07:00` unless stated.
 | `GET /claims/{id}` (draft) | 401 | 200 | 403 | 403 (drafts have no reviewer) | 403 |
 | `PUT /claims/{id}` | 401 | `DRAFT`/`RETURNED` | 403 | 403 | 403 |
 | `DELETE /claims/{id}` | 401 | `DRAFT` | 403 | 403 | 403 |
-| `POST /claims/{id}/submit` | 401 | `DRAFT`/`RETURNED`, has an assigned reviewer | 403 | 403 | 403 |
+| `POST /claims/{id}/submit` | 401 | `DRAFT` with an assigned reviewer, or `RETURNED` | 403 | 403 | 403 |
 
 The route inventory test (F01-TEST-12, SDS §5.3) covers 401 for the three new operations without new code.
 
@@ -321,3 +321,4 @@ The Sprint 2 Product DoD (`docs/sprints/sprint-2/definition-of-done.md`) applies
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-23 | Initial contract, from the F-05 feature spec (#23) and tickets #39–#42 | beambeambeam |
+| 0.2 | 2026-11-24 | Review fixes (PR #100): §1.4 step 4 and §1.8 check BR-15 on `submit` only for a `DRAFT`; a `RETURNED` claim keeps its assigned reviewer (F06-TEST-17) | beambeambeam |

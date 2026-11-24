@@ -101,6 +101,7 @@ Fixed clock `2026-11-25T10:00:00+07:00`. `req.anan`'s claim is assigned to `rev.
 | Resubmit when `first_submitted_at` is 2026-11-20 and an item is dated 2026-08-22 (90 days before) | 200 |
 | Resubmit when `first_submitted_at` is 2026-11-20 and an item is dated 2026-08-21 (91 days before) | 422 `items[n].expenseDate`, BR-07; claim stays `RETURNED` |
 | Resubmit after the owner's `reviewer_id` changed to `rev.somchai` | 200; `assignedReviewer` still `rev.malee` |
+| Resubmit after the owner's `reviewer_id` became NULL | 200; `assignedReviewer` still `rev.malee` (BR-15 is not checked, §1.7) |
 | `rev.malee` resubmits the claim | 403 |
 | `fin.wanida` is the assigned reviewer of `rev.prasert`'s claim and returns it | 200 (the Finance Officer is the assigned reviewer of a department head's claim, ADR-0001, BR-02) |
 | History insert fails during return or resubmit | 500; status, `return_count`, `submitted_at`, and `version` unchanged |
@@ -173,7 +174,7 @@ The amber **Returned** badge shows in My Claims. The Review Queue does not list 
 | F06-AC-04 | BR-03, BR-13 | Return on an `APPROVED`, `REJECTED`, or `RETURNED` claim with the current version → 409 `INVALID_TRANSITION`, BR-03; with a stale version → 409 `CONFLICT`. |
 | F06-AC-05 | BR-14 | A claim with `returnCount` 3 cannot be returned: the policy gives no `return`, and the endpoint → 409 `INVALID_TRANSITION`, BR-14. The reviewer can still approve or reject it. |
 | F06-AC-06 | FR-09, FR-10 | A returned claim is not in the reviewer's `scope=review` list and is in the owner's `scope=mine` list as `RETURNED`. The assigned reviewer can still open it (200, no `allowedActions`). After a resubmission it is back in `scope=review`, ordered by its new `submittedAt`. |
-| F06-AC-07 | FR-10, FR-07, BR-17, NFR-06 | The owner resubmits a `RETURNED` claim with the current version → 200: status `SUBMITTED`, `submittedAt` = now, `firstSubmittedAt` and `assignedReviewer` unchanged (even if the owner's `reviewer_id` changed), `version` + 1, and one `RESUBMIT` history row. |
+| F06-AC-07 | FR-10, FR-07, BR-17, NFR-06 | The owner resubmits a `RETURNED` claim with the current version → 200: status `SUBMITTED`, `submittedAt` = now, `firstSubmittedAt` and `assignedReviewer` unchanged (even if the owner's `reviewer_id` changed or became NULL), `version` + 1, and one `RESUBMIT` history row. |
 | F06-AC-08 | BR-07 | Resubmission checks the 90-day window from `firstSubmittedAt`: with `firstSubmittedAt` 2026-11-20, an item dated 2026-08-22 → 200, 2026-08-21 → 422 BR-07; after a 422 the claim stays `RETURNED` with no new history. |
 | F06-AC-09 | FR-10, BR-10 | The owner edits a `RETURNED` claim with the F-05 edit path → 200; a non-owner → 403; the reviewer cannot resubmit → 403. |
 | F06-AC-10 | NFR-06 | If the history insert fails during a return or a resubmission, the response is 500 and status, `returnCount`, `submittedAt`, and `version` are unchanged. |
@@ -200,6 +201,7 @@ The amber **Returned** badge shows in My Claims. The Review Queue does not list 
 | F06-TEST-13 | F06-AC-11 | Component | MSW claim with `allowedActions` `[approve, reject, return]`, `returnCount` 1; return 200, 422, 409; a claim with `returnCount` 3 and `[approve, reject]` | Render the Decision Panel; return with short and valid reasons | Button "Return (1 / 3)"; the dialog matches the Reject case of F04-TEST-21 (counter, client checks, button disabled while sending); "Claim returned." and navigation to the queue; field error on 422; reload toast on 409; "Returned 3 / 3 – approve or reject." for the second claim |
 | F06-TEST-14 | F06-AC-12 | Component | MSW `RETURNED` claim with a `RETURN` history entry, `returnCount` 2, `allowedActions` `[edit, submit, withdraw]`; submit 200 | Render Claim Detail as the owner; click **Resubmit** | Banner with reviewer, date, and reason; "Returned 2 / 3"; Edit and Resubmit buttons; "Claim resubmitted." |
 | F06-TEST-15 | F06-AC-13 | E2E | Seeded database | Full return-and-resubmit flow in §5 | History in order `SUBMIT`, `RETURN`, `RESUBMIT`, `APPROVE`; final status Approved |
+| F06-TEST-17 | F06-AC-07 | Integration (module) | Test requester with reviewer `rev.malee` and a `RETURNED` claim; then the requester's `reviewer_id` set to NULL | `Get`; `Act(SUBMIT)` | `submit` in `allowedActions`; success; `SUBMITTED`, `assignedReviewer` `rev.malee`, 1 new `RESUBMIT` row |
 | F06-TEST-16 | F04-AC-19 (seed) | Integration | Empty database | Run seed twice | The F-06 returned claim exists once with `returnCount` 1 and 2 history rows |
 
 ## 7. Feature Definition of Done
@@ -216,4 +218,4 @@ The Sprint 2 Product DoD applies. For F-06 the evidence is:
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-23 | Initial contract, from the F-06 feature spec and tickets #43–#44 | beambeambeam |
-| 0.2 | 2026-11-24 | Review fixes (PR #100): the Return dialog behaves like the Reject dialog and reads the same schema, so it adds no client minimum of its own (§1.6, §2.1, F06-AC-11, F06-TEST-13). A Finance Officer returning a department head's claim cites ADR-0001 and BR-02, not BR-15, and F06-TEST-04 tests it (§1.8, F06-AC-03) | beambeambeam |
+| 0.2 | 2026-11-24 | Review fixes (PR #100): the Return dialog behaves like the Reject dialog and reads the same schema, so it adds no client minimum of its own (§1.6, §2.1, F06-AC-11, F06-TEST-13). A Finance Officer returning a department head's claim cites ADR-0001 and BR-02, not BR-15, and F06-TEST-04 tests it (§1.8, F06-AC-03). F06-TEST-17: resubmission works when the owner's `reviewer_id` is NULL (§1.8, F06-AC-07) | beambeambeam |
