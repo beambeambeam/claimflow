@@ -102,7 +102,7 @@ Reverse check: every feature F-01–F-10 and every responsibility SR-01–SR-07 
 
 ### F-05 test results
 
-The Go race suite passed with 100% coverage on `e26fb74`. The initial web CI run passed 145 tests but missed the coverage gate. The PR #104 follow-up covers draft recovery under F05-TEST-22 and 23. The local CI command passed all 157 web tests with 100% statement, branch, function, and line coverage. The E2E spec passed on `d5e047e` in Chromium with seeded PostgreSQL and the built web app served by the API. The full Playwright run passed with `--timeout=60000`. Pull request CI and the merge commit remain pending.
+The Go race suite and all 157 web tests passed locally on `29c90115c9e2298ec98aa280baf7049547d0ce6a` with 100% coverage. F05-TEST-25 and the other five Playwright specs passed on the same commit in Chromium with seeded PostgreSQL and the built web app served by the API. The Playwright run used `--timeout=60000`. All five required GitHub checks passed on the tested commit. [CI run](https://github.com/beambeambeam/claimflow/actions/runs/45433664453)
 
 | Test | AC | Actual test | Result |
 | --- | --- | --- | --- |
@@ -134,7 +134,7 @@ The Go race suite passed with 100% coverage on `e26fb74`. The initial web CI run
 | F05-TEST-26 | F04-AC-19 (seed) | `apps/api/seed_test.go` · `TestF04TEST22SeedAddsSampleClaimsOnce/F05-TEST-26/draft is seeded once with two items and no history` | pass |
 
 - New endpoint session checks passed in `apps/api/auth_routes_test.go › TestF01TEST12EveryOperationNeedsASession`.
-- F01-TEST-18 passed on `d5e047e`. No local environment files are tracked, and Gitleaks found no leaks in the ten implementation commits.
+- F01-TEST-18 passed on `29c9011`. No local environment files are tracked, and Gitleaks found no leaks in the thirteen commits through that revision.
 - BR-10 (F05-TEST-09 and 19) failed on `ec2179d` and passed on `dd31979`. BR-07 (F05-TEST-12) failed on `4dcf8d4` and passed on `06c5fa0`.
 - F05-TEST-01 failed on `fad37c0` and passed on `2e85425`. BR-15's Finance Officer case (F05-TEST-03) already passed on `fad37c0`. F05-TEST-04 verifies the module guard for a requester without a reviewer.
 
