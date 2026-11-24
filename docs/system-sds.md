@@ -2,9 +2,9 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.17 (draft for Deliverable 1)
-- **Last updated:** 2026-11-22
-- **Baseline:** `docs/srs.md` v0.2 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
+- **Version:** 0.18 (draft for Deliverable 1)
+- **Last updated:** 2026-11-24
+- **Baseline:** `docs/srs.md` v0.3 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
 This document defines the system-wide design: architecture, data model, the API contract and its conventions, roles and access, authentication, configuration, and deployment. Each feature contract in `docs/sprints/` refines it with exact operations in `apps/api/openapi.yaml`, screens, and schema changes.
 
@@ -282,7 +282,7 @@ Indexes: `(requester_id, status)` and `(assigned_reviewer_id, status)`.
 | action | ENUM `SUBMIT`, `APPROVE`, `REJECT`, `RETURN`, `RESUBMIT`, `WITHDRAW`, `FINAL_APPROVE`, `FINAL_REJECT` | NOT NULL |
 | from_status | claim status ENUM | NULL for a claim submitted directly (no draft) |
 | to_status | claim status ENUM | NOT NULL |
-| comment | VARCHAR(500) | NULL. Required (5–500 non-blank chars) for REJECT, RETURN, and FINAL_REJECT (BR-04), checked by the claim module. |
+| comment | VARCHAR(500) | NULL. Required (10–500 non-blank chars) for REJECT, RETURN, and FINAL_REJECT (BR-04), checked by the claim module when the entry is written. Entries written under the earlier 5-character minimum are kept as stored and not checked again (BR-11). |
 | created_at | TIMESTAMPTZ | NOT NULL, default now() |
 
 - A `BEFORE UPDATE OR DELETE` trigger on `claim_history` raises an error, so no code path can change history (BR-11). An integration test checks this.
@@ -759,6 +759,7 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.12 | 2026-11-15 | Sprint 1 release. Records the changes that feature PRs made: `OperationPermissions` and the per-operation check (1.4.1, 5.1, PR #59); `validate.go` (1.4.1, PR #60); the stale-version exception in 3.3 (PR #65, F-04 contract 0.4). Adds what Sprint 1 built differently from 3.1 and 8 (the `List` methods, string actions, empty session audit fields), tracked in #67 | 1005 |
 | 0.16 | 2026-11-22 | E2E (10): Playwright runs against a local seeded stack before each release, not in CI, per Product DoD 0.3 item 4 (#66) | beambeambeam |
 | 0.17 | 2026-11-22 | Sprint 1 follow-ups (#67, #70): §3.1 "As built" note says `Create` has no `submit` flag; session creation stores `ip_address` from gin's `ClientIP` and the `User-Agent` | beambeambeam |
+| 0.18 | 2026-11-24 | Lab 7 change L7/01 (#99), SRS 0.3: the BR-04 reason minimum in `claim_history.comment` (2.2) is 10 characters, not 5. No schema change: the column stays `VARCHAR(500)` NULL, and existing history rows are not checked again | 1005 |
 | 0.15 | 2026-11-19 | Release identity (9): images carry the SHA only; a version maps to its SHA (#54) | 1005 |
 | 0.14 | 2026-11-18 | 9.1 matches the live rulesets: admin bypass on `sprint` and `lab`, up to date before merging on all three, no last-push approval rule (#53) | 1005 |
 | 0.13 | 2026-11-17 | Lab 5 (#53): the root `Dockerfile` and `WEB_DIR` (8, 9); the `migrate` compose service (9); `image` replaces `api_image` and is a required check in the `main`, `sprint`, and `lab` rulesets; the `lab` ruleset is documented (9, 9.1) | 1005 |
