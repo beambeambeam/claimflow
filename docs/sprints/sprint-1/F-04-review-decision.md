@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-03 (NFR-05, local restart), SR-04 (BR-03, BR-11, BR-13, NFR-06)
 - **Depends on:** F-01, F-02, F-03 (claim policy and Claim Detail)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claim_history`; §3.2 `APPROVE`, `REJECT`; §3.3; §4.1 versions; §4.3 `approve`, `reject`; §5.2; §5.3 `scope=review` and access tests; §7.2 decisions; ADR-0001
-- **Version:** 0.7 · **Last updated:** 2026-11-22
+- **Version:** 0.8 · **Last updated:** 2026-11-24
 
 ---
 
@@ -73,20 +73,20 @@ Steps 4 and 5 both come from the policy: when the actor's relation is wrong, the
 ### 1.5 Comment rule (BR-04)
 
 - The comment is trimmed. Length is counted in Unicode characters (Thai text counts per character, not per byte).
-- `reject`: required, 5–500 characters.
+- `reject`: required, 10–500 characters.
 - `approve`: optional; empty or blank is stored as NULL; if present, at most 500 characters.
 
 | Input | Message |
 | --- | --- |
-| Missing or blank (reject) | "Enter a reason (5 to 500 characters)." |
-| 1–4 characters (reject) | "Reason must be at least 5 characters." |
+| Missing or blank (reject) | "Enter a reason (10 to 500 characters)." |
+| 1–9 characters (reject) | "Reason must be at least 10 characters." |
 | More than 500 (reject or approve) | "Comment cannot be more than 500 characters." |
 
 ### 1.6 Failure and boundary cases
 
 | Case | Result |
 | --- | --- |
-| Reject reason of 4 / 5 / 500 / 501 characters | 422 / 200 / 200 / 422 |
+| Reject reason of 9 / 10 / 500 / 501 characters | 422 / 200 / 200 / 422 |
 | `rev.malee` approves her own claim (assigned to `rev.prasert`) | 403 (BR-01) |
 | Policy called with a claim whose `assigned_reviewer_id = requester_id` | No `approve` or `reject` in actions (BR-01). The database CHECK also refuses to store such a row. |
 | `rev.somchai` approves `req.anan`'s claim (assigned to `rev.malee`) | 403 (BR-02) |
@@ -124,7 +124,7 @@ The route file `_auth/claims/$claimId.tsx` renders `DecisionPanel` from `feature
 | Control | Behavior |
 | --- | --- |
 | **Approve** | Opens a confirmation dialog: "Approve claim CLM-…?", optional comment, **Approve** and **Cancel**. |
-| **Reject** | Opens a dialog with a required reason field, a counter (`0/500`), the field messages from §1.5, **Reject** and **Cancel**. |
+| **Reject** | Opens a dialog with a required reason field, a counter (`0/500`), the field messages from §1.5, **Reject** and **Cancel**. **Reject** stays disabled while the trimmed reason has fewer than 10 characters, and once any text is entered the field shows "Reason must be at least 10 characters." The limits come from the API contract (`minLength` and `maxLength`), as the counter's does. The API still checks the rule: a 422 shows its §1.5 message under the field (row 422). |
 | Sending | Dialog buttons disabled with a spinner. |
 | Success | Toast "Claim approved." or "Claim rejected."; the claim detail and the queue are refetched; the panel disappears because `allowedActions` is empty. |
 | 409 | Toast "This claim was changed by someone else – reloaded", then refetch. |
@@ -199,7 +199,7 @@ Example 409 for an invalid transition:
 | F04-AC-03 | FR-05 | The assigned reviewer opens a `SUBMITTED` claim → 200 with full history and `allowedActions = ["approve", "reject"]`. |
 | F04-AC-04 | FR-06, FR-07, NFR-06 | `rev.malee` approves `req.anan`'s `SUBMITTED` claim with the current `If-Match` → 200: status `APPROVED`, `decidedAt` = now, `version` + 1, new `ETag`, and one new history entry (`APPROVE`, `SUBMITTED` → `APPROVED`, actor `rev.malee`, the comment or `null`). The claim leaves her queue. |
 | F04-AC-05 | FR-06, FR-07, BR-04 | `rev.malee` rejects with a valid reason → 200: status `REJECTED`, `decidedAt` set, one `REJECT` history entry with the reason. `req.anan` sees the reason in the claim's history. |
-| F04-AC-06 | BR-04, NFR-08 | Reject with a missing or blank reason, or 4 or 501 characters → 422 with `field = "comment"`, `rule = "BR-04"`, and the message from §1.5. 5 and 500 characters → 200. Approve with a 501-character comment → 422. |
+| F04-AC-06 | BR-04, NFR-08 | Reject with a missing or blank reason, or 9 or 501 characters → 422 with `field = "comment"`, `rule = "BR-04"`, and the message from §1.5. 10 and 500 characters → 200. Approve with a 501-character comment → 422. |
 | F04-AC-07 | BR-01 | `rev.malee` approves or rejects her own claim → 403, and status and history are unchanged. The policy gives no `approve` or `reject` when `assigned_reviewer_id = requester_id`, and the database refuses to store such a claim. |
 | F04-AC-08 | BR-02, NFR-02 | `rev.somchai` approves or rejects `req.anan`'s claim → 403 with no claim data; status and history are unchanged. |
 | F04-AC-09 | BR-02, NFR-02 | `req.anan` calls approve on his own claim → 403. `req.ploy` calls approve on `req.anan`'s claim → 403. |
@@ -211,7 +211,7 @@ Example 409 for an invalid transition:
 | F04-AC-15 | BR-11 | `UPDATE` and `DELETE` on any `claim_history` row fail with a database error. Deleting a claim that has history fails. |
 | F04-AC-16 | NFR-05 | After the API process and the PostgreSQL container restart (volume kept), every claim, line item, and history entry created before the restart is returned unchanged. |
 | F04-AC-17 | FR-05 | Review Queue shows the columns in §2.1, skeleton rows while loading, "No claims waiting for your review." when empty, and an inline error with **Try again**. A requester who opens `/reviews` sees the 403 page. |
-| F04-AC-18 | FR-06, NFR-08 | The decision panel appears only when `allowedActions` has a decision. Approve asks for confirmation; Reject needs a reason and shows the field message. Success shows a toast and refetches; 409 shows "This claim was changed by someone else – reloaded" and refetches. |
+| F04-AC-18 | FR-06, NFR-08 | The decision panel appears only when `allowedActions` has a decision. Approve asks for confirmation; Reject needs a reason of at least 10 characters: its button is disabled below that and the field shows the message, and a 422 shows the API's message. Success shows a toast and refetches; 409 shows "This claim was changed by someone else – reloaded" and refetches. |
 | F04-AC-19 | FR-05 | `bun run seed` creates the sample claims in §4 with their history. Running it twice gives the same rows. |
 | F04-AC-20 | FR-06, FR-07 | End to end: `req.anan` submits a claim, `rev.malee` approves it from the Review Queue, and `req.anan` sees `Approved` with the `SUBMIT` and `APPROVE` entries in history. |
 
@@ -226,8 +226,8 @@ Levels as in F-01 §6. Module tests call `claim.Service.Act` against `pgtest` Po
 | F04-TEST-03 | F04-AC-03 | Integration | `req.anan`'s `SUBMITTED` claim | `GET /claims/{id}` as `rev.malee` | 200; `allowedActions = ["approve", "reject"]`; history present |
 | F04-TEST-04 | F04-AC-04 | Integration | Same claim, version `v` | `POST …/approve` with `If-Match: "v"` and comment "OK" | 200; status `APPROVED`; `decidedAt` = clock; `version = v + 1`; `ETag: "v+1"`; 2 history rows, last is `APPROVE` with comment "OK"; claim not in `scope=review` |
 | F04-TEST-05 | F04-AC-05 | Integration | Same claim | `POST …/reject` with reason "Missing receipt" | 200; `REJECTED`; last history `REJECT` with the reason; `GET` as `req.anan` shows it |
-| F04-TEST-06 | F04-AC-06 | Integration (module) | `SUBMITTED` claim | `Act(REJECT)` with no comment, `"   "`, 4 chars, 5 chars, 500 chars, 501 chars; `Act(APPROVE)` with 501 chars | `ValidationError{comment, BR-04}` ×3, ok, ok, BR-04 error; BR-04 error |
-| F04-TEST-07 | F04-AC-06 | Integration | `SUBMITTED` claim | `POST …/reject` with no `comment`; with `"   "`; with a 4-character reason | 422 each; `errors[0]` = `comment`, BR-04, with "Enter a reason (5 to 500 characters).", "Enter a reason (5 to 500 characters).", and "Reason must be at least 5 characters." |
+| F04-TEST-06 | F04-AC-06 | Integration (module) | `SUBMITTED` claim | `Act(REJECT)` with no comment, `"   "`, 9 chars, 10 chars, 500 chars, 501 chars; `Act(APPROVE)` with 501 chars | `ValidationError{comment, BR-04}` ×3, ok, ok, BR-04 error; BR-04 error |
+| F04-TEST-07 | F04-AC-06 | Integration | `SUBMITTED` claim | `POST …/reject` with no `comment`; with `"   "`; with a 9-character reason | 422 each; `errors[0]` = `comment`, BR-04, with "Enter a reason (10 to 500 characters).", "Enter a reason (10 to 500 characters).", and "Reason must be at least 10 characters." |
 | F04-TEST-08 | F04-AC-07 | Integration | `rev.malee`'s own `SUBMITTED` claim (assigned to `rev.prasert`) | `POST …/approve` and `…/reject` as `rev.malee` | 403 for both; status `SUBMITTED`; history length unchanged |
 | F04-TEST-09 | F04-AC-07 | Unit | In-memory claim with `requester_id = assigned_reviewer_id = rev.malee`, `SUBMITTED` | `Allowed(rev.malee, claim)` | `approve` and `reject` not in actions |
 | F04-TEST-10 | F04-AC-07 | Integration | – | `INSERT` a claim with `assigned_reviewer_id = requester_id` | CHECK constraint error |
@@ -241,10 +241,10 @@ Levels as in F-01 §6. Module tests call `claim.Service.Act` against `pgtest` Po
 | F04-TEST-18 | F04-AC-15 | Integration | Claim with 2 history rows | `UPDATE claim_history SET comment = 'x'`; `DELETE FROM claim_history`; `DELETE FROM claims WHERE id = …` | Each statement fails; rows unchanged |
 | F04-TEST-19 | F04-AC-16 | Manual | `docker compose` database with a named volume; seed plus one claim created and approved through the UI | Stop the API and the database container; start both; open My Claims and the claim as `req.anan` | Same claims, items, totals, and history as before the restart; result recorded with the commit |
 | F04-TEST-20 | F04-AC-17 | Component | MSW: queue with 2 claims; empty; 500; `/auth/me` as requester | Render Review Queue for each | Columns and order; empty message; error with **Try again**; requester sees the 403 page |
-| F04-TEST-21 | F04-AC-18 | Component | MSW claim with `allowedActions` `[]` and `["approve", "reject"]`; approve 200; reject 422; approve 409; approve 403 | Render; open each dialog and submit | No panel for `[]`; confirm dialog; reason message under the field with text kept; toast on success; 409 toast and refetch; 403 access page, and another claim still opens |
+| F04-TEST-21 | F04-AC-18 | Component | MSW claim with `allowedActions` `[]` and `["approve", "reject"]`; approve 200; reject 422; approve 409; approve 403 | Render; open each dialog and submit; type a 9-character, then a 10-character reason; for the mocked 422, submit a 10-character reason that the mock refuses | No panel for `[]`; confirm dialog; **Reject** disabled with the "at least 10 characters" message at 9 characters and enabled at 10; the mocked 422 message under the field with the 10-character text kept (the dialog cannot send a shorter reason); toast on success; 409 toast and refetch; 403 access page, and another claim still opens |
 | F04-TEST-22 | F04-AC-19 | Integration | Empty database | Run seed twice | Claims in §4 with their history exist after the first run; row counts are the same after the second |
 | F04-TEST-23 | F04-AC-20 | E2E | Seeded database | Log in as `req.anan` and submit; log in as `rev.malee`, open the claim from Review Queue, approve; log in as `req.anan`, open the claim | Status `Approved`; history shows `SUBMIT` then `APPROVE` with actor names |
-| F04-TEST-24 | F04-AC-05, F04-AC-18 | E2E | Seeded `SUBMITTED` claim | `rev.malee` rejects with "Receipt missing"; `req.anan` opens the claim | Status `Rejected`; reason shown in history |
+| F04-TEST-24 | F04-AC-05, F04-AC-18 | E2E | Seeded `SUBMITTED` claim | `rev.malee` opens the Reject dialog; leaves the reason empty, then types a 9-character reason; then rejects with "Receipt missing"; `req.anan` opens the claim | **Reject** is disabled for the empty and the 9-character reason, with the "at least 10 characters" message for the 9-character one; status `Rejected`; reason shown in history |
 
 ## 7. Feature Definition of Done
 
@@ -270,3 +270,4 @@ The Product DoD applies. For F-04 the evidence is:
 | 0.5 | 2026-11-15 | Sprint 1 release: §7 Feature DoD checked, each item with its evidence; F04-TEST-19 recorded again on `29fd6fb`. The sequence diagram in §1.2 writes ", then" where a message had ";", so GitHub renders it. No AC or test changed | 1005 |
 | 0.6 | 2026-11-22 | §7: the Playwright item follows Product DoD 0.3 item 4 (local seeded stack, not CI), and the #66 note is removed. No AC or test changed | beambeambeam |
 | 0.7 | 2026-11-22 | Follow-up (#67): F04-TEST-21 adds the approve 403 case: the access page shows no claim data, and another claim still opens after it | beambeambeam |
+| 0.8 | 2026-11-24 | Lab 7 change L7/01 (#99), SRS 0.3 BR-04: a reject reason needs 10–500 characters, not 5–500. Revised §1.5 (rule and both messages), the §1.6 boundary row, the §2.2 Reject row, F04-AC-06 (9 characters → 422, 10 → 200), F04-AC-18 (Reject is disabled below 10 characters), and the inputs and expected results of F04-TEST-06, 07, and 21 (the dialog blocks a reason under 10 characters), and F04-TEST-24 (its steps now check the disabled Reject button for an empty and a short reason; its reason "Receipt missing" (15 characters) is unchanged). Every other AC and test is unchanged. The §7 results were recorded under the 5–500 rule of 0.1–0.7 | 1005 |
