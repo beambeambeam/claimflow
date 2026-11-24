@@ -1,4 +1,6 @@
+import { Banner } from "@astryxdesign/core/Banner";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Link } from "@astryxdesign/core/Link";
 import { List, ListItem } from "@astryxdesign/core/List";
 import {
   MetadataList,
@@ -11,14 +13,20 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { DateText } from "#/components/date-text";
-import { LoadError } from "#/components/load-error";
 import { Money } from "#/components/money";
 import { StatusBadge, statusLabels } from "#/components/status-badge";
 import { TextSkeleton } from "#/components/text-skeleton";
 import { actionLabels, categoryLabels } from "#/features/claims/labels";
 import { getClaimOptions } from "#/lib/api/@tanstack/react-query.gen";
-import type { Claim, HistoryEntry, LineItem } from "#/lib/api/types.gen";
-import { isProblem } from "#/lib/problem";
+import type {
+  Claim,
+  FieldError,
+  HistoryEntry,
+  LineItem,
+} from "#/lib/api/types.gen";
+
+import { ClaimAccessDenied, ClaimLoadFailure } from "./claim-load-failure";
+import { ClaimOwnerActions } from "./claim-owner-actions";
 
 const itemColumns: TableColumn<LineItem>[] = [
   { key: "lineNo", header: "#" },
@@ -99,6 +107,41 @@ const HistoryTimeline = ({ history }: { history: HistoryEntry[] }) => (
 // The slot under the claim header. `deny` swaps the page for the access message, as when a decision gets a 403.
 type ClaimActions = (claim: Claim, deny: () => void) => React.ReactNode;
 
+const lineField = /^items\[(?<index>\d+)\]\./u;
+
+const SubmissionErrors = ({
+  claim,
+  fields,
+}: {
+  claim: Claim;
+  fields: FieldError[];
+}) => (
+  <Banner
+    status="error"
+    title="Check the claim before submitting."
+    description={
+      <VStack gap={1} role="alert">
+        {fields.map(({ field, message }) => {
+          const index = lineField.exec(field)?.groups?.index;
+
+          return (
+            <Text key={field} type="body">
+              {index === undefined
+                ? message
+                : `Line ${Number(index) + 1}: ${message}`}
+            </Text>
+          );
+        })}
+      </VStack>
+    }
+    endContent={
+      claim.allowedActions.includes("edit") ? (
+        <Link href={`/claims/${claim.id}/edit`}>Edit</Link>
+      ) : undefined
+    }
+  />
+);
+
 const ClaimView = ({
   claim,
   actions,
@@ -107,42 +150,67 @@ const ClaimView = ({
   claim: Claim;
   actions?: ClaimActions;
   deny: () => void;
-}) => (
-  <VStack gap={6} hAlign="stretch">
-    <VStack aria-label="Claim" as="section" gap={2}>
-      <HStack gap={3} vAlign="center">
-        <Heading level={1}>{claim.claimNo}</Heading>
-        <StatusBadge status={claim.status} />
-      </HStack>
-      <Text type="large">{claim.title}</Text>
-      <Money value={claim.total} />
-      {actions?.(claim, deny)}
+}) => {
+  const [submitErrors, setSubmitErrors] = useState<FieldError[]>([]);
+  const draft = claim.status === "DRAFT";
+
+  return (
+    <VStack gap={6} hAlign="stretch">
+      <VStack aria-label="Claim" as="section" gap={2}>
+        <HStack gap={3} vAlign="center">
+          <Heading level={1}>{claim.claimNo}</Heading>
+          <StatusBadge status={claim.status} />
+        </HStack>
+        <Text type="large">{claim.title}</Text>
+        <Money value={claim.total} />
+        <ClaimOwnerActions
+          claim={claim}
+          onDenied={deny}
+          onSubmitErrors={setSubmitErrors}
+        />
+        {actions?.(claim, deny)}
+      </VStack>
+
+      <Section title="Summary">
+        <MetadataList>
+          <MetadataListItem label="Purpose">{claim.purpose}</MetadataListItem>
+          <MetadataListItem label="Requester">
+            {claim.requester.name}
+          </MetadataListItem>
+          <MetadataListItem label="Assigned reviewer">
+            {draft
+              ? "Assigned when submitted"
+              : (claim.assignedReviewer?.name ?? "–")}
+          </MetadataListItem>
+          <MetadataListItem label="Submitted">
+            {draft ? (
+              "Not submitted yet"
+            ) : (
+              <DateText value={claim.submittedAt} />
+            )}
+          </MetadataListItem>
+        </MetadataList>
+      </Section>
+
+      <Section title="Line items">
+        {submitErrors.length > 0 ? (
+          <SubmissionErrors claim={claim} fields={submitErrors} />
+        ) : null}
+        <Table columns={itemColumns} data={claim.items} idKey="lineNo" />
+      </Section>
+
+      <Section title="History">
+        {draft ? (
+          <Text type="body" color="secondary">
+            No history yet – history starts when the claim is submitted.
+          </Text>
+        ) : (
+          <HistoryTimeline history={claim.history} />
+        )}
+      </Section>
     </VStack>
-
-    <Section title="Summary">
-      <MetadataList>
-        <MetadataListItem label="Purpose">{claim.purpose}</MetadataListItem>
-        <MetadataListItem label="Requester">
-          {claim.requester.name}
-        </MetadataListItem>
-        <MetadataListItem label="Assigned reviewer">
-          {claim.assignedReviewer?.name ?? "–"}
-        </MetadataListItem>
-        <MetadataListItem label="Submitted">
-          <DateText value={claim.submittedAt} />
-        </MetadataListItem>
-      </MetadataList>
-    </Section>
-
-    <Section title="Line items">
-      <Table columns={itemColumns} data={claim.items} idKey="lineNo" />
-    </Section>
-
-    <Section title="History">
-      <HistoryTimeline history={claim.history} />
-    </Section>
-  </VStack>
-);
+  );
+};
 
 const ClaimSkeleton = () => (
   <VStack gap={6} hAlign="stretch">
@@ -152,12 +220,6 @@ const ClaimSkeleton = () => (
     </VStack>
     <Table columns={skeletonColumns} data={skeletonRows} idKey="id" />
   </VStack>
-);
-
-const AccessDenied = () => (
-  <Text type="body" color="secondary">
-    You don&apos;t have access to this claim.
-  </Text>
 );
 
 // Claim Detail (F-03 §2.2). A claim the member may not see, or that does not exist, shows its message and no claim data.
@@ -178,7 +240,7 @@ export const ClaimDetailPage = ({
   });
 
   if (deniedId === claimId) {
-    return <AccessDenied />;
+    return <ClaimAccessDenied />;
   }
 
   if (claim.isPending) {
@@ -186,22 +248,8 @@ export const ClaimDetailPage = ({
   }
 
   if (claim.isError) {
-    const status = isProblem(claim.error) ? claim.error.status : null;
-
-    if (status === 403) {
-      return <AccessDenied />;
-    }
-
-    if (status === 404) {
-      return (
-        <Text type="body" color="secondary">
-          Claim not found.
-        </Text>
-      );
-    }
-
     return (
-      <LoadError
+      <ClaimLoadFailure
         error={claim.error}
         onRetry={() => {
           void claim.refetch();
@@ -214,6 +262,7 @@ export const ClaimDetailPage = ({
     <ClaimView
       actions={actions}
       claim={claim.data.data}
+      key={claimId}
       deny={() => {
         setDeniedId(claimId);
       }}

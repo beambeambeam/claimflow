@@ -31,7 +31,7 @@ bun run --cwd apps/api migrate up  # create the tables
 bun run --cwd apps/api seed        # add the demo users and sample claims
 ```
 
-`seed` adds seven demo accounts, all with the password from `SEED_USER_PASSWORD`, and six sample claims with their history. It runs again without harm: users are updated in place, and a sample claim is found by its claim number (`CLM-2026-9000xx`) and added only once.
+`seed` adds seven demo accounts, all with the password from `SEED_USER_PASSWORD`, and seven sample claims, including a draft with two line items. It runs again without harm: users are updated in place, and a sample claim is found by its claim number (`CLM-2026-9000xx`) and added only once.
 
 | Username                   | Role                       | Reviewer      |
 | -------------------------- | -------------------------- | ------------- |

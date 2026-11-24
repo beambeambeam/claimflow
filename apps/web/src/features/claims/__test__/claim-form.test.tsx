@@ -12,7 +12,7 @@ import {
   it,
 } from "vite-plus/test";
 
-import { ClaimForm } from "#/features/claims/components/claim-form";
+import { NewClaimForm } from "#/features/claims/components/new-claim-page";
 import { client } from "#/lib/api/client.gen";
 import type { Claim, ClaimInput } from "#/lib/api/types.gen";
 import { zClaimInput } from "#/lib/api/zod.gen";
@@ -76,7 +76,7 @@ afterAll(() => {
 const renderForm = () => {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ClaimForm />
+      <NewClaimForm onDraftSaved={() => {}} />
     </QueryClientProvider>
   );
 

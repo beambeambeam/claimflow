@@ -255,9 +255,12 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetCl
 		if err := checkComment(action, comment); err != nil {
 			return err
 		}
+		if int(row.Version) != version {
+			return ErrConflict
+		}
 		changed, err = queries.DecideClaim(ctx, db.DecideClaimParams{
 			Status: step.to, Now: timestamptz(now), ID: row.ID,
-			Version: int32(version), //nolint:gosec // the handler reads a 31-bit version
+			Version: row.Version,
 		})
 	}
 	if err != nil {
@@ -304,7 +307,11 @@ func submitClaim(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, 
 		return 0, err
 	}
 
-	requestedVersion := int32(version) //nolint:gosec // the handler reads a 31-bit version
+	if int(row.Version) != version {
+		return 0, ErrConflict
+	}
+
+	requestedVersion := row.Version
 	if row.Status == db.ClaimStatusDRAFT {
 		changed, err := queries.SubmitDraftClaim(ctx, db.SubmitDraftClaimParams{
 			ID: row.ID, Version: requestedVersion, ReviewerID: row.OwnerReviewerID, Now: timestamptz(now),

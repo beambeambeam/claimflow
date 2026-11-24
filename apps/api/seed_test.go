@@ -146,6 +146,7 @@ var seededClaims = []seededClaim{
 	{"req.niran", "rev.somchai", "SUBMITTED", "1250.00", []string{"SUBMIT"}, ""},
 	{"rev.malee", "rev.prasert", "SUBMITTED", "1250.00", []string{"SUBMIT"}, ""},
 	{"rev.prasert", "fin.wanida", "SUBMITTED", "40000.00", []string{"SUBMIT"}, ""},
+	{"req.anan", "", "DRAFT", "1250.00", nil, ""},
 }
 
 // F04-TEST-22 (F04-AC-19): on an empty database, the seed adds the sample claims of F-04 §4 with their history. A second
@@ -171,21 +172,21 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 	}
 
 	claims, items, history := counts()
-	if claims != len(seededClaims) || items < claims || history != 8 {
-		t.Fatalf("after the first run: %d claims, %d items, %d history entries; want %d claims, at least as many items, 8 history entries",
+	if claims != len(seededClaims) || items != 10 || history != 8 {
+		t.Fatalf("after the first run: %d claims, %d items, %d history entries; want %d claims, 10 items, 8 history entries",
 			claims, items, history, len(seededClaims))
 	}
 
 	rows, err := pool.Query(t.Context(), `
-		SELECT r.username, v.username, c.status::text, (c.total_satang / 100)::text || '.' || lpad((c.total_satang % 100)::text, 2, '0'),
+		SELECT r.username, coalesce(v.username, ''), c.status::text, (c.total_satang / 100)::text || '.' || lpad((c.total_satang % 100)::text, 2, '0'),
 		       (SELECT sum(amount_satang) FROM line_items i WHERE i.claim_id = c.id) = c.total_satang,
 		       c.version,
 		       array(SELECT h.action::text FROM claim_history h WHERE h.claim_id = c.id ORDER BY h.id),
 		       coalesce((SELECT h.comment FROM claim_history h WHERE h.claim_id = c.id ORDER BY h.id DESC LIMIT 1), ''),
-		       c.submitted_at IS NOT NULL, c.decided_at IS NOT NULL
+		       (c.submitted_at IS NOT NULL AND c.first_submitted_at IS NOT NULL), c.decided_at IS NOT NULL
 		FROM claims c
 		JOIN "user" r ON r.id = c.requester_id
-		JOIN "user" v ON v.id = c.assigned_reviewer_id
+		LEFT JOIN "user" v ON v.id = c.assigned_reviewer_id
 		ORDER BY c.claim_no`)
 	if err != nil {
 		t.Fatalf("read claims: %v", err)
@@ -206,8 +207,9 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 			t.Fatalf("scan claim: %v", err)
 		}
 
-		if !itemsMatch || !submitted || decided != (claim.status != "SUBMITTED") || (version == 1) != decided {
-			t.Fatalf("claim %+v: items match %t, submitted %t, decided %t, version %d; want items summing to the total, a submission, and a decision with version 1 only when decided",
+		wantDecision := claim.status == "APPROVED" || claim.status == "REJECTED"
+		if !itemsMatch || submitted != (claim.status != "DRAFT") || decided != wantDecision || (version == 1) != decided {
+			t.Fatalf("claim %+v: items match %t, submitted %t, decided %t, version %d; want items summing to the total, submission times for submitted claims, and version 1 only when decided",
 				claim, itemsMatch, submitted, decided, version)
 		}
 
@@ -239,6 +241,19 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 		t.Fatalf("after the second run: %d claims, %d items, %d history entries; want %d, %d, %d",
 			claims2, items2, history2, claims, items, history)
 	}
+
+	t.Run("F05-TEST-26/draft is seeded once with two items and no history", func(t *testing.T) {
+		var items, history int
+		err := pool.QueryRow(t.Context(), `
+			SELECT (SELECT count(*) FROM line_items WHERE claim_id = c.id),
+			       (SELECT count(*) FROM claim_history WHERE claim_id = c.id)
+			FROM claims c WHERE claim_no = 'CLM-2026-900007' AND status = 'DRAFT'
+				AND title = 'Office supplies – draft' AND assigned_reviewer_id IS NULL
+				AND first_submitted_at IS NULL AND submitted_at IS NULL`).Scan(&items, &history)
+		if err != nil || items != 2 || history != 0 {
+			t.Fatalf("seed draft: items = %d, history = %d, error = %v", items, history, err)
+		}
+	})
 }
 
 // TestSeedCommandRefusesEmptyPassword: `api seed` fails before it writes anything when SEED_USER_PASSWORD is unset.
@@ -271,7 +286,7 @@ func TestSeedCommandRefusesEmptyPassword(t *testing.T) {
 func TestSeedCommandSeedsWithPassword(t *testing.T) {
 	pool := pgtest.New(t)
 
-	for _, want := range []string{"seeded 7 users and 6 new claims\n", "seeded 7 users and 0 new claims\n"} {
+	for _, want := range []string{"seeded 7 users and 7 new claims\n", "seeded 7 users and 0 new claims\n"} {
 		var out bytes.Buffer
 		if err := seedCommand(t.Context(), pool.Config().ConnString(), seedPassword, testBcryptCost, &out); err != nil {
 			t.Fatalf("seedCommand: %v", err)

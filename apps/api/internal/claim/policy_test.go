@@ -119,3 +119,30 @@ func TestF04TEST09PolicyGivesNoDecisionOnOwnClaim(t *testing.T) {
 		}
 	}
 }
+
+func TestF05TEST06DraftAndReturnedPolicy(t *testing.T) {
+	owner := uuid.New()
+	other := uuid.New()
+
+	for _, test := range []struct {
+		name              string
+		actor             uuid.UUID
+		status            db.ClaimStatus
+		reviewer, visible bool
+		actions           []Action
+	}{
+		{"draft with reviewer", owner, db.ClaimStatusDRAFT, true, true, []Action{ActionEdit, ActionDelete, ActionSubmit}},
+		{"draft without reviewer", owner, db.ClaimStatusDRAFT, false, true, []Action{ActionEdit, ActionDelete}},
+		{"submitted", owner, db.ClaimStatusSUBMITTED, true, true, nil},
+		{"returned", owner, db.ClaimStatusRETURNED, false, true, []Action{ActionEdit, ActionSubmit}},
+		{"draft owned by someone else", other, db.ClaimStatusDRAFT, true, false, nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			subject := Subject{RequesterID: owner, Status: test.status, OwnerHasReviewer: test.reviewer}
+			visible, actions := Allowed(test.actor, subject)
+			if visible != test.visible || actions == nil || !slices.Equal(actions, test.actions) {
+				t.Fatalf("visible = %t, actions = %v; want %t, %v", visible, actions, test.visible, test.actions)
+			}
+		})
+	}
+}

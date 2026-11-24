@@ -18,11 +18,16 @@ func (s Service) Edit(ctx context.Context, actor Actor, id uuid.UUID, version in
 
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		queries := db.New(tx)
-		if err := checkContentAction(ctx, queries, actor, id, version, ActionEdit); err != nil {
+		current, err := checkContentAction(ctx, queries, actor, id, version, ActionEdit)
+		if err != nil {
 			return err
 		}
 		if err := checkRules(in, time.Time{}, time.Time{}); err != nil {
 			return err
+		}
+
+		if current != version {
+			return ErrConflict
 		}
 
 		changed, err := queries.UpdateClaimContent(ctx, db.UpdateClaimContentParams{
@@ -58,8 +63,12 @@ func (s Service) Edit(ctx context.Context, actor Actor, id uuid.UUID, version in
 func (s Service) Delete(ctx context.Context, actor Actor, id uuid.UUID, version int) error {
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		queries := db.New(tx)
-		if err := checkContentAction(ctx, queries, actor, id, version, ActionDelete); err != nil {
+		current, err := checkContentAction(ctx, queries, actor, id, version, ActionDelete)
+		if err != nil {
 			return err
+		}
+		if current != version {
+			return ErrConflict
 		}
 
 		changed, err := queries.DeleteDraftClaim(ctx, db.DeleteDraftClaimParams{
@@ -81,12 +90,12 @@ func (s Service) Delete(ctx context.Context, actor Actor, id uuid.UUID, version 
 	return nil
 }
 
-func checkContentAction(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUID, version int, action Action) error {
+func checkContentAction(ctx context.Context, queries *db.Queries, actor Actor, id uuid.UUID, version int, action Action) (int, error) {
 	row, err := findClaim(ctx, queries, id)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	subject := claimSubject(&row)
-	return checkVersionedAction(actor, subject, action, version, int(row.Version))
+	current := int(row.Version)
+	return current, checkVersionedAction(actor, claimSubject(&row), action, version, current)
 }

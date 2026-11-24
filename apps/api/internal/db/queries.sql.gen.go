@@ -440,8 +440,12 @@ func (q *Queries) InsertLineItem(ctx context.Context, arg InsertLineItemParams) 
 const insertSeedClaim = `-- name: InsertSeedClaim :execrows
 INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
                     first_submitted_at, submitted_at, decided_at, created_at, updated_at)
-SELECT $1, $2, u.id, u.reviewer_id, $3, $4, $5,
-       $6, $7, $8::timestamptz, $8::timestamptz,
+SELECT $1, $2, u.id,
+       CASE WHEN $3::claim_status <> 'DRAFT' THEN u.reviewer_id END,
+       $4, $5, $3::claim_status,
+       $6, $7,
+       CASE WHEN $3::claim_status <> 'DRAFT' THEN $8::timestamptz END,
+       CASE WHEN $3::claim_status <> 'DRAFT' THEN $8::timestamptz END,
        $9::timestamptz, $8::timestamptz,
        coalesce($9::timestamptz, $8::timestamptz)
 FROM "user" u
@@ -452,28 +456,27 @@ ON CONFLICT (claim_no) DO NOTHING
 type InsertSeedClaimParams struct {
 	ID          uuid.UUID
 	ClaimNo     string
+	Status      ClaimStatus
 	Title       string
 	Purpose     string
-	Status      ClaimStatus
 	TotalSatang money.Satang
 	Version     int32
-	SubmittedAt pgtype.Timestamptz
+	CreatedAt   pgtype.Timestamptz
 	DecidedAt   pgtype.Timestamptz
 	Requester   string
 }
 
-// InsertSeedClaim adds a demo claim with the status it should have after its history, unless a claim with the same
-// claim_no exists. It returns the rows added: 0 means the claim was seeded before, so its children must not be added again.
+// InsertSeedClaim adds a demo claim unless its claim number exists. A draft has no reviewer or submission times.
 func (q *Queries) InsertSeedClaim(ctx context.Context, arg InsertSeedClaimParams) (int64, error) {
 	result, err := q.db.Exec(ctx, insertSeedClaim,
 		arg.ID,
 		arg.ClaimNo,
+		arg.Status,
 		arg.Title,
 		arg.Purpose,
-		arg.Status,
 		arg.TotalSatang,
 		arg.Version,
-		arg.SubmittedAt,
+		arg.CreatedAt,
 		arg.DecidedAt,
 		arg.Requester,
 	)
