@@ -285,9 +285,18 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetCl
 	return nil
 }
 
-// reviewStep applies the reviewer's step at the version that was read: a return keeps the claim open for its requester,
-// and a decision stamps the decision time.
+// reviewStep applies the step at the version that was read: a return keeps the claim open for its requester, a
+// withdrawal ends it without a decision, and a decision stamps the decision time.
 func reviewStep(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, action Action, step transition, now time.Time) (int64, error) {
+	if action == ActionWithdraw {
+		changed, err := queries.WithdrawClaim(ctx, db.WithdrawClaimParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
+		if err != nil { // coverage-ignore
+			return 0, fmt.Errorf("withdraw claim: %w", err)
+		}
+
+		return changed, nil
+	}
+
 	if action == ActionReturn {
 		changed, err := queries.ReturnClaim(ctx, db.ReturnClaimParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
 		if err != nil { // coverage-ignore
