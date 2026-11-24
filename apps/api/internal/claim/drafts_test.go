@@ -304,3 +304,35 @@ func TestActCannotReplaceOrDeleteDraftContent(t *testing.T) {
 		t.Fatalf("content action changed draft: claim = %+v, error = %v", got, err)
 	}
 }
+
+func TestDraftMutationsReportConflictWhenConditionalWriteChangesNoRows(t *testing.T) {
+	pool := pgtest.New(t)
+	service, owner := draftOwner(t, pool)
+	draft := saveDraft(t, service, owner, validInput())
+
+	// Make each conditional write affect zero rows, the result when a competing write wins first.
+	if _, err := pool.Exec(t.Context(), `
+		CREATE FUNCTION skip_claim_write() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN RETURN NULL; END; $$;
+		CREATE TRIGGER skip_claim_write BEFORE UPDATE OR DELETE ON claims
+		FOR EACH ROW EXECUTE FUNCTION skip_claim_write()`); err != nil {
+		t.Fatalf("create write trigger: %v", err)
+	}
+
+	input := validInput()
+	input.Title = "Revised draft"
+	if _, err := service.Edit(t.Context(), owner, draft.ID, draft.Version, input); !errors.Is(err, ErrConflict) {
+		t.Fatalf("edit = %v, want ErrConflict", err)
+	}
+	if err := service.Delete(t.Context(), owner, draft.ID, draft.Version); !errors.Is(err, ErrConflict) {
+		t.Fatalf("delete = %v, want ErrConflict", err)
+	}
+	if _, err := service.Act(t.Context(), owner, draft.ID, draft.Version, ActionSubmit, ""); !errors.Is(err, ErrConflict) {
+		t.Fatalf("submit = %v, want ErrConflict", err)
+	}
+
+	got, err := service.Get(t.Context(), owner, draft.ID)
+	if err != nil || !reflect.DeepEqual(got, draft) {
+		t.Fatalf("after skipped write: claim = %+v, error = %v", got, err)
+	}
+}
