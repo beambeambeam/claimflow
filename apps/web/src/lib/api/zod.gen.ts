@@ -131,7 +131,7 @@ export const zClaim = z.object({
 });
 
 /**
- * The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+ * The body of approve, reject, and return. The comment's length is checked by BR-04, not by this schema.
  */
 export const zClaimDecision = z.object({
   comment: z.string().register(z.globalRegistry, { maxLength: 500 }).optional()
@@ -335,3 +335,18 @@ export const zRejectClaimPath = z.object({
  * The decided claim, with its new `ETag`.
  */
 export const zRejectClaimResponse = zClaimEnvelope;
+
+export const zReturnClaimBody = zClaimDecision;
+
+export const zReturnClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zReturnClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The decided claim, with its new `ETag`.
+ */
+export const zReturnClaimResponse = zClaimEnvelope;

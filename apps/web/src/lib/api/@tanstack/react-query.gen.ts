@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveClaim, createClaim, deleteClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, submitClaim, updateClaim } from '../sdk.gen';
-import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, SubmitClaimData, SubmitClaimError, SubmitClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse } from '../types.gen';
+import { approveClaim, createClaim, deleteClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, returnClaim, submitClaim, updateClaim } from '../sdk.gen';
+import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, ReturnClaimData, ReturnClaimError, ReturnClaimResponse, SubmitClaimData, SubmitClaimError, SubmitClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -332,6 +332,25 @@ export const rejectClaimMutation = (options?: Partial<Options<RejectClaimData>>)
   const mutationOptions: UseMutationOptions<RejectClaimResponse, RejectClaimError, Options<RejectClaimData>> = {
     mutationFn: async (fnOptions) => {
       const { data } = await rejectClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Return a submitted claim to its requester with a reason (F-06).
+ *
+ * Same checks and order as approve, and the reason rule of reject (BR-04): the `comment` is required, and a missing, blank, short, or long one is a 422 with `field = "comment"`. The claim becomes `RETURNED` and its `returnCount` goes up by one; it has no decision time. A claim that was already returned 3 times is a 409 `INVALID_TRANSITION` (BR-14).
+ */
+export const returnClaimMutation = (options?: Partial<Options<ReturnClaimData>>): UseMutationOptions<ReturnClaimResponse, ReturnClaimError, Options<ReturnClaimData>> => {
+  const mutationOptions: UseMutationOptions<ReturnClaimResponse, ReturnClaimError, Options<ReturnClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await returnClaim({
         ...options,
         ...fnOptions,
         throwOnError: true

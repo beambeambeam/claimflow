@@ -14,6 +14,7 @@ type Action string
 const (
 	ActionApprove Action = "approve"
 	ActionReject  Action = "reject"
+	ActionReturn  Action = "return"
 	ActionEdit    Action = "edit"
 	ActionDelete  Action = "delete"
 	ActionSubmit  Action = "submit"
@@ -29,7 +30,7 @@ type Subject struct {
 }
 
 // allActions lists every action in the order that Allowed returns them.
-var allActions = []Action{ActionApprove, ActionReject, ActionEdit, ActionDelete, ActionSubmit}
+var allActions = []Action{ActionApprove, ActionReject, ActionReturn, ActionEdit, ActionDelete, ActionSubmit}
 
 // isVisible reports whether actor may see the claim: it is own, or it is assigned and not a DRAFT.
 func isVisible(actor uuid.UUID, claim Subject) bool {
@@ -55,7 +56,7 @@ func check(actor uuid.UUID, claim Subject, action Action) error {
 		if claim.RequesterID != actor || (claim.Status == db.ClaimStatusDRAFT && !claim.OwnerHasReviewer) {
 			return ErrForbidden
 		}
-	case ActionApprove, ActionReject:
+	case ActionApprove, ActionReject, ActionReturn:
 		if claim.RequesterID == actor || claim.AssignedReviewerID != actor {
 			return ErrForbidden
 		}

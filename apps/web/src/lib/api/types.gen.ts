@@ -119,11 +119,11 @@ export type Claim = {
 };
 
 /**
- * The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+ * The body of approve, reject, and return. The comment's length is checked by BR-04, not by this schema.
  */
 export type ClaimDecision = {
   /**
-   * Optional for approve (at most 500 characters). The reason for reject (5–500 characters). `x-max-length` is the BR-04 upper bound, which the web counter shows.
+   * Optional for approve (at most 500 characters). The reason for reject and return (5–500 characters). `x-max-length` is the BR-04 upper bound, which the web counter shows.
    */
   comment?: string;
 };
@@ -809,3 +809,67 @@ export type RejectClaimResponses = {
 };
 
 export type RejectClaimResponse = RejectClaimResponses[keyof RejectClaimResponses];
+
+export type ReturnClaimData = {
+  body?: ClaimDecision;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}/return';
+};
+
+export type ReturnClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  422: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type ReturnClaimError = ReturnClaimErrors[keyof ReturnClaimErrors];
+
+export type ReturnClaimResponses = {
+  /**
+   * The decided claim, with its new `ETag`.
+   */
+  200: ClaimEnvelope;
+};
+
+export type ReturnClaimResponse = ReturnClaimResponses[keyof ReturnClaimResponses];

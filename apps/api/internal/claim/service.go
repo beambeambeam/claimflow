@@ -258,10 +258,7 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetCl
 		if int(row.Version) != version {
 			return ErrConflict
 		}
-		changed, err = queries.DecideClaim(ctx, db.DecideClaimParams{
-			Status: step.to, Now: timestamptz(now), ID: row.ID,
-			Version: row.Version,
-		})
+		changed, err = reviewStep(ctx, queries, row, action, step, now)
 	}
 	if err != nil {
 		return fmt.Errorf("update claim status: %w", err)
@@ -284,6 +281,26 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetCl
 	}
 
 	return nil
+}
+
+// reviewStep applies the reviewer's step at the version that was read: a return keeps the claim open for its requester,
+// and a decision stamps the decision time.
+func reviewStep(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, action Action, step transition, now time.Time) (int64, error) {
+	if action == ActionReturn {
+		changed, err := queries.ReturnClaim(ctx, db.ReturnClaimParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
+		if err != nil { // coverage-ignore
+			return 0, fmt.Errorf("return claim: %w", err)
+		}
+
+		return changed, nil
+	}
+
+	changed, err := queries.DecideClaim(ctx, db.DecideClaimParams{Status: step.to, Now: timestamptz(now), ID: row.ID, Version: row.Version})
+	if err != nil { // coverage-ignore
+		return 0, fmt.Errorf("decide claim: %w", err)
+	}
+
+	return changed, nil
 }
 
 func submitClaim(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, version int, now time.Time) (int64, error) {

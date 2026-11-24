@@ -735,6 +735,29 @@ func (q *Queries) ResubmitClaim(ctx context.Context, arg ResubmitClaimParams) (i
 	return result.RowsAffected(), nil
 }
 
+const returnClaim = `-- name: ReturnClaim :execrows
+UPDATE claims
+SET status = 'RETURNED', return_count = return_count + 1, version = version + 1, updated_at = $1
+WHERE id = $2 AND version = $3
+`
+
+type ReturnClaimParams struct {
+	Now     pgtype.Timestamptz
+	ID      uuid.UUID
+	Version int32
+}
+
+// ReturnClaim sends a claim back to its requester: it adds one to the return count and to the version, but only while the
+// version is still the one the caller read (BR-13). A return is a step in the review, so decided_at stays NULL. It
+// returns the rows changed: 0 means the claim changed since.
+func (q *Queries) ReturnClaim(ctx context.Context, arg ReturnClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, returnClaim, arg.Now, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const submitDraftClaim = `-- name: SubmitDraftClaim :execrows
 UPDATE claims
 SET status = 'SUBMITTED', assigned_reviewer_id = $1, first_submitted_at = $2,

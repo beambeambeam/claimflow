@@ -93,6 +93,14 @@ UPDATE claims
 SET status = sqlc.arg(status), version = version + 1, decided_at = sqlc.arg(now), updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
 
+-- name: ReturnClaim :execrows
+-- ReturnClaim sends a claim back to its requester: it adds one to the return count and to the version, but only while the
+-- version is still the one the caller read (BR-13). A return is a step in the review, so decided_at stays NULL. It
+-- returns the rows changed: 0 means the claim changed since.
+UPDATE claims
+SET status = 'RETURNED', return_count = return_count + 1, version = version + 1, updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
 -- name: InsertSeedClaim :execrows
 -- InsertSeedClaim adds a demo claim unless its claim number exists. A draft has no reviewer or submission times.
 INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,

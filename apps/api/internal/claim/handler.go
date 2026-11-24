@@ -166,6 +166,16 @@ func (h Handler) RejectClaim(ctx context.Context, request api.RejectClaimRequest
 	return api.RejectClaim200JSONResponse{DecidedJSONResponse: decidedBody(&decided)}, nil
 }
 
+// ReturnClaim returns the claim to its requester for the session user. The checks run in the order of F-04 §1.4.
+func (h Handler) ReturnClaim(ctx context.Context, request api.ReturnClaimRequestObject) (api.ReturnClaimResponseObject, error) {
+	returned, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionReturn, request.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.ReturnClaim200JSONResponse{DecidedJSONResponse: decidedBody(&returned)}, nil
+}
+
 // decide reads If-Match, the claim id, and the comment of a decision request, takes the decision, and maps the
 // module's errors to problems. A missing If-Match is 428 and a malformed one 400, both before the claim is read
 // (F-04 §1.4, step 1).
