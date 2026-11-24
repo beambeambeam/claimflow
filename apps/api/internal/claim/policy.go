@@ -66,6 +66,10 @@ func check(actor uuid.UUID, claim Subject, action Action) error {
 	}
 
 	if _, ok := transitions[action][claim.Status]; ok {
+		if action == ActionReturn && claim.ReturnCount >= MaxReturns {
+			return ErrReturnLimit
+		}
+
 		return nil
 	}
 	return ErrInvalidTransition

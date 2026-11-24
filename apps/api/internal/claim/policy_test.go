@@ -52,7 +52,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 			visible: func(status db.ClaimStatus) bool { return status != db.ClaimStatusDRAFT },
 			actions: func(status db.ClaimStatus) []Action {
 				if status == db.ClaimStatusSUBMITTED {
-					return []Action{ActionApprove, ActionReject}
+					return []Action{ActionApprove, ActionReject, ActionReturn}
 				}
 
 				return []Action{}
@@ -113,7 +113,7 @@ func TestF04TEST09PolicyGivesNoDecisionOnOwnClaim(t *testing.T) {
 		t.Fatal("visible = false, want true: the requester sees their own claim")
 	}
 
-	for _, action := range []Action{ActionApprove, ActionReject} {
+	for _, action := range []Action{ActionApprove, ActionReject, ActionReturn} {
 		if slices.Contains(actions, action) {
 			t.Fatalf("actions = %v, want no %s (BR-01)", actions, action)
 		}

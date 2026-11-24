@@ -266,7 +266,14 @@ var transitionErrors = map[Action]FieldError{
 	ActionSubmit:  {Field: "status", Rule: ruleTransition, Message: "Only a draft or a returned claim can be submitted."},
 }
 
+// returnLimitError is the field error of ErrReturnLimit: the claim was already returned MaxReturns times (BR-14).
+var returnLimitError = FieldError{Field: "returnCount", Rule: "BR-14", Message: "This claim has already been returned 3 times."}
+
 func actionProblem(err error, action Action) error {
+	if errors.Is(err, ErrReturnLimit) {
+		return fmt.Errorf("claim action: %w", httperr.InvalidTransition(apiFieldError(returnLimitError)))
+	}
+
 	if errors.Is(err, ErrInvalidTransition) {
 		return fmt.Errorf("claim action: %w", httperr.InvalidTransition(apiFieldError(transitionErrors[action])))
 	}
