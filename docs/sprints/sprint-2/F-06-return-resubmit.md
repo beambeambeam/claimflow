@@ -102,7 +102,7 @@ Fixed clock `2026-11-25T10:00:00+07:00`. `req.anan`'s claim is assigned to `rev.
 | Resubmit when `first_submitted_at` is 2026-11-20 and an item is dated 2026-08-21 (91 days before) | 422 `items[n].expenseDate`, BR-07; claim stays `RETURNED` |
 | Resubmit after the owner's `reviewer_id` changed to `rev.somchai` | 200; `assignedReviewer` still `rev.malee` |
 | `rev.malee` resubmits the claim | 403 |
-| `fin.wanida` is the assigned reviewer of `rev.prasert`'s claim and returns it | 200 (finance acts as a reviewer here, BR-15) |
+| `fin.wanida` is the assigned reviewer of `rev.prasert`'s claim and returns it | 200 (the Finance Officer is the assigned reviewer of a department head's claim, ADR-0001, BR-02) |
 | History insert fails during return or resubmit | 500; status, `return_count`, `submitted_at`, and `version` unchanged |
 
 ### 1.9 Permissions and policy
@@ -169,7 +169,7 @@ The amber **Returned** badge shows in My Claims. The Review Queue does not list 
 | --- | --- | --- |
 | F06-AC-01 | FR-09, FR-07, NFR-06 | The assigned reviewer returns a `SUBMITTED` claim with a valid reason and the current `If-Match` → 200: status `RETURNED`, `returnCount` + 1, `version` + 1, new `ETag`, `decidedAt` `null`, and one `RETURN` history row with the reviewer as actor and the trimmed reason. |
 | F06-AC-02 | BR-04 | The return reason uses the reject rule: missing, empty, whitespace only, `MinReasonLength − 1`, or `MaxCommentLength + 1` trimmed characters → 422 `comment`, BR-04; `MinReasonLength` and `MaxCommentLength` → 200. Tests use the constants. |
-| F06-AC-03 | BR-01, BR-02 | The owner returning their claim → 403. A reviewer who is not assigned → 403. The claim is unchanged. |
+| F06-AC-03 | BR-01, BR-02 | The owner returning their claim → 403. A reviewer who is not assigned → 403. The claim is unchanged. The Finance Officer assigned to a department head's claim can return it (ADR-0001). |
 | F06-AC-04 | BR-03, BR-13 | Return on an `APPROVED`, `REJECTED`, or `RETURNED` claim with the current version → 409 `INVALID_TRANSITION`, BR-03; with a stale version → 409 `CONFLICT`. |
 | F06-AC-05 | BR-14 | A claim with `returnCount` 3 cannot be returned: the policy gives no `return`, and the endpoint → 409 `INVALID_TRANSITION`, BR-14. The reviewer can still approve or reject it. |
 | F06-AC-06 | FR-09, FR-10 | A returned claim is not in the reviewer's `scope=review` list and is in the owner's `scope=mine` list as `RETURNED`. The assigned reviewer can still open it (200, no `allowedActions`). After a resubmission it is back in `scope=review`, ordered by its new `submittedAt`. |
@@ -188,7 +188,7 @@ The amber **Returned** badge shows in My Claims. The Review Queue does not list 
 | F06-TEST-01 | F06-AC-01 | Integration | `req.anan`'s `SUBMITTED` claim at version `v`, `returnCount` 0 | `POST …/return` as `rev.malee`, `If-Match: "v"`, comment `"  Please attach the receipt.  "` | 200; `RETURNED`; `returnCount` 1; `ETag: "v+1"`; `decidedAt` null; 1 new history row `RETURN`, actor `rev.malee`, comment trimmed |
 | F06-TEST-02 | F06-AC-02 | Integration (module) | `SUBMITTED` claim | `Act(RETURN)` with comments: `""`, spaces only, `MinReasonLength − 1`, `MinReasonLength`, `MaxCommentLength`, `MaxCommentLength + 1` characters after trimming | `ValidationError` `comment` BR-04 for the first, second, third, and sixth; success for the fourth and fifth (fresh claim each) |
 | F06-TEST-03 | F06-AC-02 | Integration | `SUBMITTED` claim | `POST …/return` with body `{}` | 422, `errors[0]` = `comment`, BR-04 |
-| F06-TEST-04 | F06-AC-03 | Integration | `req.anan`'s `SUBMITTED` claim; `rev.malee`'s own `SUBMITTED` claim (reviewer `rev.prasert`) | Return as `rev.somchai` on the first; as `rev.malee` on the second | 403; 403; both claims unchanged |
+| F06-TEST-04 | F06-AC-03 | Integration | `req.anan`'s `SUBMITTED` claim; `rev.malee`'s own `SUBMITTED` claim (reviewer `rev.prasert`); `rev.prasert`'s `SUBMITTED` claim (reviewer `fin.wanida`) | Return as `rev.somchai` on the first; as `rev.malee` on the second; as `fin.wanida` on the third with a valid reason | 403; 403; first two claims unchanged; 200, the third is `RETURNED` with a `RETURN` row by `fin.wanida` |
 | F06-TEST-05 | F06-AC-04 | Integration | `APPROVED`, `REJECTED`, `RETURNED` claims assigned to `rev.malee` | `POST …/return` with each current version; then the `APPROVED` one with a stale version | 409 `INVALID_TRANSITION`, BR-03, "Only a submitted claim can be returned." ×3; 409 `CONFLICT` |
 | F06-TEST-06 | F06-AC-05 | Unit | Subjects: assigned reviewer, `SUBMITTED`, `ReturnCount` 0, 2, 3 | `Allowed` | `[approve, reject, return]`; `[approve, reject, return]`; `[approve, reject]` |
 | F06-TEST-07 | F06-AC-05 | Integration (module) | Claim returned and resubmitted 3 times (`returnCount` 3, `SUBMITTED`) | `Act(RETURN)`; then `Act(APPROVE)` | `ErrInvalidTransition` BR-14, `field` `returnCount`, "This claim has already been returned 3 times."; approve succeeds |
@@ -216,4 +216,4 @@ The Sprint 2 Product DoD applies. For F-06 the evidence is:
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-23 | Initial contract, from the F-06 feature spec and tickets #43–#44 | beambeambeam |
-| 0.2 | 2026-11-24 | Review fixes (PR #100): the Return dialog behaves like the Reject dialog and reads the same schema, so it adds no client minimum of its own (§1.6, §2.1, F06-AC-11, F06-TEST-13) | beambeambeam |
+| 0.2 | 2026-11-24 | Review fixes (PR #100): the Return dialog behaves like the Reject dialog and reads the same schema, so it adds no client minimum of its own (§1.6, §2.1, F06-AC-11, F06-TEST-13). A Finance Officer returning a department head's claim cites ADR-0001 and BR-02, not BR-15, and F06-TEST-04 tests it (§1.8, F06-AC-03) | beambeambeam |
