@@ -46,6 +46,7 @@ After any 422, the claim's status, `version`, and history are unchanged, as befo
 | Pre-change implementation | `214d1d5` (`main` and `lab-7`) | `claimflow-00015-vh7` | The commit the red run uses. Deployed by Deploy demo run 45040335622 on 2026-11-22 15:49 UTC (the run log names the image tag and the revision). 5–500 rule |
 | Contract revision | `78fe104` | – | This branch, `docs/lab-7-reject-reason-contract`, 2026-11-24. SRS 0.3, F-04 0.8, SDS 0.18, traceability. Docs only |
 | Change-impact document | The commit that adds this file | – | Docs only |
+| Instructor/TA approval | Not required, per the course announcement "Lab 7 Spec Sheet Change" |
 | Teammate review of the contract | TBD | – | PR into `lab-7`, reviewed by `beambeambeam` before any code change |
 | Red test commit | TBD | – | Part B |
 | Green implementation commit | TBD | – | Part B |
