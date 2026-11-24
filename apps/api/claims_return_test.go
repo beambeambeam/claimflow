@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
@@ -43,4 +44,39 @@ func TestF06TEST01ReviewerReturnsASubmittedClaim(t *testing.T) {
 	if state := readState(t, pool, id); state.Status != "RETURNED" || state.Version != 1 || state.Decided || state.History != 2 {
 		t.Fatalf("stored = %+v, want RETURNED, version 1, not decided, 2 history rows", state)
 	}
+}
+
+// F06-TEST-05 (F06-AC-04, BR-03, BR-13): an APPROVED, REJECTED, or RETURNED claim cannot be returned: 409
+// INVALID_TRANSITION for BR-03 with the current version, and 409 CONFLICT with a stale one. A draft is not the
+// reviewer's to see, so it is 403. Each refusal leaves the claim as it was.
+func TestF06TEST05OnlyASubmittedClaimCanBeReturned(t *testing.T) {
+	pool := pgtest.New(t)
+	router := seededClaimRouter(t, pool)
+	token := loginAs(t, router, "rev.malee")
+	reason := `{"comment": "Please attach the receipt."}`
+
+	for _, status := range []string{"APPROVED", "REJECTED", "RETURNED"} {
+		t.Run(status, func(t *testing.T) {
+			id := storedClaim(t, pool, "req.anan", status, claimsNow).String()
+			before := readState(t, pool, id)
+
+			expectTransition(t, decide(t, router, token, id, "return", `"0"`, reason), "BR-03", "Only a submitted claim can be returned.")
+
+			if after := readState(t, pool, id); after != before {
+				t.Fatalf("stored = %+v after the refused return, want %+v", after, before)
+			}
+		})
+	}
+
+	t.Run("a stale version is a conflict", func(t *testing.T) {
+		id := storedClaim(t, pool, "req.anan", "APPROVED", claimsNow).String()
+
+		decodeProblem(t, decide(t, router, token, id, "return", `"7"`, reason), http.StatusConflict, "CONFLICT")
+	})
+
+	t.Run("a draft is forbidden", func(t *testing.T) {
+		id := storedClaim(t, pool, "req.anan", "DRAFT", claimsNow).String()
+
+		decodeProblem(t, decide(t, router, token, id, "return", `"0"`, reason), http.StatusForbidden, "FORBIDDEN")
+	})
 }
