@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -452,8 +453,8 @@ func TestF04TEST05RejectStoresTheReasonAndTheRequesterSeesIt(t *testing.T) {
 	}
 }
 
-// F04-TEST-07 (F04-AC-06, BR-04): a missing, blank, short, or long reason is 422 with one comment error, and the claim
-// is unchanged. An approve comment over 500 characters is 422 too.
+// F04-TEST-07 (F04-AC-06, BR-04): reject accepts reasons of 10 and 500 characters. A missing, blank, short, or long
+// reason is 422 with one comment error and leaves the claim unchanged, as does an approve comment over 500 characters.
 func TestF04TEST07CommentRuleIs422WithTheFieldError(t *testing.T) {
 	pool := pgtest.New(t)
 	router := seededClaimRouter(t, pool)
@@ -467,12 +468,13 @@ func TestF04TEST07CommentRuleIs422WithTheFieldError(t *testing.T) {
 		body    string
 		message string
 	}{
-		{"reject without a body", "reject", "", "Enter a reason (5 to 500 characters)."},
-		{"reject with an empty comment", "reject", `{"comment": ""}`, "Enter a reason (5 to 500 characters)."},
-		{"reject with blanks", "reject", `{"comment": "   "}`, "Enter a reason (5 to 500 characters)."},
-		{"reject with 4 characters", "reject", `{"comment": "abcd"}`, "Reason must be at least 5 characters."},
+		{"reject without a body", "reject", "", "Enter a reason (10 to 500 characters)."},
+		{"reject without a comment", "reject", `{}`, "Enter a reason (10 to 500 characters)."},
+		{"reject with an empty comment", "reject", `{"comment": ""}`, "Enter a reason (10 to 500 characters)."},
+		{"reject with blanks", "reject", `{"comment": "   "}`, "Enter a reason (10 to 500 characters)."},
 		{"reject with 501 characters", "reject", `{"comment": "` + strings.Repeat("a", 501) + `"}`, "Comment cannot be more than 500 characters."},
 		{"approve with 501 characters", "approve", `{"comment": "` + strings.Repeat("a", 501) + `"}`, "Comment cannot be more than 500 characters."},
+		{"reject with 9 characters", "reject", `{"comment": "abcdefghi"}`, "Reason must be at least 10 characters."},
 	}
 
 	for _, tc := range cases {
@@ -487,6 +489,17 @@ func TestF04TEST07CommentRuleIs422WithTheFieldError(t *testing.T) {
 
 			if after := readState(t, pool, id); after != before {
 				t.Fatalf("stored = %+v after the refused decision, want %+v", after, before)
+			}
+		})
+	}
+
+	for _, length := range []int{10, 500} {
+		t.Run(fmt.Sprintf("reject with %d characters", length), func(t *testing.T) {
+			id := submittedBy(t, router, "req.anan")
+			body := `{"comment": "` + strings.Repeat("a", length) + `"}`
+			decided := decodeClaim(t, decide(t, router, token, id, "reject", `"0"`, body)).Data
+			if decided.Status != "REJECTED" {
+				t.Fatalf("status = %s, want REJECTED", decided.Status)
 			}
 		})
 	}

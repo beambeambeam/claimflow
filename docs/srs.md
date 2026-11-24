@@ -3,8 +3,8 @@
 - **Product:** ClaimFlow — Department Expense Reimbursement System
 - **Course:** CPE 334 Group Project — Theme 5: Workflow and Approval System
 - **Team:** 1005, 1045
-- **Version:** 0.2 (draft for Deliverable 1)
-- **Last updated:** 2026-10-31
+- **Version:** 0.3 (draft for Deliverable 1)
+- **Last updated:** 2026-11-24
 
 Domain terms (Claim, Requester, Assigned Reviewer, Return, Withdraw, High-value Claim, …) are defined in `GLOSSARY.md`.
 
@@ -148,7 +148,7 @@ Priority: **M** = must, **S** = should.
 | BR-01 | **No self-approval:** no user can approve, reject, return, or make a final decision on a claim they submitted. This is enforced on the server even if the assignment data is wrong. | 1 |
 | BR-02 | **Assigned reviewer only:** only a claim's assigned reviewer can approve, reject, or return it. Only a Finance Officer can make a final decision, and only on a `PendingFinance` claim. | 1 / 3 |
 | BR-03 | **Valid transitions only:** a status change is accepted only if Section 5 allows it from the claim's current status. If it is rejected, the claim and its history stay unchanged. | 1 |
-| BR-04 | **Reason required:** reject, return, and final reject need a non-blank comment of 5–500 characters. Approve may include an optional comment. | 1 / 2 / 3 |
+| BR-04 | **Reason required:** reject, return, and final reject need a non-blank comment of 10–500 characters. Approve may include an optional comment. | 1 / 2 / 3 |
 | BR-05 | **Line items:** a claim has 1–20 line items. Each amount is 0.01–20,000.00 THB, with at most 2 decimal places. | 1 |
 | BR-06 | **Claim total:** a claim total cannot be more than 50,000.00 THB. | 1 |
 | BR-07 | **Expense date window:** an expense date cannot be in the future. It also cannot be more than 90 days before the claim's **first** submission date, so a returned claim keeps its original window. This is checked on every submission and resubmission. | 1 |
@@ -227,3 +227,4 @@ All decisions below were made by the team on 2026-10-31.
 | --- | --- | --- | --- |
 | 0.1 | 2026-10-31 | Initial baseline draft | 1005, 1045 |
 | 0.2 | 2026-10-31 | Requirements review session: reporting-line assignment, Finance Officer from Sprint 1, Withdraw replaces Cancel, return limit, BR-14 to BR-17, D-01 to D-16 | 1005, 1045 |
+| 0.3 | 2026-11-24 | Lab 7 change L7/01 (#99): BR-04 reason minimum raised from 5 to 10 characters, for reject, return, and final reject alike. The maximum stays 500 | 1005 |
