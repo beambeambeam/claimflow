@@ -134,7 +134,7 @@ export const zClaim = z.object({
  * The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
  */
 export const zClaimDecision = z.object({
-  comment: z.string().register(z.globalRegistry, { maxLength: 500 }).optional()
+  comment: z.string().register(z.globalRegistry, { minLength: 10, maxLength: 500 }).optional()
 });
 
 export const zClaimEnvelope = z.object({

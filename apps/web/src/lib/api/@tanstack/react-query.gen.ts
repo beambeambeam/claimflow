@@ -269,7 +269,7 @@ export const approveClaimMutation = (options?: Partial<Options<ApproveClaimData>
 /**
  * Reject a submitted claim with a reason (F-04).
  *
- * Same checks and order as approve. The reason is the `comment`: required, 5–500 characters after trimming (BR-04). A missing, blank, short, or long reason is a 422 with `field = "comment"`, not a 400, so the schema sets no length.
+ * Same checks and order as approve. The `comment` is required and must be 10–500 characters after trimming (BR-04). The service returns 422 with `field = "comment"` for a missing, blank, short, or long reason.
  */
 export const rejectClaimMutation = (options?: Partial<Options<RejectClaimData>>): UseMutationOptions<RejectClaimResponse, RejectClaimError, Options<RejectClaimData>> => {
   const mutationOptions: UseMutationOptions<RejectClaimResponse, RejectClaimError, Options<RejectClaimData>> = {

@@ -216,6 +216,34 @@ describe("Decision panel", () => {
     ).toHaveProperty("ariaDisabled", "true");
   }, 20_000);
 
+  it("F04-TEST-21: reject requires 10 Unicode characters after trimming", async () => {
+    const { user } = await open(claim());
+
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    const reason = within(dialog()).getByRole("textbox", { name: "Reason" });
+    const reject = within(dialog()).getByRole("button", { name: "Reject" });
+    const shortMessage = "Reason must be at least 10 characters.";
+
+    await user.type(reason, "  abcdefghi  ");
+    expect(reject).toHaveProperty("ariaDisabled", "true");
+    within(dialog()).getByText(shortMessage);
+    await user.click(reject);
+    expect(sent).toHaveLength(0);
+
+    await user.clear(reason);
+    await user.type(reason, "\u0085😀😀😀😀😀😀😀😀😀\u0085");
+    expect(reject).toHaveProperty("ariaDisabled", "true");
+    within(dialog()).getByText(shortMessage);
+    await user.clear(reason);
+    await user.type(reason, "\u0085😀😀😀😀😀😀😀😀😀😀\u0085");
+    expect(reject).not.toHaveProperty("ariaDisabled", "true");
+    expect(within(dialog()).queryByText(shortMessage)).toBeNull();
+
+    await user.clear(reason);
+    expect(reject).toHaveProperty("ariaDisabled", "true");
+    expect(within(dialog()).queryByText(shortMessage)).toBeNull();
+  }, 30_000);
+
   it("F04-TEST-21: reject shows the counter, and a 422 puts the message under the reason with the text kept", async () => {
     const { user } = await open(claim());
 
@@ -229,24 +257,24 @@ describe("Decision panel", () => {
           {
             field: "comment",
             rule: "BR-04",
-            message: "Reason must be at least 5 characters.",
+            message: "Reason must be at least 10 characters.",
           },
         ]),
         { status: 422 }
       );
     await user.type(
       within(dialog()).getByRole("textbox", { name: "Reason" }),
-      "No"
+      "No receipt"
     );
-    within(dialog()).getByText("2/500");
+    within(dialog()).getByText("10/500");
     await user.click(within(dialog()).getByRole("button", { name: "Reject" }));
 
-    await within(dialog()).findByText("Reason must be at least 5 characters.");
+    await within(dialog()).findByText("Reason must be at least 10 characters.");
     expect(
       within(dialog()).getByRole("textbox", { name: "Reason" })
-    ).toHaveProperty("value", "No");
+    ).toHaveProperty("value", "No receipt");
     expect(sent).toEqual([
-      { action: "reject", ifMatch: '"0"', body: { comment: "No" } },
+      { action: "reject", ifMatch: '"0"', body: { comment: "No receipt" } },
     ]);
   }, 30_000);
 

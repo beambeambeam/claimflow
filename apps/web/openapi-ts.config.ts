@@ -2,9 +2,10 @@ import { defineConfig } from "@hey-api/openapi-ts";
 import { z } from "zod";
 
 // The contract extensions that the web reads from a generated schema with `z.globalRegistry.get`: the message of a field
-// error, and the BR-04 comment limit.
+// error, and the BR-04 comment limits.
 const extensions = z.object({
   "x-message": z.string().optional(),
+  "x-min-length": z.number().optional(),
   "x-max-length": z.number().optional(),
 });
 
@@ -17,11 +18,18 @@ export default defineConfig({
     {
       name: "zod",
       metadata: ({ $, node, schema }) => {
-        const { "x-message": message, "x-max-length": maxLength } =
-          extensions.parse(schema);
+        const {
+          "x-message": message,
+          "x-min-length": minLength,
+          "x-max-length": maxLength,
+        } = extensions.parse(schema);
 
         if (message !== undefined) {
           node.prop("message", $.literal(message));
+        }
+
+        if (minLength !== undefined) {
+          node.prop("minLength", $.literal(minLength));
         }
 
         if (maxLength !== undefined) {

@@ -47,9 +47,10 @@ After any 422, the claim's status, `version`, and history are unchanged, as befo
 | Contract revision | `78fe104` | – | This branch, `docs/lab-7-reject-reason-contract`, 2026-11-24. SRS 0.3, F-04 0.8, SDS 0.18, traceability. Docs only |
 | Change-impact document | The commit that adds this file | – | Docs only |
 | Instructor/TA approval | Not required, per the course announcement "Lab 7 Spec Sheet Change" |
-| Teammate review of the contract | TBD | – | PR into `lab-7`, reviewed by `beambeambeam` before any code change |
-| Red test commit | TBD | – | Part B |
-| Green implementation commit | TBD | – | Part B |
+| Teammate review of the Part A contract | `d9feee9` | – | `beambeambeam` approved [PR #101](https://github.com/beambeambeam/claimflow/pull/101#pullrequestreview-6043052471) on 2026-11-24 |
+| Teammate review of the Part B OpenAPI contract | `3e4b572` | – | `Kiatisakk` confirmed the OpenAPI diff matches F-04 on [PR #105](https://github.com/beambeambeam/claimflow/pull/105#pullrequestreview-6043999986) on 2026-11-25 ICT (2026-11-24 UTC) |
+| Red test commits | `405c906`, `6cabc3e` | – | Test changes. API RED ran with these tests on `214d1d5` |
+| Green implementation commit | `b51c058` | – | Rule, dialog, and generated clients. Playwright locator follow-up `0226536` |
 | Accepted `main` release | TBD | TBD | Part B |
 
 Intervening development between `bb5a0d1` and `214d1d5`: four docs-only PRs (#94, #95, #96, #98) and #97 (`fbf4382`, Sprint 1 follow-ups), which changed 43 files under `apps`. #97 touched files in this change's scope (`decision-panel.tsx`, `contract.ts`, `zod.gen.ts`, `decision-panel.test.tsx`): the counter now reads its limit from the contract, and a 403 on a decision opens the access page. It did not change BR-04: `MinReasonLength = 5` and both messages are the same in `ac5bce5`, `bb5a0d1`, and `214d1d5` (`apps/api/internal/claim/rules.go`). Check with `git diff bb5a0d1 214d1d5 -- apps/api/internal/claim/rules.go`.
@@ -67,7 +68,7 @@ Intervening development between `bb5a0d1` and `214d1d5`: four docs-only PRs (#94
 
 ### 3.2 Places that state the old rule
 
-Part A revises the documents. Part B changes the rest after the review, in this order: (1) the OpenAPI descriptions and `x-min-length`, plus the `openapi-ts.config.ts` and `contract.ts` readers for it, as a contract change that the teammate reviews before any code (#99 Validation 1); (2) tests (red); (3) code; (4) `bun run generate`, committed with the change. Every line below was checked on `214d1d5`.
+Part A revises the documents. The Part B plan calls for teammate review of the OpenAPI descriptions and `x-min-length` before RED (#99 Validation 1). After RED, Part B updates the generator (`openapi-ts.config.ts`), the metadata reader (`contract.ts`), and the application code, then runs `bun run generate` and commits the generated files with the change. Section 6 records the review sequence. Every line below was checked on `214d1d5`.
 
 | Place | Lines | States | Part |
 | --- | --- | --- | --- |
@@ -217,11 +218,63 @@ New:
 
 ### 5.8 Traceability
 
-The BR-04 and NFR-08 rows keep their recorded passes and red/green commits (`2a2f76f`, `be4c545`, #33), now marked as results of the 5–500 rule, with the 10–500 results pending. The change log has a 2026-11-24 row for #99.
+The BR-04 and NFR-08 rows identify the earlier passes and red/green commits (`2a2f76f`, `be4c545`, #33) as evidence for the 5–500 rule. The 2026-11-24 change-log row identifies #99 and links the revised results.
 
 ## 6. Review
 
 | Item | Value |
 | --- | --- |
-| Teammate review of the contract | Reviewer `beambeambeam` · PR: TBD · Date: TBD |
-| Rule | No code change starts before the review is recorded |
+| Teammate review of the Part A contract | `beambeambeam` approved `d9feee9` on [PR #101](https://github.com/beambeambeam/claimflow/pull/101#pullrequestreview-6043052471) on 2026-11-24 |
+| Teammate review of the Part B OpenAPI contract | `Kiatisakk` confirmed the OpenAPI diff matches F-04 at `3e4b572` in [the PR #105 review](https://github.com/beambeambeam/claimflow/pull/105#pullrequestreview-6043999986), submitted 2026-11-25 00:16 ICT (2026-11-24 17:16 UTC) |
+| Part B review sequence | The contract commit `ea1537b` was pushed first. At the maintainer's direction, Part B tests and implementation proceeded while the OpenAPI review was pending |
+
+## 7. Part B verification
+
+### RED and GREEN
+
+RED used the API source from `214d1d539776aa12a826a4cb12f99f97e35c2b21` with only the revised test files applied. GREEN used `b51c0589dc883b691a7bb3d3e479cbbfb99ba5cb`. Both runs used the same two commands from `apps/api`.
+
+```sh
+go test -v -count=1 ./internal/claim -run '^TestF04TEST06CommentRuleBR04$'
+go test -v -count=1 . -run '^TestF04TEST07CommentRuleIs422WithTheFieldError$'
+```
+
+Both RED commands exited 1.
+
+```text
+=== RUN   TestF04TEST06CommentRuleBR04/reject_with_9_characters
+    act_test.go:87: Act error = <nil>, want a ValidationError with one field
+--- FAIL: TestF04TEST06CommentRuleBR04
+=== RUN   TestF04TEST07CommentRuleIs422WithTheFieldError/reject_with_9_characters
+    claims_review_test.go:483: status = 200, want 422
+--- FAIL: TestF04TEST07CommentRuleIs422WithTheFieldError
+```
+
+Both GREEN commands exited 0.
+
+```text
+--- PASS: TestF04TEST06CommentRuleBR04
+    --- PASS: TestF04TEST06CommentRuleBR04/reject_with_9_characters
+    --- PASS: TestF04TEST06CommentRuleBR04/reject_with_10_characters
+--- PASS: TestF04TEST07CommentRuleIs422WithTheFieldError
+    --- PASS: TestF04TEST07CommentRuleIs422WithTheFieldError/reject_with_9_characters
+    --- PASS: TestF04TEST07CommentRuleIs422WithTheFieldError/reject_with_10_characters
+```
+
+The revised service test had 5 failed and 11 passed subtests on RED, then 16 passed on GREEN. The HTTP test had 5 failed and 4 passed subtests on RED, then 9 passed on GREEN. The old API accepted the 9-character reason and returned the old field message for missing or blank reasons. GREEN checks the 10- and 500-character success cases and verifies that rejected requests leave the claim unchanged.
+
+F04-TEST-21 ran with `bun run test run src/features/reviews/__test__/decision-panel.test.tsx` in `apps/web`. RED at `6cabc3e` had 1 failure and 13 passes. The 9-character assertion expected `ariaDisabled` to be `"true"` and received `null`. GREEN at `b51c058` passed all 14 tests.
+
+For F04-TEST-24, the RED run used the dialog and test from `6cabc3e` on a seeded stack with the updated API rule. The empty-reason assertion reported `Expected: disabled` and `Received: enabled`. The implementation in `b51c058` supplies the validation behavior. The seeded GREEN run passed at `0226536` after the Playwright locator was narrowed to the field description.
+
+### Regression results
+
+| Scope | Command and tested commit | Result |
+| --- | --- | --- |
+| F-04 API, service, and persistence | `go test -v -count=1 . ./internal/claim -run '^TestF04TEST'` at `b51c058` and `go test -v -count=1 ./migrations -run '^TestF04TEST'` at `0226536`, from `apps/api` | 19 named F-04 tests passed, including reviewer access, status and version checks, and append-only history |
+| API race and coverage suite | `bun run test:coverage` in `apps/api` at `b51c058` | Passed all package, file, and total thresholds. `Total test coverage: 100% (785/785)` |
+| Web suite, including F04-TEST-20 and F04-TEST-21 | `bun run test:coverage --maxWorkers=2 --retry=2` in `apps/web` at `0226536` | 139 tests passed across 17 files, with 100% statement, branch, function, and line coverage. The isolated run passed after earlier runs timed out in F01-TEST-20 while other suites were active |
+| Seeded F-04 journeys | `bun run e2e e2e/f04-review-decision.spec.ts` in `apps/web` at `0226536`, against API `b51c058` and a local PostgreSQL 17 seed with 7 users and 6 claims | 2 passed in Chromium (F04-TEST-23 and F04-TEST-24) |
+| Generated clients | `bun run generate` at `b51c058` | Go and web generation completed with a clean diff |
+| API vulnerability scan | `bun run vuln` in `apps/api` at `b51c058` | No vulnerabilities found |
+| Lint, format, and type checks | `bun run lint:fix`, `bun run format`, and `bun run check` at the repository root | Passed |

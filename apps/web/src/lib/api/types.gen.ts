@@ -123,7 +123,7 @@ export type Claim = {
  */
 export type ClaimDecision = {
   /**
-   * Optional for approve (at most 500 characters). The reason for reject (5–500 characters). `x-max-length` is the BR-04 upper bound, which the web counter shows.
+   * Optional for approve (at most 500 characters). Required for reject (10–500 characters after trimming). The web uses `x-min-length` for the reject minimum and `x-max-length` for the comment counter.
    */
   comment?: string;
 };

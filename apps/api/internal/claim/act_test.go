@@ -28,12 +28,12 @@ func submittedClaim(t *testing.T, pool *pgxpool.Pool) (Claim, Actor) {
 	return created, Actor{ID: malee}
 }
 
-// F04-TEST-06 (F04-AC-06, BR-04): the reject reason is required and has 5 to 500 characters after trimming, counted as
+// F04-TEST-06 (F04-AC-06, BR-04): the reject reason is required and has 10 to 500 characters after trimming, counted as
 // characters, not bytes. An approve comment is optional with at most 500. A refused comment changes nothing.
 func TestF04TEST06CommentRuleBR04(t *testing.T) {
 	const (
-		required = "Enter a reason (5 to 500 characters)."
-		short    = "Reason must be at least 5 characters."
+		required = "Enter a reason (10 to 500 characters)."
+		short    = "Reason must be at least 10 characters."
 		long     = "Comment cannot be more than 500 characters."
 	)
 
@@ -45,11 +45,12 @@ func TestF04TEST06CommentRuleBR04(t *testing.T) {
 	}{
 		{"reject without a reason", ActionReject, "", required},
 		{"reject with blanks", ActionReject, "   ", required},
-		{"reject with 4 characters", ActionReject, "abcd", short},
-		{"reject with 4 characters and blanks around", ActionReject, "  abcd  ", short},
-		{"reject with 4 Thai characters (12 bytes)", ActionReject, "กขคง", short},
-		{"reject with 5 characters", ActionReject, "abcde", ""},
-		{"reject with 5 characters and blanks around", ActionReject, "  abcde  ", ""},
+		{"reject with 9 characters", ActionReject, "abcdefghi", short},
+		{"reject with 9 characters and blanks around", ActionReject, "  abcdefghi  ", short},
+		{"reject with 9 Thai characters (27 bytes)", ActionReject, "กขคงจฉชซฌ", short},
+		{"reject with 10 characters", ActionReject, "abcdefghij", ""},
+		{"reject with 10 characters and blanks around", ActionReject, "  abcdefghij  ", ""},
+		{"reject with 10 Thai characters (30 bytes)", ActionReject, "กขคงจฉชซฌญ", ""},
 		{"reject with 500 characters", ActionReject, strings.Repeat("a", 500), ""},
 		{"reject with 500 Thai characters (1,500 bytes)", ActionReject, strings.Repeat("ก", 500), ""},
 		{"reject with 501 characters", ActionReject, strings.Repeat("a", 501), long},
