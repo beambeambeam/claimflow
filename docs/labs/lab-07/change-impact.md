@@ -48,6 +48,7 @@ After any 422, the claim's status, `version`, and history are unchanged, as befo
 | Change-impact document | The commit that adds this file | – | Docs only |
 | Instructor/TA approval | Not required, per the course announcement "Lab 7 Spec Sheet Change" |
 | Teammate review of the Part A contract | `d9feee9` | – | `beambeambeam` approved [PR #101](https://github.com/beambeambeam/claimflow/pull/101#pullrequestreview-6043052471) on 2026-11-24 |
+| Teammate review of the Part B OpenAPI contract | `3e4b572` | – | `Kiatisakk` confirmed the OpenAPI diff matches F-04 on [PR #105](https://github.com/beambeambeam/claimflow/pull/105#pullrequestreview-6043999986) on 2026-11-25 ICT (2026-11-24 UTC) |
 | Red test commits | `405c906`, `6cabc3e` | – | Test changes. API RED ran with these tests on `214d1d5` |
 | Green implementation commit | `b51c058` | – | Rule, dialog, and generated clients. Playwright locator follow-up `0226536` |
 | Accepted `main` release | TBD | TBD | Part B |
@@ -224,7 +225,7 @@ The BR-04 and NFR-08 rows identify the earlier passes and red/green commits (`2a
 | Item | Value |
 | --- | --- |
 | Teammate review of the Part A contract | `beambeambeam` approved `d9feee9` on [PR #101](https://github.com/beambeambeam/claimflow/pull/101#pullrequestreview-6043052471) on 2026-11-24 |
-| Teammate review of the Part B OpenAPI contract | Requested from `Kiatisakk` on [PR #105](https://github.com/beambeambeam/claimflow/pull/105) |
+| Teammate review of the Part B OpenAPI contract | `Kiatisakk` confirmed the OpenAPI diff matches F-04 at `3e4b572` in [the PR #105 review](https://github.com/beambeambeam/claimflow/pull/105#pullrequestreview-6043999986), submitted 2026-11-25 00:16 ICT (2026-11-24 17:16 UTC) |
 | Part B review sequence | The contract commit `ea1537b` was pushed first. At the maintainer's direction, Part B tests and implementation proceeded while the OpenAPI review was pending |
 
 ## 7. Part B verification
