@@ -272,6 +272,23 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 			t.Fatalf("seed returned claim: items = %d, history = %d, error = %v", items, history, err)
 		}
 	})
+	t.Run("F07-TEST-13/withdrawn claim is seeded once with two history entries", func(t *testing.T) {
+		var items, history int
+		var comment string
+		err := pool.QueryRow(t.Context(), `
+			SELECT (SELECT count(*) FROM line_items WHERE claim_id = c.id),
+			       (SELECT count(*) FROM claim_history WHERE claim_id = c.id),
+			       coalesce((SELECT h.comment FROM claim_history h WHERE h.claim_id = c.id AND h.action = 'WITHDRAW'), '')
+			FROM claims c
+			JOIN "user" r ON r.id = c.requester_id
+			JOIN "user" v ON v.id = c.assigned_reviewer_id
+			WHERE c.claim_no = 'CLM-2026-900009' AND c.status = 'WITHDRAWN' AND c.version = 1
+				AND r.username = 'req.ploy' AND v.username = 'rev.malee' AND c.decided_at IS NULL
+				AND c.first_submitted_at IS NOT NULL AND c.submitted_at IS NOT NULL`).Scan(&items, &history, &comment)
+		if err != nil || items != 1 || history != 2 || comment != "Booked by the company instead." {
+			t.Fatalf("seed withdrawn claim: items = %d, history = %d, comment = %q, error = %v", items, history, comment, err)
+		}
+	})
 }
 
 // TestSeedCommandRefusesEmptyPassword: `api seed` fails before it writes anything when SEED_USER_PASSWORD is unset.
