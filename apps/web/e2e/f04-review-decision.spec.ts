@@ -44,14 +44,20 @@ test("F04-TEST-24: rev.malee rejects a submitted claim with a reason and req.ana
   await openFromReviewQueue(page, claimNo);
   await page.getByRole("button", { name: "Reject" }).click();
 
-  // A reject needs a reason: the field shows the message and the dialog stays open.
-  await page.getByRole("button", { name: "Reject" }).last().click();
+  const dialog = page.getByRole("dialog");
+  const reject = dialog.getByRole("button", { name: "Reject" });
+  const reason = dialog.getByRole("textbox", { name: "Reason" });
+  await expect(reject).toBeDisabled();
+
+  await reason.fill("No photos");
+  await expect(reject).toBeDisabled();
   await expect(
-    page.getByText("Enter a reason (5 to 500 characters).").first()
+    dialog.getByText("Reason must be at least 10 characters.")
   ).toBeVisible();
 
-  await page.getByLabel("Reason").fill("Receipt missing");
-  await page.getByRole("button", { name: "Reject" }).last().click();
+  await reason.fill("Receipt missing");
+  await expect(reject).toBeEnabled();
+  await reject.click();
   await expect(page.getByText("Claim rejected.").first()).toBeVisible();
 
   await logOut(page);
