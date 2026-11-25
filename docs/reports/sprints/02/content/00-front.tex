@@ -1,0 +1,50 @@
+\thispagestyle{plain}
+\reporttitle
+\draftbanner
+
+\medskip
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & \textbf{Student 1} & \textbf{Student 2} \\ \midrule
+Name & \studentOneName & \studentTwoName \\
+Student ID & \studentOneId & \studentTwoId \\
+GitHub & \href{https://github.com/Kiatisakk}{@Kiatisakk} & \href{https://github.com/beambeambeam}{@beambeambeam} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{tabular}{@{}p{3.9cm}p{12.9cm}@{}}
+\textbf{Theme} & Theme 5, ClaimFlow: Department Expense Reimbursement System \\
+\textbf{Repository} & \url{https://github.com/beambeambeam/claimflow} \\
+\textbf{Submitted tag} & \texttt{v0.1.1.0} (semantic-release on \texttt{main}; \url{https://github.com/beambeambeam/claimflow/releases/tag/v0.1.1.0}), published 2026-11-25 12:37 UTC \\
+\textbf{Submitted commit} & \texttt{3a91ea4} on \texttt{main}: merge commit of release PR \#109 (\texttt{sprint-2} into \texttt{main}), 2026-11-25 12:33 UTC; CI run 45614889848 and Deploy demo run 45615736377 \\
+ & \todo{recapture on candidate: the tag and commit of the \texttt{sprint-3} into \texttt{main} release that includes F-08 replace the two rows above; \texttt{v0.1.1.0} stays named in Parts A and B as the accepted Sprint 2 release} \\
+\textbf{Deployed application} & \url{https://claimflow-5bcxewbqkq-as.a.run.app} (Cloud Run, region \texttt{asia-southeast1}) \\
+\textbf{Deployed version} & \texttt{GET /api/v1/health} on this URL answered \texttt{\{"status":"ok","version":"3a91ea458862a02fc88384f09ef74b7a502ce762"\}} on 2026-11-25 at about 20:20 (UTC+7): the deployed version is the submitted commit \texttt{3a91ea4}. \todo{recapture on candidate: health answer and time of the candidate deployment} \\
+\textbf{Evidence source} & Sprint 2 evidence (Part B) is captured from \texttt{v0.1.1.0} by design. Front matter, the Part A demonstration and Part E come from the submitted candidate; until the Sprint 3 release exists the candidate is \texttt{v0.1.1.0} itself, so every source in this draft is \texttt{3a91ea4}. Exception stated once: the demonstrations were run on a local stack built from the \texttt{3a91ea4} tree, not on the deployed service. \\
+\end{tabular}
+
+\medskip
+\noindent\textbf{How to read this PDF.}
+Parts A to E follow the Deliverable 2 rubric. Contracts, the SRS, the feature inventory, the System-Level SDS, the ADR and the traceability matrix are the repository documents themselves, captured as GitHub renders them from \texttt{3a91ea4}, each headed by its file and commit.
+Tables, demonstrations, test output and process evidence are written for this report from commands that were run; every number, commit, pull request and date comes from \texttt{git}, \texttt{gh} or a test run.
+Open items are red \textbf{[TODO: \ldots]} markers; the DRAFT box above stays while any exist.
+The report is built from \path{docs/reports/sprints/02}; \path{docs/reports/sprints/02/README.md} indexes the evidence.
+
+\clearpage
+\section*{Navigation}
+\addcontentsline{toc}{section}{Navigation table}
+\renewcommand{\arraystretch}{1.25}
+\begin{longtable}{@{}p{1.2cm}p{2.3cm}p{13.3cm}@{}}
+\toprule \textbf{Part} & \textbf{Pages} & \textbf{Content and main IDs} \\ \midrule \endhead
+A & \pages{A} & Sprint 1 continuity and change status: accepted Sprint 1 release \texttt{v0.0.3.0} / \texttt{ac5bce5}; continuity demonstration of the Sprint 1 journey (F02-AC-01, F04-AC-04, F03-AC-05, BR-12); change and defect register (\#86, \#87, \#99, \#66, \#67, \#70, \#61); approved baseline revisions (SRS 0.3, F-04 0.6 to 0.9, Product DoD 0.3, SDS 0.12 to 0.18, plan). \\
+B & \pages{B} & Sprint 2 contracts and working increment: F-05 (F05-AC-01 to 20, F05-TEST-01 to 26), F-06 (F06-AC-01 to 13, F06-TEST-01 to 17), F-07 (F07-AC-01 to 10, F07-TEST-01 to 13), Sprint 2 DoD; completion table of 43 AC; demonstrations of F-05, F-06, F-07 with a 403; test excerpts \texttt{F06-TEST-07} (BR-14) and \texttt{F07-TEST-04} (access); TDD red and green for BR-14 and BR-16; Issue and PR chains \#43 to \#45 / PR \#108 and \#39 to \#42 / PR \#104, through \texttt{sprint-2} and PR \#109 to \texttt{main}. \\
+C & \pages{C} & Sprint 3 contracts and working progress: F-08, F-09, F-10, implemented progress, status and remaining-work tables. \todo{beam: Part C is written by the teammate} \\
+D & \pages{D} & Updated requirements and test traceability: SRS (FR-01 to FR-14, BR-01 to BR-17, NFR-01 to NFR-10), feature inventory F-01 to F-10, System-Level SDS, ADR 0001, traceability matrix of 41 requirements, coverage gaps. \\
+E & \pages{E} & Integrated release candidate: build, test, CI and deployment output with counts, regression and post-deployment checks, setup summary, readiness review, dated plan to 13 December. \\
+Back & \pages{Z} & Back matter: contribution table, AI-use declaration, known limitations, failed and skipped tests. \\
+\bottomrule
+\end{longtable}
+
+\tableofcontents

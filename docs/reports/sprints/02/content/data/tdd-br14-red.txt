@@ -1,0 +1,8 @@
+$ go test ./internal/claim/ -run 'F06TEST07' -v -count=1
+# commit a547ac0
+=== RUN   TestF06TEST07FourthReturnIsRefusedAndApproveStillWorks
+    return_test.go:115: Act return error = act on claim: update claim status: return claim: ERROR: new row for relation "claims" violates check constraint "claims_return_count_check" (SQLSTATE 23514), want ErrInvalidTransition for the return limit
+--- FAIL: TestF06TEST07FourthReturnIsRefusedAndApproveStillWorks (0.45s)
+FAIL
+FAIL	github.com/beambeambeam/claimflow/apps/api/internal/claim	9.090s
+FAIL

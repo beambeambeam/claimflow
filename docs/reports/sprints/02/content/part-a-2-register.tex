@@ -1,0 +1,41 @@
+\partsection{A.2}{Change and defect register}\label{A:2}
+
+Every deployment, UAT and maintenance finding that touched the Sprint 1 baseline, from Labs 5 to 7 and the Sprint 1 release review. IDs are GitHub issue or pull request numbers; dates are UTC as GitHub records them. ``Re-test'' names the executed check. The sources are \path{docs/labs/lab-06/uat-report.md}, \path{docs/labs/lab-07/change-impact.md}, \path{docs/traceability.md} (change log) and the issues and pull requests cited. Lab 6 findings \emph{we raised} on the Queue team's product (Queue \#55 to \#58) belong to that product and are not in this register.
+
+{\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}p{0.9cm}p{2.6cm}p{2.3cm}p{2.7cm}p{2.0cm}p{1.9cm}p{3.6cm}@{}}
+\toprule \textbf{ID} & \textbf{Source} & \textbf{Requirement, feature} & \textbf{Decision} & \textbf{Status} & \textbf{Fix release} & \textbf{Re-test} \\ \midrule \endhead
+\#86 & Lab 6 UAT by the Queue team (\texttt{MacOverlorD}), case X-02/X-03, on \texttt{eed7b27}, 2026-11-19 & FR-02, NFR-08, F02-AC-12 (title, purpose, description, receipt reference of only spaces stored blank) & Accepted defect, minor; owner \texttt{beambeambeam} & Resolved; closed 2026-11-22 & \texttt{bb5a0d1} (PR \#92 into \texttt{lab6-staging}, release PR \#93); first tag \texttt{v0.1.0.0} & Red \texttt{f684459}: \texttt{status = 201, want 400}; green \texttt{ecb4b2e}, \texttt{2054923}; retest PASS recorded in the UAT report; F02-TEST-18 and F02-TEST-19 pass in Part B's AC table \\
+\#87 & Lab 6 UAT, case X-04, on \texttt{eed7b27}, 2026-11-20 & FR-02, F02-AC-13 (double-click on Submit created CLM-2026-000015 and 000016) & Accepted defect, major; owner \texttt{beambeambeam}; server idempotency left out by design (SDS 7.2) & Resolved; closed 2026-11-22 & \texttt{bb5a0d1} (PR \#91, release PR \#93); \texttt{v0.1.0.0} & Component test red on \texttt{f684459}, green \texttt{f97dec4} to \texttt{496b22f}; retest PASS recorded in the UAT report \\
+\#99 & Lab 7 maintenance change L7/01 (PR \#101 contract, PR \#105 code) & FR-06, BR-04, F04-AC-06, F04-AC-18 (reject reason 5 to 500 becomes 10 to 500) & Changed requirement, not a defect; approved by \texttt{Kiatisakk} (PR \#101); OpenAPI review on PR \#105 & Resolved; closed 2026-11-24 & \texttt{c32e645} (release PR \#106); \texttt{v0.1.0.0} & Red \texttt{214d1d5}, green \texttt{b51c058} (PR \#105); revised F04-TEST-06, 07, 21, 24 pass; the same minimum now also guards Return (F06-AC-02, F06-TEST-02), passing in \texttt{v0.1.1.0} \\
+\#66 & Sprint 1 release review (PR \#69): E2E specs did not run in CI & Product DoD item 4, NFR-08 evidence & Decision: E2E journeys run on a local seeded stack before each release, not in CI (Product DoD 0.3, PR \#96) & Resolved by decision; closed 2026-11-22 & \texttt{fe9eb01}; \texttt{v0.1.0.0} & 8 of 8 Playwright specs pass on the \texttt{3a91ea4} stack (Part E) \\
+\#67, \#70 & Sprint 1 review follow-ups of PR \#65 and release PR \#69 & SDS 3.1 signatures, the 403 access page, session audit fields & Accepted as follow-up work; SDS 0.12 recorded them as as-built notes & Resolved; closed 2026-11-22 & \texttt{fbf4382} (PR \#97); \texttt{v0.1.0.0} & F04-TEST-21 gained the approve 403 case; Go and web suites pass at \texttt{3a91ea4} (Part E) \\
+\#61 & Sprint 1 PR \#60 known gap: receipts are a text reference only & EX-05 (receipt upload excluded), F-EXTRA-01 & Not implemented; out of scope for the baseline & Closed 2026-11-24 without an implementing commit (\texttt{git log --grep} finds none); SRS still lists EX-05 & none & none. \todo{kiatisakk: confirm why \#61 was closed and add one sentence} \\
+none & Sprint 2 release checks (\texttt{docs/traceability.md}): \texttt{bun run dev} could not start the API on Windows & NFR-10 (README run path) & Fix: air build entry for Windows & Resolved & \texttt{33ade04}; in \texttt{v0.1.1.0} & README steps rerun on a clean clone: air started the API, \texttt{/api/v1/ready} gave 200 \\
+\bottomrule
+\end{longtable}}
+
+\textbf{Remaining status.} No register item is open. The known limitations that are not findings (a local-only web test failure, no E2E job in CI, no receipt upload) are listed in the back matter. \todo{recapture on candidate: add any finding raised against the candidate after 2026-11-25, and any Lab 7 re-test of the candidate}
+
+\partsection{A.3}{Approved baseline revisions and their rationale}\label{A:3}
+
+The baseline of Deliverable 1 is SRS 0.2, the Sprint 1 contracts at the release \texttt{v0.0.3.0}, SDS 0.12 and Product DoD 0.2. Revisions since, from the revision histories and the change log of \path{docs/traceability.md}. Approver is the name recorded in the document.
+
+{\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}p{3.0cm}p{1.9cm}p{6.7cm}p{4.6cm}@{}}
+\toprule \textbf{Document, version} & \textbf{Date} & \textbf{Change} & \textbf{Rationale, approval} \\ \midrule \endhead
+SRS 0.3 & 2026-11-24 & BR-04: the reason minimum rises from 5 to 10 characters for reject, return and final reject; the maximum stays 500 & Lab 7 change L7/01 (\#99): ``No pic'' is accepted today and gives the requester nothing to act on; approved by 1005 \\
+F-04 contract 0.6 & 2026-11-22 & Playwright item follows Product DoD 0.3 item 4 (local seeded stack, not CI); no AC or test changed & \#66; \texttt{beambeambeam} \\
+F-04 contract 0.7 & 2026-11-22 & F04-TEST-21 adds the approve 403 case & Sprint 1 follow-up \#67; \texttt{beambeambeam} \\
+F-04 contract 0.8 & 2026-11-24 & F04-AC-06 and F04-AC-18 and the inputs of F04-TEST-06, 07, 21, 24 revised for BR-04; the original red and green commits apply to the contract before 0.8 & L7/01 (\#99); 1005 \\
+F-04 contract 0.9 & 2026-11-24 & Seed gains DRAFT, RETURNED and WITHDRAWN sample claims; F04-TEST-22 expects them & Sprint 2 contracts (PR \#100) \\
+Product DoD (Sprint 1) 0.3 & 2026-11-22 & Item 4: E2E specs pass on a local seeded stack before each release, tested commit recorded & The course specifications require E2E journeys to exist, not to run in CI (\#66); \texttt{beambeambeam} \\
+System SDS 0.13 to 0.15 & 2026-11-17 to 11-19 & Lab 5: root Dockerfile and \texttt{WEB\_DIR}; \texttt{image} required check; rulesets; release identity is the SHA & Lab 5 (\#53, \#54); 1005 \\
+System SDS 0.16, 0.17 & 2026-11-22 & E2E strategy (10); session audit fields and \texttt{Create} as built & \#66, \#67, \#70; \texttt{beambeambeam} \\
+System SDS 0.18 & 2026-11-24 & BR-04 minimum in \texttt{claim\_history.comment} is 10; no schema change & L7/01; 1005 \\
+Sprint plan (change log) & 2026-11-15, 2026-11-23 & Sprint 1 finished 15 Nov, not 8 Nov; Sprint 2 started 23 Nov from \texttt{sprint-2} & Schedule shift recorded in the plan; the log marks the first two staging-branch entries ``Pending review'' \\
+Traceability change log & 2026-11-13 to 11-25 & One dated row per change of mapping or recorded result, including the Sprint 2 AC and tests (2026-11-23) and the Sprint 2 release checks (2026-11-25) & Each row names its ticket or PR; shown in full in Part D \\
+\bottomrule
+\end{longtable}}
+
+\noindent The Sprint 2 contracts F-05, F-06 and F-07 have their own revision histories (Part B, 0.1 to 0.4); those are Sprint 2 work, not changes to the Sprint 1 baseline.

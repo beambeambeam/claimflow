@@ -1,0 +1,54 @@
+% ClaimFlow Sprint 2 report (CPE 334 Deliverable 2). Build: bun run pdf 02
+% in docs/reports, or save in VS Code with LaTeX Workshop.
+\documentclass[11pt]{article}
+\newcommand{\sprintname}{Sprint 2}
+\newcommand{\deliverable}{Project Deliverable 2}
+\input{../../preamble}
+
+% The back matter is not a rubric part, so it gets its own heading and labels.
+\newcommand{\reportback}[1]{%
+  \clearpage\phantomsection\addcontentsline{toc}{section}{#1}%
+  \label{part:Z:start}%
+  {\noindent\bfseries\Large\color{brand} #1\par}%
+  \vspace{2pt}\noindent\textcolor{brand}{\rule{\linewidth}{1.2pt}}\par\vspace{6pt}}
+\newcommand{\reportbackend}{\par\label{part:Z:end}}
+
+\begin{document}
+
+\input{content/00-front}
+
+\reportpart{A}{Sprint 1 continuity and change status}
+\input{content/part-a-1-continuity}
+\input{content/part-a-2-register}
+\reportpartend{A}
+
+\reportpart{B}{Sprint 2 contracts and working increment}
+\input{content/part-b-1-contracts}
+\input{content/part-b-2-completion}
+\input{content/part-b-3-demos}
+\input{content/part-b-4-tests}
+\input{content/part-b-5-workflow}
+\reportpartend{B}
+
+\reportpart{C}{Sprint 3 contracts and working progress}
+\input{content/part-c-sprint3}
+\reportpartend{C}
+
+\reportpart{D}{Updated requirements and test traceability}
+\input{content/part-d-1-requirements}
+\input{content/part-d-2-design}
+\input{content/part-d-3-traceability}
+\input{content/part-d-4-gaps}
+\reportpartend{D}
+
+\reportpart{E}{Integrated release candidate}
+\input{content/part-e-1-candidate}
+\input{content/part-e-2-setup}
+\input{content/part-e-3-readiness}
+\reportpartend{E}
+
+\reportback{Back matter: contributions, AI use, and known limitations}
+\input{content/back-matter}
+\reportbackend
+
+\end{document}

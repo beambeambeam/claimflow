@@ -1,0 +1,14 @@
+\partsection{E.2}{Setup summary}\label{E:2}
+
+Full steps are in \path{README.md}, \path{apps/api/README.md} and \path{apps/web/README.md}; they were rerun on a clean clone during the Sprint 2 release checks (Windows, A.2). In short:
+
+\begin{enumerate}\setlength\itemsep{2pt}
+\item \texttt{bun install} at the repository root.
+\item Copy each \texttt{.env.example} to \texttt{.env} and set the values (Varlock loads them against \texttt{.env.schema}); \texttt{bun run db:up} starts PostgreSQL 17 in Docker.
+\item In \path{apps/api}: \texttt{migrate up}, then \texttt{seed} (7 users, 9 sample claims; a second run adds none), then \texttt{bun run dev}.
+\item In \path{apps/web}: \texttt{bun run dev}.
+\end{enumerate}
+
+\textbf{Environment variable names} (values are never in this report or in the repository). API: \texttt{GIN\_MODE}, \texttt{PORT}, \texttt{DATABASE\_URL}, \texttt{COOKIE\_SECURE}, \texttt{BCRYPT\_COST}, \texttt{LOG\_LEVEL}, \texttt{WEB\_DIR}, \texttt{APP\_VERSION}, \texttt{SEED\_USER\_PASSWORD}. Web: the \texttt{VITE\_}-prefixed variables of \path{apps/web/.env.schema}. Report: \texttt{STUDENT\_1\_NAME}, \texttt{STUDENT\_1\_ID}, \texttt{STUDENT\_2\_NAME}, \texttt{STUDENT\_2\_ID}.
+
+\textbf{Deployment.} A merge to \texttt{main} builds the image and runs the Deploy demo workflow to Cloud Run on GCP; credentials are Workload Identity and repository secrets, none in the code. \todo{recapture on candidate: confirm the setup steps on a clean clone of the candidate}

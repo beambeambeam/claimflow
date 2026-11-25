@@ -1,0 +1,69 @@
+\partsection{B.3}{Program demonstrations}\label{B:3}
+
+Three scenarios on the Sprint 2 release, run on the local stack described in A.1 (tag \texttt{v0.1.1.0}, commit \texttt{3a91ea4}, 2026-11-25, Chrome, synthetic data), taken by \path{docs/reports/sprints/02/demo.ts}, not by hand.
+Between them they show saved data read back from PostgreSQL (Demo 1, A.1), meaningful rule rejections (BR-07 at draft submission, BR-04 on the return reason, BR-14 after three returns) and backend evidence of a forbidden operation (a 403 from the API).
+\todo{recapture on candidate: rerun the demonstrations on the candidate stack if the candidate differs from \texttt{v0.1.1.0}; the IDs, steps and expected results below do not change}
+
+\subsection*{Demo 1: F-05 Drafts: save, read back, rule rejection, ownership 403}
+
+\demofacts
+ {F-05; F05-AC-01, F05-AC-04, F05-AC-08, F05-AC-09, F05-AC-16 to F05-AC-19; BR-07, NFR-02; F05-TEST-01, 05, 11, 12, 13}
+ {Requester \texttt{req.anan}; then requester \texttt{req.ploy} for the 403}
+ {Fresh seeded database; \texttt{req.anan} has a reviewer (\texttt{rev.malee})}
+ {(1) \texttt{req.anan} fills New Claim with one Travel item and presses \textbf{Save as draft}. (2) Opens My Claims, then the API URL of the draft. (3) Edits the draft and sets the expense date to tomorrow; Save changes; presses \textbf{Submit claim}. (4) Sets the date to yesterday; Submit claim. (5) Saves a second draft; logs in as \texttt{req.ploy} and opens that draft's API URL.}
+ {(1) The API creates the draft (201) with status Draft and no history. (2) My Claims lists it with the Draft badge; the API returns it with \texttt{status DRAFT}, \texttt{version 0}, \texttt{assignedReviewer null}. (3) Saving with a future date is accepted (drafts skip dates); submitting is refused with 422 ``Line 1: Expense date cannot be in the future.'' and the claim stays a draft. (4) The corrected draft is submitted: status Submitted, history \texttt{Draft} to \texttt{Submitted}. (5) The other requester gets 403 with no claim data.}
+ {As expected. Draft \texttt{CLM-2026-000002} (250.00 THB) was saved with the toast ``Draft saved.'', listed in My Claims, and returned by \texttt{GET /api/v1/claims/\{id\}} with \texttt{"status":"DRAFT"}, \texttt{"version":0}, \texttt{"history":[]}. The submit with a date of 26 Nov 2026 was refused with ``Check the claim before submitting. Line 1: Expense date cannot be in the future.''; after the correction the claim became Submitted (version 3). \texttt{req.ploy}'s read of \texttt{CLM-2026-000003} returned \texttt{\{"code":"FORBIDDEN","status":403,\ldots\}}.}
+ {Saved data read back from PostgreSQL: the API answer in the third figure, and the history row \texttt{SUBMIT DRAFT to SUBMITTED} in the read-back of A.1. The 403 is the API's own response, not a hidden button: automated F05-TEST-05 (\texttt{TestF05TEST05OnlyOwnerCanOpenDraft}) and F05-TEST-03 (Finance Officer 403) pass (table below).}
+
+\evidencehalf{figures/demo/d1-1-draft-saved.png}{Demo 1: the draft is saved with the Draft badge, the server total and no history (F05-AC-01, F05-AC-16).}
+\evidencehalf{figures/demo/d1-2-my-claims-lists-the-draft.png}{Demo 1: My Claims lists the draft (F05-AC-19).}
+\evidencesmall{figures/demo/d1-3-api-returns-the-saved-draft.png}{Demo 1: retrieval of saved data. The API's own JSON for the draft, read from PostgreSQL: \texttt{status DRAFT}, \texttt{version 0}, \texttt{history []}, the owner's \texttt{allowedActions} edit, delete, submit (F05-AC-01, F05-AC-04).}{0.96}
+\evidencehalf{figures/demo/d1-4-submit-refused-future-date.png}{Demo 1: rule rejection. Submitting the draft with a future expense date is refused under BR-07 and the claim stays a draft (F05-AC-09, F05-AC-17).}
+\evidencehalf{figures/demo/d1-5-draft-submitted.png}{Demo 1: the corrected draft is submitted: Submitted, one history entry from Draft (F05-AC-08).}
+\evidencesmall{figures/demo/d1-6-other-requester-gets-403.png}{Demo 1: backend evidence of a forbidden ownership operation. \texttt{req.ploy} reads \texttt{req.anan}'s draft through the API: 403 \texttt{FORBIDDEN} with no claim data (F05-AC-04, NFR-02).}{0.96}
+
+\subsection*{Demo 2: F-06 Return and resubmit: reason rule, return, resubmit, return limit}
+
+\demofacts
+ {F-06; F06-AC-01, F06-AC-02, F06-AC-05, F06-AC-07, F06-AC-11, F06-AC-12; BR-04, BR-14; F06-TEST-02, 07, 13, 14, 15}
+ {Requester \texttt{req.anan}; reviewer \texttt{rev.malee}}
+ {Fresh seeded database; \texttt{req.anan}'s Submitted claim in \texttt{rev.malee}'s queue}
+ {(1) \texttt{rev.malee} opens the claim, chooses Return and types ``Too short''. (2) Types ``Please attach the taxi receipt'' and confirms. (3) \texttt{req.anan} opens the claim, reads the reason and ``Returned 1 / 3'', and presses Resubmit. (4) Two more return and resubmit rounds. (5) \texttt{rev.malee} opens the claim a fourth time.}
+ {(1) The dialog refuses a reason under 10 characters (BR-04): message and a disabled Return button. (2) The claim becomes Returned with the reason in its history. (3) The owner sees the banner, the reason and the count; Resubmit makes it Submitted again for the same reviewer. (5) After three returns Return is no longer offered; Approve and Reject stay (BR-14).}
+ {As expected. ``Reason must be at least 10 characters.'' appeared at 9/500 characters with Return disabled. The claim \texttt{CLM-2026-000004} was returned, resubmitted, and after round 3 the reviewer's panel read ``Returned 3 / 3 -- approve or reject.'' with only Approve and Reject.}
+ {The database after the run: \texttt{CLM-2026-000004} is \texttt{SUBMITTED}, \texttt{version 6}, \texttt{return\_count 3}, with history SUBMIT, then RETURN and RESUBMIT three times (read-back in A.1; the return comments are stored). The refusal of a fourth return by the API (409 \texttt{INVALID\_TRANSITION}, BR-14) is F06-TEST-07, shown with its output in B.4. The CHECK \texttt{return\_count <= 3} is in the schema.}
+
+\evidencehalf{figures/demo/d2-1-short-reason-refused.png}{Demo 2: rule rejection. A 9-character return reason is refused under BR-04 and the Return button stays disabled (F06-AC-02, F06-AC-11).}
+\evidencehalf{figures/demo/d2-2-claim-returned.png}{Demo 2: the reviewer returns the claim with a valid reason (F06-AC-01).}
+\evidencehalf{figures/demo/d2-3-owner-sees-reason-and-count.png}{Demo 2: the owner sees the return reason, ``Returned 1 / 3'' and the Edit and Resubmit actions (F06-AC-12).}
+\evidencehalf{figures/demo/d2-4-claim-resubmitted.png}{Demo 2: Resubmit puts the claim back to the same reviewer (F06-AC-07).}
+\evidencehalf{figures/demo/d2-5-no-fourth-return.png}{Demo 2: after three returns the reviewer has no Return action, only Approve and Reject; the history shows Return and Resubmit rounds (F06-AC-05, BR-14).}
+
+\subsection*{Demo 3: F-07 Withdraw}
+
+\demofacts
+ {F-07; F07-AC-01, F07-AC-08, F07-AC-09; BR-16; F07-TEST-01, 10, 11, 12}
+ {Requester \texttt{req.anan}; reviewer \texttt{rev.malee}}
+ {A Submitted claim of \texttt{req.anan}}
+ {\texttt{req.anan} opens the claim, chooses Withdraw, types the comment ``No longer needed'' and confirms; \texttt{rev.malee} opens her Review Queue.}
+ {The claim becomes Withdrawn with the comment in its history and no actions; it is gone from the reviewer's queue.}
+ {As expected: ``Claim withdrawn.'', the Withdrawn badge and the history entry \texttt{Submitted -> Withdrawn} with the comment; the Review Queue table did not list the claim.}
+ {\texttt{CLM-2026-000005} is \texttt{WITHDRAWN}, \texttt{version 1}, with history SUBMIT and WITHDRAW (``No longer needed'') in the A.1 read-back. Access: only the owner may withdraw (F07-TEST-04, B.4); withdrawing from a non-submitted, non-returned status is refused with 409 BR-16 (F07-TEST-03, B.4).}
+
+\evidencehalf{figures/demo/d3-1-withdraw-dialog.png}{Demo 3: the Withdraw dialog with the optional comment and its counter (F07-AC-09).}
+\evidencehalf{figures/demo/d3-2-claim-withdrawn-with-history.png}{Demo 3: the claim is Withdrawn; the history shows the withdrawal and its comment (F07-AC-01).}
+\evidencehalf{figures/demo/d3-3-review-queue-without-the-claim.png}{Demo 3: the claim is no longer in \texttt{rev.malee}'s Review Queue (F07-AC-08).}
+
+\textbf{Backend evidence for the access restrictions of Sprint 2.} Go suite on \texttt{3a91ea4} (B.4); every test passes. Each sends the request through the real router and checks the stored state is unchanged.
+
+\begin{center}\small
+\begin{tabular}{@{}llp{8.4cm}l@{}}
+\toprule \textbf{Test} & \textbf{AC} & \textbf{Asserts} & \textbf{Result} \\ \midrule
+F05-TEST-03 & F05-AC-03 & \texttt{fin.wanida} saves a draft: 403; no claim stored (BR-15) & pass \\
+F05-TEST-05 & F05-AC-04 & only the owner opens a draft: \texttt{req.ploy}, the owner's reviewer and the Finance Officer get 403 with no claim data & pass \\
+F05-TEST-09 & F05-AC-06 & a non-owner edit gets 403; the owner's edit of a Submitted claim gets 409 BR-10 & pass \\
+F06-TEST-04 & F06-AC-03 & only the assigned reviewer returns: the owner and another reviewer get 403 & pass \\
+F07-TEST-04 & F07-AC-04 & only the owner withdraws: the assigned reviewer and another requester get 403, no claim data in the body & pass \\
+\bottomrule
+\end{tabular}
+\end{center}

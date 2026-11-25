@@ -1,0 +1,23 @@
+\subsubsection*{Contribution table}
+
+From the merged pull requests and closed issues of \path{beambeambeam/claimflow}, collected by \path{docs/reports/scripts/collect-team.ts}, counting only work from 16 November 2026 (the Sprint 2 period). Dependabot pull requests are not counted.
+
+\input{content/data/team}
+
+\todo{beam: add one paragraph on your Sprint 2 work (the draft workflow \#104, the contracts \#100, the release review \#109), as in Sprint 1, and confirm the split}
+
+\subsubsection*{AI-use declaration}
+
+\textbf{Student \studentOneId{} (\studentOneName).} Claude Code (Anthropic) was used throughout Sprint 2: implementation of the F-06 and F-07 tickets under test-driven development (the failing test is committed first, B.4), drafting of review comments on the teammate's pull requests, and the capture and generation scripts and drafts of this report. Every result is gated by the repository checks and was read by the student before it was committed, pushed or posted.
+
+\textbf{Student \studentTwoTag{} (\studentTwoName).} \todo{beam: declare your AI use in Sprint 2 (tools, models, tasks, how results were checked)}
+
+\subsubsection*{Known limitations, failed and skipped tests}
+
+\begin{itemize}\setlength\itemsep{2pt}
+\item \textbf{E2E specs do not run in CI} (Product DoD 0.3): 8 of 8 pass on a local seeded stack.
+\item \textbf{Web tests locally.} A full local web run times out under load; \texttt{F01-TEST-20} (\path{auth-routing.test.tsx}) fails alone on the author's machine and passes in CI. CI is the verdict.
+\item \textbf{Receipt files are not supported} (EX-05); issue \#61 was closed without an implementation.
+\item \textbf{Sprint 3 is not implemented:} F-08, F-09, F-10 and the NFR-07 timed run (Part C).
+\item \textbf{Failed and skipped tests on \texttt{3a91ea4}.} Go: 0 failed, 0 skipped of 178 top-level tests and 241 subtests. Web: 182 of 182 in CI. E2E: 8 of 8 locally. No test was disabled, skipped or weakened to obtain these results.
+\end{itemize}

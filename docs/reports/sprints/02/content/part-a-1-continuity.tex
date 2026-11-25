@@ -1,0 +1,55 @@
+\partsection{A.1}{Accepted Sprint 1 release and continuity of its journey}\label{A:1}
+
+\textbf{Accepted Sprint 1 release.} Tag \texttt{v0.0.3.0}, commit \texttt{ac5bce5} on \texttt{main}: the merge commit of release PR \#69 (\texttt{sprint-1} at \texttt{7e787d4} into \texttt{main}), 2026-11-15 15:31 (UTC+7). It is the version the Deliverable 1 report cites. \texttt{main} has moved since; the releases between that commit and the Sprint 2 release, from \texttt{git tag} and \texttt{git log}:
+
+\begin{center}\small
+\begin{tabular}{@{}llllp{7.6cm}@{}}
+\toprule \textbf{Tag} & \textbf{Commit} & \textbf{Created (UTC+7)} & \textbf{Release PR} & \textbf{What it added to Sprint 1} \\ \midrule
+\texttt{v0.0.3.0} & \texttt{ac5bce5} & 2026-11-15 15:31 & \#69 & Accepted Sprint 1 release (F-01 to F-04) \\
+\texttt{v0.0.4.0} & \texttt{7952445} & 2026-11-18 20:03 & \#76 & Lab 5: cloud-ready image, compose stack, GCP setup script \\
+\texttt{v0.1.0.0} & \texttt{c32e645} & 2026-11-25 00:48 & \#106 & Lab 5 deploy pipeline, Lab 6 fixes (\#86, \#87), Sprint 1 follow-ups (\#97), Lab 7 change L7/01 (\#99) \\
+\texttt{v0.1.1.0} & \texttt{3a91ea4} & 2026-11-25 19:33 & \#109 & Sprint 2: F-05, F-06, F-07 (accepted Sprint 2 release) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The Lab 6 release PR \#93 (\texttt{bb5a0d1}, deployed 2026-11-21 as Cloud Run revision \texttt{claimflow-00010-985}) produced no tag of its own: semantic-release found no relevant change, and its commits first appear under \texttt{v0.1.0.0}.
+
+\textbf{Continuity demonstration.} The original Sprint 1 journey (submit, review, approve, read back) and one Sprint 1 rule (BR-12), run on the Sprint 2 release. The submitted candidate is \texttt{v0.1.1.0} until the Sprint 3 release exists. \todo{recapture on candidate: rerun \texttt{bun run capture-demo 02} on the stack built from the candidate tag and replace figures \texttt{a1-*}} Demonstrations are taken by \path{docs/reports/sprints/02/demo.ts} (Playwright) on a local stack: PostgreSQL 17 started empty, \texttt{migrate up}, \texttt{seed} (7 users and 9 sample claims; a second \texttt{seed} added 0), the API built from the \texttt{3a91ea4} tree with \texttt{APP\_VERSION} set to that SHA, and the web dev server, on 2026-11-25 in Chrome with synthetic data. The seed password was a throwaway value set only in the process environment; it is in no file and in no figure. Claim numbers in the screenshots (\texttt{CLM-2026-000001} and following) come from that fresh database; a rerun gives the next free numbers.
+
+\newcommand{\demofacts}[7]{%
+  \begin{center}\small
+  \begin{tabular}{@{}>{\bfseries}p{3.1cm}p{13.2cm}@{}}
+  \toprule
+  IDs & #1 \\
+  Role & #2 \\
+  Starting conditions & #3 \\
+  Steps & #4 \\
+  Expected result & #5 \\
+  Actual result & #6 \\
+  Backend evidence & #7 \\
+  \bottomrule
+  \end{tabular}
+  \end{center}}
+
+\subsubsection*{Continuity demo: submit, approve, read back (Sprint 1 journey)}
+
+\demofacts
+ {F-02, F-03, F-04; F02-AC-01, F04-AC-04, F03-AC-05; BR-12, F02-AC-06; tag \texttt{v0.1.1.0}, commit \texttt{3a91ea4}}
+ {Requester \texttt{req.anan}, then reviewer \texttt{rev.malee}, then \texttt{req.anan} again}
+ {Fresh seeded database, API and web running}
+ {\texttt{req.anan} submits a claim with a Travel item of 250.00 and a Meals item of 400.00; \texttt{rev.malee} opens it from the Review Queue and approves; \texttt{req.anan} opens My Claims and the claim. Then \texttt{req.anan} enters a Meals item of 1,600.00 THB and presses Submit.}
+ {The claim is saved with a claim number and the status Submitted, appears in the reviewer's queue, becomes Approved with a history of SUBMIT and APPROVE, and is read back as Approved. The 1,600.00 Meals item is refused under its field (BR-12).}
+ {As expected. The claim was \texttt{CLM-2026-000001}, total 650.00 THB; after Approve the toast read ``Claim approved.''; My Claims and the claim detail showed Approved with the two history entries. The Meals item of 1,600.00 gave ``A Meals item cannot be more than 1,500.00 THB.'' under the Amount field, with the input kept.}
+ {The row in PostgreSQL after the demos (\texttt{db-readback} below): \texttt{CLM-2026-000001} is \texttt{APPROVED}, version 1, with history \texttt{SUBMIT} then \texttt{APPROVE}. The five Sprint 1 E2E specs (F01-TEST-24, F02-TEST-21, F03-TEST-12, F04-TEST-23, F04-TEST-24) pass on this stack (8 of 8 Playwright specs, Part E).}
+
+\evidencehalf{figures/demo/a1-1-new-claim-two-items.png}{Continuity: \texttt{req.anan} fills New Claim with a Travel item of 250.00 and a Meals item of 400.00, total 650.00 THB (F02-AC-01).}
+\evidencehalf{figures/demo/a1-2-claim-submitted.png}{Continuity: the claim is saved with its claim number and the status Submitted (F02-AC-01).}
+\evidencehalf{figures/demo/a1-3-reviewer-approves.png}{Continuity: \texttt{rev.malee} approves the claim from her Review Queue (F04-AC-04).}
+\evidencehalf{figures/demo/a1-4-my-claims-approved.png}{Continuity: retrieval of the saved result. \texttt{req.anan}'s My Claims shows the claim as Approved (F03-AC-01).}
+\evidencehalf{figures/demo/a1-5-claim-detail-approved-with-history.png}{Continuity: the claim detail read back from the database: Approved, items, total and the history entries (F03-AC-05).}
+\evidencehalf{figures/demo/a1-6-meals-limit-refused.png}{Continuity: the Sprint 1 rule BR-12 still refuses a Meals item over 1,500.00 THB under its field (F02-AC-06).}
+
+\textbf{Backend read-back of the continuity claim and of the Sprint 2 demonstration claims} (PostgreSQL of the demo stack; the Sprint 2 rows are explained in Part B):
+
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/db-readback.txt}

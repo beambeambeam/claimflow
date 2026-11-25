@@ -1,0 +1,26 @@
+{
+  "commit": "3a91ea4",
+  "docs": {
+    "f05": {
+      "diagrams": ["f05-1.png", "f05-2.png"],
+      "file": "docs/sprints/sprint-2/F-05-drafts.md"
+    },
+    "f06": {
+      "diagrams": ["f06-1.png"],
+      "file": "docs/sprints/sprint-2/F-06-return-resubmit.md"
+    },
+    "f07": {
+      "diagrams": ["f07-1.png"],
+      "file": "docs/sprints/sprint-2/F-07-withdraw.md"
+    },
+    "features": {
+      "diagrams": ["features-1.png"],
+      "file": "docs/features.md"
+    },
+    "system-sds": {
+      "diagrams": ["system-sds-1.png", "system-sds-2.png", "system-sds-3.png"],
+      "file": "docs/system-sds.md"
+    }
+  },
+  "ref": "main"
+}

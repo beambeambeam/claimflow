@@ -1,0 +1,27 @@
+\partsection{D.4}{Coverage and gaps}\label{D:4}
+
+From \path{docs/traceability.md} section 4, checked against SRS 0.3. Sprint 2 contracts were checked on 2026-11-23.
+
+\begin{center}\small
+\begin{tabular}{@{}lllll@{}}
+\toprule \textbf{Type} & \textbf{In SRS} & \textbf{Traced} & \textbf{Mapped to a feature or SR} & \textbf{Uncovered} \\ \midrule
+Functional (FR) & 14 & 14 & 14 & 0 \\
+Business rules (BR) & 17 & 17 & 17 & 0 \\
+Non-functional (NFR) & 10 & 10 & 10 & 0 \\
+\textbf{Total} & \textbf{41} & \textbf{41} & \textbf{41} & \textbf{0} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Every one of the 43 Sprint 2 AC has at least one of the 56 planned tests, and all 56 have an actual passing test (B.2, B.4). The gaps that remain, stated plainly:
+
+\begin{itemize}\setlength\itemsep{2pt}
+\item \textbf{Sprint 3 features have no contract merged on \texttt{main}} (F-08, F-09, F-10; PR \#111 is open). Their requirements are mapped to features, but their AC and tests are not yet in the matrix.
+\item \textbf{NFR-07 is not measured yet.} The timed API run on at least 200 seeded claims is planned for Sprint 3 on the deployed instance.
+\item \textbf{E2E specs do not run in CI} (Product DoD 0.3): they run on a local seeded stack before each release (8 of 8 on \texttt{3a91ea4}).
+\item \textbf{Web suite local run.} A full local run of the web suite times out under load, so CI is its verdict; one test (F01-TEST-20) fails locally alone and passes in CI.
+\item \textbf{Receipt upload} is excluded by the SRS (EX-05); a receipt is a text reference.
+\item \textbf{NFR-04 (cloud half), NFR-05 and NFR-10} are verified in Lab 5, not in a sprint test (listed as verified outside a sprint deliverable).
+\end{itemize}
+
+\todo{recapture on candidate: update the coverage figures and gaps if the SRS or the traceability matrix change before submission}

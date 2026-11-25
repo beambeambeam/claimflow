@@ -1,0 +1,454 @@
+{
+  "issues": [
+    {
+      "assignees": ["Kiatisakk"],
+      "closed_at": "2026-11-17T19:15:59Z",
+      "number": 4,
+      "title": "Submit full report of 1st Sprint"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-24T17:08:43Z",
+      "number": 39,
+      "title": "F-05/01: Save and view drafts"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-24T17:08:45Z",
+      "number": 40,
+      "title": "F-05/02: Edit a draft"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-24T17:08:46Z",
+      "number": 41,
+      "title": "F-05/03: Submit a draft"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-24T17:08:47Z",
+      "number": 42,
+      "title": "F-05/04: Delete a draft"
+    },
+    {
+      "assignees": ["Kiatisakk"],
+      "closed_at": "2026-11-25T08:59:49Z",
+      "number": 43,
+      "title": "F-06/01: Return a submitted claim"
+    },
+    {
+      "assignees": ["Kiatisakk"],
+      "closed_at": "2026-11-25T08:59:55Z",
+      "number": 44,
+      "title": "F-06/02: Edit and resubmit a returned claim"
+    },
+    {
+      "assignees": ["Kiatisakk"],
+      "closed_at": "2026-11-25T09:00:00Z",
+      "number": 45,
+      "title": "F-07/01: Withdraw a submitted or returned claim"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-18T18:29:56Z",
+      "number": 51,
+      "title": "L5/00: Write the Lab 5 spec and tickets"
+    },
+    {
+      "assignees": ["Kiatisakk"],
+      "closed_at": "2026-11-18T16:19:32Z",
+      "number": 52,
+      "title": "L5/01: GCP project, cost controls, secrets, and Workload Identity"
+    },
+    {
+      "assignees": ["Kiatisakk"],
+      "closed_at": "2026-11-18T13:03:54Z",
+      "number": 53,
+      "title": "L5/02: Cloud-ready image, compose stack, and image CI gate"
+    },
+    {
+      "assignees": ["Kiatisakk"],
+      "closed_at": "2026-11-18T20:04:10Z",
+      "number": 54,
+      "title": "L5/03: Deploy pipeline and first release to GCP"
+    },
+    {
+      "assignees": ["Kiatisakk"],
+      "closed_at": "2026-11-18T20:30:40Z",
+      "number": 55,
+      "title": "L5/04: Gate, persistence, and rollback evidence and Lab 5 PDF"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-24T17:11:21Z",
+      "number": 61,
+      "title": "F-EXTRA-01 Receipt files for line items"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-22T14:39:07Z",
+      "number": 66,
+      "title": "Run the Playwright E2E specs in CI"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-22T15:33:36Z",
+      "number": 67,
+      "title": "Sprint 1 review follow-ups"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-22T15:33:36Z",
+      "number": 70,
+      "title": "Sprint 1 cleanup"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-22T08:26:45Z",
+      "number": 86,
+      "title": "[UAT] Title or purpose made only of spaces is accepted and the claim is stored blank"
+    },
+    {
+      "assignees": [],
+      "closed_at": "2026-11-22T08:26:39Z",
+      "number": 87,
+      "title": "[UAT] Double-clicking Submit can create two identical claims"
+    },
+    {
+      "assignees": ["Kiatisakk"],
+      "closed_at": "2026-11-24T17:48:07Z",
+      "number": 99,
+      "title": "L7/01: Raise the minimum rejection reason length from 5 to 10 characters (BR-04)"
+    }
+  ],
+  "prs": [
+    {
+      "author": "Kiatisakk",
+      "base": "main",
+      "merged_at": "2026-11-17T15:41:54Z",
+      "merged_by": "beambeambeam",
+      "number": 64,
+      "reviews": {},
+      "title": "docs: add the Sprint 1 report sources"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-16T13:24:39Z",
+      "merged_by": "Kiatisakk",
+      "number": 72,
+      "reviews": {
+        "Kiatisakk": ["APPROVED"]
+      },
+      "title": "docs: add Lab 5 and Lab 6 specification documents"
+    },
+    {
+      "author": "Kiatisakk",
+      "base": "lab-5",
+      "merged_at": "2026-11-17T15:41:11Z",
+      "merged_by": "beambeambeam",
+      "number": 74,
+      "reviews": {
+        "beambeambeam": ["APPROVED", "COMMENTED"]
+      },
+      "title": "feat: one cloud-ready image with the web build and the compose stack"
+    },
+    {
+      "author": "Kiatisakk",
+      "base": "lab-5",
+      "merged_at": "2026-11-18T10:51:51Z",
+      "merged_by": "beambeambeam",
+      "number": 75,
+      "reviews": {
+        "beambeambeam": ["APPROVED", "COMMENTED"]
+      },
+      "title": "build: add the one-time GCP setup and first deploy script"
+    },
+    {
+      "author": "Kiatisakk",
+      "base": "main",
+      "merged_at": "2026-11-18T13:03:52Z",
+      "merged_by": "beambeambeam",
+      "number": 76,
+      "reviews": {
+        "beambeambeam": ["APPROVED", "COMMENTED", "DISMISSED"]
+      },
+      "title": "chore: release Lab 5 image and GCP setup"
+    },
+    {
+      "author": "Kiatisakk",
+      "base": "lab-5",
+      "merged_at": "2026-11-18T12:53:00Z",
+      "merged_by": "beambeambeam",
+      "number": 77,
+      "reviews": {
+        "beambeambeam": ["APPROVED"]
+      },
+      "title": "docs: match the ruleset text to the live rulesets"
+    },
+    {
+      "author": "Kiatisakk",
+      "base": "lab-5",
+      "merged_at": "2026-11-18T18:33:15Z",
+      "merged_by": "Kiatisakk",
+      "number": 79,
+      "reviews": {
+        "beambeambeam": ["APPROVED", "COMMENTED"]
+      },
+      "title": "build: deploy main to Cloud Run with a smoke test and rollback"
+    },
+    {
+      "author": "Kiatisakk",
+      "base": "main",
+      "merged_at": "2026-11-18T18:45:03Z",
+      "merged_by": "beambeambeam",
+      "number": 80,
+      "reviews": {
+        "beambeambeam": ["APPROVED"]
+      },
+      "title": "chore: release the Lab 5 deploy pipeline"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-18T19:39:43Z",
+      "merged_by": "Kiatisakk",
+      "number": 81,
+      "reviews": {
+        "Kiatisakk": ["APPROVED"]
+      },
+      "title": "ci: speed up the API tests and upload the junit reports"
+    },
+    {
+      "author": "app/dependabot",
+      "base": "main",
+      "merged_at": "2026-11-19T13:16:07Z",
+      "merged_by": "Kiatisakk",
+      "number": 82,
+      "reviews": {
+        "Kiatisakk": ["APPROVED"]
+      },
+      "title": "ci: Bump the github-actions group with 2 updates"
+    },
+    {
+      "author": "app/dependabot",
+      "base": "main",
+      "merged_at": "2026-11-19T13:19:05Z",
+      "merged_by": "Kiatisakk",
+      "number": 83,
+      "reviews": {
+        "Kiatisakk": ["APPROVED"]
+      },
+      "title": "build: Bump the gomod group across 1 directory with 4 updates"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "lab-6",
+      "merged_at": "2026-11-19T17:28:44Z",
+      "merged_by": "Kiatisakk",
+      "number": 85,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "docs: add the Lab 6 Sprint 1 UAT cases and handoff"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-20T16:08:21Z",
+      "merged_by": "Kiatisakk",
+      "number": 88,
+      "reviews": {
+        "Kiatisakk": ["APPROVED"]
+      },
+      "title": "chore: track the agent skills in git and update them"
+    },
+    {
+      "author": "app/dependabot",
+      "base": "main",
+      "merged_at": "2026-11-21T08:20:38Z",
+      "merged_by": "beambeambeam",
+      "number": 89,
+      "reviews": {
+        "beambeambeam": ["APPROVED"]
+      },
+      "title": "build: Bump the bun group across 1 directory with 15 updates"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "lab6-staging",
+      "merged_at": "2026-11-21T08:21:27Z",
+      "merged_by": "Kiatisakk",
+      "number": 91,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "fix: prevent a double-click on Submit from creating two claims"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "lab6-staging",
+      "merged_at": "2026-11-21T08:02:22Z",
+      "merged_by": "Kiatisakk",
+      "number": 92,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "fix: reject claim text that is only whitespace"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-21T16:25:08Z",
+      "merged_by": "Kiatisakk",
+      "number": 93,
+      "reviews": {
+        "Kiatisakk": ["APPROVED"]
+      },
+      "title": "chore: release Lab 6"
+    },
+    {
+      "author": "Kiatisakk",
+      "base": "main",
+      "merged_at": "2026-11-22T08:25:40Z",
+      "merged_by": "beambeambeam",
+      "number": 94,
+      "reviews": {
+        "beambeambeam": ["APPROVED"]
+      },
+      "title": "docs: add the Lab 5 report source"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-22T12:42:03Z",
+      "merged_by": "Kiatisakk",
+      "number": 95,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "docs: add the Lab 6 UAT report"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-22T14:39:06Z",
+      "merged_by": "Kiatisakk",
+      "number": 96,
+      "reviews": {
+        "Kiatisakk": ["APPROVED"]
+      },
+      "title": "docs: run E2E specs on a local seeded stack, not in CI"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-22T15:33:34Z",
+      "merged_by": "Kiatisakk",
+      "number": 97,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "chore: Sprint 1 follow-ups"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-22T15:46:13Z",
+      "merged_by": "Kiatisakk",
+      "number": 98,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "docs: add the Lab 7 sprint 1 maintenance specification"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "sprint-2",
+      "merged_at": "2026-11-24T15:32:27Z",
+      "merged_by": "Kiatisakk",
+      "number": 100,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "docs: add the Sprint 2 engineering contracts"
+    },
+    {
+      "author": "Kiatisakk",
+      "base": "lab-7",
+      "merged_at": "2026-11-24T16:18:19Z",
+      "merged_by": "beambeambeam",
+      "number": 101,
+      "reviews": {
+        "beambeambeam": ["APPROVED", "COMMENTED"]
+      },
+      "title": "docs: raise the reject reason minimum to 10 characters (L7/01)"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "sprint-2",
+      "merged_at": "2026-11-24T17:07:18Z",
+      "merged_by": "Kiatisakk",
+      "number": 104,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "feat: add draft claim workflow"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "lab-7",
+      "merged_at": "2026-11-24T17:31:06Z",
+      "merged_by": "Kiatisakk",
+      "number": 105,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "feat!: raise the reject reason minimum to 10 characters"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-24T17:48:05Z",
+      "merged_by": "Kiatisakk",
+      "number": 106,
+      "reviews": {
+        "Kiatisakk": ["APPROVED"]
+      },
+      "title": "chore: release Lab 7"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-25T08:42:17Z",
+      "merged_by": "Kiatisakk",
+      "number": 107,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "docs: add the Lab 7 maintenance report"
+    },
+    {
+      "author": "Kiatisakk",
+      "base": "sprint-2",
+      "merged_at": "2026-11-25T08:49:33Z",
+      "merged_by": "beambeambeam",
+      "number": 108,
+      "reviews": {
+        "beambeambeam": ["APPROVED", "CHANGES_REQUESTED", "COMMENTED"]
+      },
+      "title": "feat: return, resubmit and withdraw a claim"
+    },
+    {
+      "author": "Kiatisakk",
+      "base": "main",
+      "merged_at": "2026-11-25T12:33:23Z",
+      "merged_by": "beambeambeam",
+      "number": 109,
+      "reviews": {
+        "beambeambeam": ["APPROVED", "COMMENTED"]
+      },
+      "title": "chore: release Sprint 2"
+    }
+  ]
+}

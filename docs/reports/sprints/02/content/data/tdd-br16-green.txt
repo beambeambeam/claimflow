@@ -1,0 +1,14 @@
+$ go test . -run 'F07TEST03' -v -count=1
+# commit 38e0165
+=== RUN   TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16
+=== RUN   TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/DRAFT
+=== RUN   TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/APPROVED
+=== RUN   TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/REJECTED
+=== RUN   TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/WITHDRAWN
+--- PASS: TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16 (0.83s)
+    --- PASS: TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/DRAFT (0.07s)
+    --- PASS: TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/APPROVED (0.03s)
+    --- PASS: TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/REJECTED (0.03s)
+    --- PASS: TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/WITHDRAWN (0.03s)
+PASS
+ok  	github.com/beambeambeam/claimflow/apps/api	30.238s

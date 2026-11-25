@@ -1,0 +1,161 @@
+\partsection{B.5}{Reviewed integration: Issue and PR chains}\label{B:5}
+
+Two completed chains, each from tickets through a feature branch, a teammate-reviewed PR into the Sprint 2 staging branch \texttt{sprint-2}, and release PR \#109 into \texttt{main}. Times are UTC as GitHub records them. Both PRs were squash-merged into \texttt{sprint-2} (one parent). The closing keywords of the PR bodies do not fire against \texttt{sprint-2}, so the tickets were closed by hand after each merge, as both reviews noted.
+
+\subsubsection*{Chain 1: return, resubmit and withdraw (author 1005, reviewer 1045)}
+
+\begin{center}\small
+\begin{tabular}{@{}>{\bfseries}p{3.1cm}p{13.2cm}@{}}
+\toprule
+Issues & \#43 ``F-06/01: Return a submitted claim'', \#44 ``F-06/02: Edit and resubmit a returned claim'', \#45 ``F-07/01: Withdraw a submitted or returned claim''; all assigned to Kiatisakk, opened 2026-11-13, closed 2026-11-25 08:59 to 09:00 \\
+Contract IDs & F-06 (F06-AC-01 to 13, F06-TEST-01 to 17) and F-07 (F07-AC-01 to 10, F07-TEST-01 to 13), merged before implementation in PR \#100 (\texttt{dfc5f6f}, 2026-11-24 15:32) \\
+Branch & \path{feat/f06-f07-return-resubmit-withdraw}, from \texttt{sprint-2}; 50 commits at merge, red and green pairs per rule (B.4) \\
+Pull request & \#108 into \texttt{sprint-2}, opened 2026-11-24 21:16 by Kiatisakk; 44 files, +3520 \textminus202 \\
+Reviewer, verdicts & beambeambeam: changes requested 2026-11-25 07:28 (two blocking, three should-fix, minor and nit items, 11 inline comments); author replied to every thread 08:35; approved 08:47 \\
+Integration into \texttt{sprint-2} & squash commit \texttt{aaf17af}, merged 2026-11-25 08:49 by beambeambeam \\
+Integration into \texttt{main} & release PR \#109 (\texttt{sprint-2} into \texttt{main}), merge commit \texttt{3a91ea4}, merged 2026-11-25 12:33 by beambeambeam; tag \texttt{v0.1.1.0}; Deploy demo run 45615736377 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Substantive review comment} (beambeambeam, on \path{apps/web/src/components/status-badge.tsx}): ``\textbf{Blocking:} \texttt{RETURNED} falls back to \texttt{neutral} here, because \texttt{variants} only colours SUBMITTED, APPROVED and REJECTED. F-06 \S2.3 says\ldots'' (the Returned badge is amber). The second blocking item asked for screenshots of every new screen in the PR description. Other findings: the queue-invalidation test (F06-TEST-13) did not prove the invalidation; the withdraw comment limit \texttt{500} was copied, not read from the contract; the return limit \texttt{3} lived in three places; BR-07 for F06-TEST-10 had no red commit.
+\textbf{Author's answers} (Kiatisakk, 08:35): the badge is \texttt{yellow} (the design system has no amber), red \texttt{5a844a5}, green \texttt{3d7091e}; the reviewer's mutation check was reproduced, the old test stayed green without the invalidation, and \texttt{f275752} fixed it; the limit is read from the contract in \texttt{5540b51}; the Go message is built from \texttt{MaxReturns} in \texttt{b06c4ec}; the BR-07 evidence rule was proposed as F-06 contract revision 0.3 (\texttt{68d607c}).
+\textbf{Approval} (08:47), and the reviewer's closing reply (08:49) accepting the 0.3 note: a mutation check is enough evidence for behaviour that already existed.
+
+\evidencehalf{figures/github/pr108-header.png}{PR \#108, \texttt{feat/f06-f07-return-resubmit-withdraw} into \texttt{sprint-2}: title, state, branch pair.}
+\evidencehalf{figures/github/pr108-changes-requested.png}{PR \#108: beambeambeam's review, changes requested, ranked findings.}
+\evidencehalf{figures/github/pr108-thread-returned-badge.png}{PR \#108: the blocking finding that the Returned badge is grey, and the author's reply with the red and green commits.}
+\evidencehalf{figures/github/pr108-approved.png}{PR \#108: approval after the fixes.}
+
+\subsubsection*{Chain 2: drafts (author 1045, reviewer 1005)}
+
+\begin{center}\small
+\begin{tabular}{@{}>{\bfseries}p{3.1cm}p{13.2cm}@{}}
+\toprule
+Issues & \#39 ``F-05/01: Save and view drafts'', \#40 ``F-05/02: Edit a draft'', \#41 ``F-05/03: Submit a draft'', \#42 ``F-05/04: Delete a draft''; opened 2026-11-13, closed 2026-11-24 17:08 \\
+Contract IDs & F-05 (F05-AC-01 to 20, F05-TEST-01 to 26), merged in PR \#100 (\texttt{dfc5f6f}, 2026-11-24 15:32) \\
+Branch & \path{feat/implement-issue-39}, from \texttt{sprint-2}; 14 commits at merge, red and green pairs for save, edit and delete, and the expense window at submission \\
+Pull request & \#104 into \texttt{sprint-2}, opened 2026-11-24 15:59 by beambeambeam; 40 files, +4139 \textminus502; body ``Closes \#39'' to ``\#42'' \\
+Reviewer, verdicts & Kiatisakk: changes requested 16:53 (one blocking item, three non-blocking); author replied 17:01; re-reviewed and approved 17:07 \\
+Integration into \texttt{sprint-2} & squash commit \texttt{35052ae}, merged 2026-11-24 17:07 by Kiatisakk \\
+Integration into \texttt{main} & release PR \#109, merge commit \texttt{3a91ea4}, 2026-11-25 12:33; tag \texttt{v0.1.1.0} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Substantive review comment} (Kiatisakk, on \path{docs/traceability.md}): the recorded evidence was older than the head. The Go race suite was recorded on \texttt{e26fb74} and the E2E on \texttt{d5e047e}, but the head \texttt{29c9011} changes production web code after both (\path{claim-load-failure.tsx}, \path{claim-owner-actions.tsx}, \path{edit-claim-page.tsx}). Non-blocking items: a \texttt{test:} commit that changed four non-test files; closing the tickets by hand; a manual merge with the traceability edits of \#101 and \#105.
+\textbf{Author's answer} (beambeambeam, 17:01): reran the Go race suite, the web coverage suite and all six Playwright specs on \texttt{29c9011} and recorded them in \texttt{b3cecd1}.
+\textbf{Approval} (17:07): ``\texttt{b3cecd1} differs from \texttt{29c9011} only in \path{docs/traceability.md}, so the tested code is the head's code.''
+
+\evidencehalf{figures/github/pr104-header.png}{PR \#104, \texttt{feat/implement-issue-39} into \texttt{sprint-2}.}
+\evidencehalf{figures/github/pr104-changes-requested.png}{PR \#104: Kiatisakk's review, changes requested: the recorded evidence is older than the head.}
+\evidencehalf{figures/github/pr104-thread-stale-evidence.png}{PR \#104: the finding on the traceability note, and the author's reply with the fix.}
+\evidencehalf{figures/github/pr104-approved.png}{PR \#104: approval after re-review, with the check that the tested code is the head's code.}
+
+\subsubsection*{History sequence: contracts before implementation, then both chains to \texttt{main}}
+
+Commands: \texttt{git log -1 --format="\%h  \%ad  \%an  \%s" --date=format:"\%Y-\%m-\%d \%H:\%M \%z" <commit>}, one per commit; \texttt{bbb} is the GitHub account name of beambeambeam.
+
+\begin{shell}
+dfc5f6f  2026-11-24 22:32 +0700  bbb        docs: add the Sprint 2 engineering contracts (#100)
+35052ae  2026-11-25 00:07 +0700  bbb        feat: add draft claim workflow (#104)
+aaf17af  2026-11-25 15:49 +0700  Kiatisakk  feat: return, resubmit and withdraw a claim (#108)
+3a91ea4  2026-11-25 19:33 +0700  bbb        chore: release Sprint 2 (#109)   (merge commit on main)
+\end{shell}
+
+\begin{center}\small
+\begin{tabular}{@{}p{7.2cm}lll@{}}
+\toprule \textbf{Step} & \textbf{PR} & \textbf{Commit} & \textbf{Merged (UTC)} \\ \midrule
+Sprint 2 contracts and test design (F-05, F-06, F-07) & \#100 & \texttt{dfc5f6f} & 2026-11-24 15:32 \\
+Drafts, F-05/01 to 04 (\#39 to \#42) & \#104 & \texttt{35052ae} & 2026-11-24 17:07 \\
+Return, resubmit, withdraw, F-06/01, 02 and F-07/01 (\#43 to \#45) & \#108 & \texttt{aaf17af} & 2026-11-25 08:49 \\
+Release \texttt{sprint-2} into \texttt{main} & \#109 & \texttt{3a91ea4} (merge) & 2026-11-25 12:33 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The contract PR \#100 merged at 22:32 (UTC+7) on 24 November; the first red commit of PR \#104 (\texttt{fad37c0}) is dated 22:36 and the first red commit of PR \#108 (\texttt{93c0d9c}, F06-TEST-01) 00:41 on 25 November. Both implementation chains therefore start after the contracts were merged.
+
+\textbf{Release PR \#109.} Opened 2026-11-25 10:10 by Kiatisakk (17 commits, 67 files); beambeambeam commented on 2026-11-25 10:17 (the merge resolution of \texttt{main} into \texttt{sprint-2}, and stale counts and run IDs in the evidence), the author fixed each in \texttt{bd7c196}, \texttt{c96c609}, \texttt{cb79064} and \texttt{3a9de41}, and he approved the head \texttt{cb79064} at 12:25 after checking the merge resolution and that CI passed on that head (\texttt{code\_quality}, \texttt{test}, \texttt{api}, \texttt{build}, \texttt{image}). Merged with a merge commit at 12:33 so \texttt{main} keeps each feature's subject. Tag \texttt{v0.1.1.0} followed, and the Deploy demo workflow deployed it (Part E).
+
+\evidencehalf{figures/github/pr109-header.png}{Release PR \#109: \texttt{sprint-2} into \texttt{main}, merged with a merge commit.}
+
+Two completed chains, each from tickets through a feature branch, a teammate-reviewed PR into the Sprint 2 staging branch \texttt{sprint-2}, and release PR \#109 into \texttt{main}. Times are UTC as GitHub records them. Both PRs were squash-merged into \texttt{sprint-2} (one parent). The closing keywords of the PR bodies do not fire against \texttt{sprint-2}, so the tickets were closed by hand after each merge, as both reviews noted.
+
+\subsubsection*{Chain 1: return, resubmit and withdraw (author 1005, reviewer 1045)}
+
+\begin{center}\small
+\begin{tabular}{@{}>{\bfseries}p{3.1cm}p{13.2cm}@{}}
+\toprule
+Issues & \#43 ``F-06/01: Return a submitted claim'', \#44 ``F-06/02: Edit and resubmit a returned claim'', \#45 ``F-07/01: Withdraw a submitted or returned claim''; all assigned to Kiatisakk, opened 2026-11-13, closed 2026-11-25 08:59 to 09:00 \\
+Contract IDs & F-06 (F06-AC-01 to 13, F06-TEST-01 to 17) and F-07 (F07-AC-01 to 10, F07-TEST-01 to 13), merged before implementation in PR \#100 (\texttt{dfc5f6f}, 2026-11-24 15:32) \\
+Branch & \path{feat/f06-f07-return-resubmit-withdraw}, from \texttt{sprint-2}; 50 commits at merge, red and green pairs per rule (B.4) \\
+Pull request & \#108 into \texttt{sprint-2}, opened 2026-11-24 21:16 by Kiatisakk; 44 files, +3520 \textminus202 \\
+Reviewer, verdicts & beambeambeam: changes requested 2026-11-25 07:28 (two blocking, three should-fix, minor and nit items, 11 inline comments); author replied to every thread 08:35; approved 08:47 \\
+Integration into \texttt{sprint-2} & squash commit \texttt{aaf17af}, merged 2026-11-25 08:49 by beambeambeam \\
+Integration into \texttt{main} & release PR \#109 (\texttt{sprint-2} into \texttt{main}), merge commit \texttt{3a91ea4}, merged 2026-11-25 12:33 by beambeambeam; tag \texttt{v0.1.1.0}; Deploy demo run 45615736377 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Substantive review comment} (beambeambeam, on \path{apps/web/src/components/status-badge.tsx}): ``\textbf{Blocking:} \texttt{RETURNED} falls back to \texttt{neutral} here, because \texttt{variants} only colours SUBMITTED, APPROVED and REJECTED. F-06 \S2.3 says\ldots'' (the Returned badge is amber). The second blocking item asked for screenshots of every new screen in the PR description. Other findings: the queue-invalidation test (F06-TEST-13) did not prove the invalidation; the withdraw comment limit \texttt{500} was copied, not read from the contract; the return limit \texttt{3} lived in three places; BR-07 for F06-TEST-10 had no red commit.
+\textbf{Author's answers} (Kiatisakk, 08:35): the badge is \texttt{yellow} (the design system has no amber), red \texttt{5a844a5}, green \texttt{3d7091e}; the reviewer's mutation check was reproduced, the old test stayed green without the invalidation, and \texttt{f275752} fixed it; the limit is read from the contract in \texttt{5540b51}; the Go message is built from \texttt{MaxReturns} in \texttt{b06c4ec}; the BR-07 evidence rule was proposed as F-06 contract revision 0.3 (\texttt{68d607c}).
+\textbf{Approval} (08:47), and the reviewer's closing reply (08:49) accepting the 0.3 note: a mutation check is enough evidence for behaviour that already existed.
+
+\evidencehalf{figures/github/pr108-header.png}{PR \#108, \texttt{feat/f06-f07-return-resubmit-withdraw} into \texttt{sprint-2}: title, state, branch pair.}
+\evidencehalf{figures/github/pr108-changes-requested.png}{PR \#108: beambeambeam's review, changes requested, ranked findings.}
+\evidencehalf{figures/github/pr108-thread-returned-badge.png}{PR \#108: the blocking finding that the Returned badge is grey, and the author's reply with the red and green commits.}
+\evidencehalf{figures/github/pr108-approved.png}{PR \#108: approval after the fixes.}
+
+\subsubsection*{Chain 2: drafts (author 1045, reviewer 1005)}
+
+\begin{center}\small
+\begin{tabular}{@{}>{\bfseries}p{3.1cm}p{13.2cm}@{}}
+\toprule
+Issues & \#39 ``F-05/01: Save and view drafts'', \#40 ``F-05/02: Edit a draft'', \#41 ``F-05/03: Submit a draft'', \#42 ``F-05/04: Delete a draft''; opened 2026-11-13, closed 2026-11-24 17:08 \\
+Contract IDs & F-05 (F05-AC-01 to 20, F05-TEST-01 to 26), merged in PR \#100 (\texttt{dfc5f6f}, 2026-11-24 15:32) \\
+Branch & \path{feat/implement-issue-39}, from \texttt{sprint-2}; 14 commits at merge, red and green pairs for save, edit and delete, and the expense window at submission \\
+Pull request & \#104 into \texttt{sprint-2}, opened 2026-11-24 15:59 by beambeambeam; 40 files, +4139 \textminus502; body ``Closes \#39'' to ``\#42'' \\
+Reviewer, verdicts & Kiatisakk: changes requested 16:53 (one blocking item, three non-blocking); author replied 17:01; re-reviewed and approved 17:07 \\
+Integration into \texttt{sprint-2} & squash commit \texttt{35052ae}, merged 2026-11-24 17:07 by Kiatisakk \\
+Integration into \texttt{main} & release PR \#109, merge commit \texttt{3a91ea4}, 2026-11-25 12:33; tag \texttt{v0.1.1.0} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Substantive review comment} (Kiatisakk, on \path{docs/traceability.md}): the recorded evidence was older than the head. The Go race suite was recorded on \texttt{e26fb74} and the E2E on \texttt{d5e047e}, but the head \texttt{29c9011} changes production web code after both (\path{claim-load-failure.tsx}, \path{claim-owner-actions.tsx}, \path{edit-claim-page.tsx}). Non-blocking items: a \texttt{test:} commit that changed four non-test files; closing the tickets by hand; a manual merge with the traceability edits of \#101 and \#105.
+\textbf{Author's answer} (beambeambeam, 17:01): reran the Go race suite, the web coverage suite and all six Playwright specs on \texttt{29c9011} and recorded them in \texttt{b3cecd1}.
+\textbf{Approval} (17:07): ``\texttt{b3cecd1} differs from \texttt{29c9011} only in \path{docs/traceability.md}, so the tested code is the head's code.''
+
+\evidencehalf{figures/github/pr104-header.png}{PR \#104, \texttt{feat/implement-issue-39} into \texttt{sprint-2}.}
+\evidencehalf{figures/github/pr104-changes-requested.png}{PR \#104: Kiatisakk's review, changes requested: the recorded evidence is older than the head.}
+\evidencehalf{figures/github/pr104-thread-stale-evidence.png}{PR \#104: the finding on the traceability note, and the author's reply with the fix.}
+\evidencehalf{figures/github/pr104-approved.png}{PR \#104: approval after re-review, with the check that the tested code is the head's code.}
+
+\subsubsection*{History sequence: contracts before implementation, then both chains to \texttt{main}}
+
+Commands: \texttt{git log -1 --format="\%h  \%ad  \%an  \%s" --date=format:"\%Y-\%m-\%d \%H:\%M \%z" <commit>}, one per commit; \texttt{bbb} is the GitHub account name of beambeambeam.
+
+\begin{shell}
+dfc5f6f  2026-11-24 22:32 +0700  bbb        docs: add the Sprint 2 engineering contracts (#100)
+35052ae  2026-11-25 00:07 +0700  bbb        feat: add draft claim workflow (#104)
+aaf17af  2026-11-25 15:49 +0700  Kiatisakk  feat: return, resubmit and withdraw a claim (#108)
+3a91ea4  2026-11-25 19:33 +0700  bbb        chore: release Sprint 2 (#109)   (merge commit on main)
+\end{shell}
+
+\begin{center}\small
+\begin{tabular}{@{}p{7.2cm}lll@{}}
+\toprule \textbf{Step} & \textbf{PR} & \textbf{Commit} & \textbf{Merged (UTC)} \\ \midrule
+Sprint 2 contracts and test design (F-05, F-06, F-07) & \#100 & \texttt{dfc5f6f} & 2026-11-24 15:32 \\
+Drafts, F-05/01 to 04 (\#39 to \#42) & \#104 & \texttt{35052ae} & 2026-11-24 17:07 \\
+Return, resubmit, withdraw, F-06/01, 02 and F-07/01 (\#43 to \#45) & \#108 & \texttt{aaf17af} & 2026-11-25 08:49 \\
+Release \texttt{sprint-2} into \texttt{main} & \#109 & \texttt{3a91ea4} (merge) & 2026-11-25 12:33 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The contract PR \#100 merged 3.5 minutes before the first red commit of PR \#104 (\texttt{fad37c0}, 15:36 UTC) and 8 minutes... \todo{kiatisakk: state the first red commit of PR \#108 and its date, to compare with PR \#100}
+
+\textbf{Release PR \#109.} Opened 2026-11-25 10:10 by Kiatisakk (17 commits, 67 files); beambeambeam commented on 2026-11-25 10:17 (the merge resolution of \texttt{main} into \texttt{sprint-2}, and stale counts and run IDs in the evidence), the author fixed each in \texttt{bd7c196}, \texttt{c96c609}, \texttt{cb79064} and \texttt{3a9de41}, and he approved the head \texttt{cb79064} at 12:25 after checking the merge resolution and that CI passed on that head (\texttt{code\_quality}, \texttt{test}, \texttt{api}, \texttt{build}, \texttt{image}). Merged with a merge commit at 12:33 so \texttt{main} keeps each feature's subject. Tag \texttt{v0.1.1.0} followed, and the Deploy demo workflow deployed it (Part E).
+
+\evidencehalf{figures/github/pr109-header.png}{Release PR \#109: \texttt{sprint-2} into \texttt{main}, merged with a merge commit.}

@@ -1,0 +1,18 @@
+\partsection{E.1}{Release candidate: build, test, CI and deploy}\label{E:1}
+
+The candidate is the Sprint 2 release \texttt{v0.1.1.0}, commit \texttt{3a91ea4} on \texttt{main}. It stands in until the Sprint 3 candidate exists. \todo{recapture on candidate: replace tag, commit, CI run, deploy run, revision and image digest with those of the submitted candidate}
+
+\begin{center}\small
+\begin{tabular}{@{}>{\bfseries}p{3.6cm}p{12.7cm}@{}}
+\toprule
+Tag, commit & \texttt{v0.1.1.0}, \texttt{3a91ea4} (merge of release PR \#109), 2026-11-25 19:33 (UTC+7) \\
+CI & run 45614889848 on \texttt{3a91ea4}: \texttt{image}, \texttt{code\_quality}, \texttt{test}, \texttt{build}, \texttt{api}, \texttt{release} all \texttt{success} \\
+Deploy demo & run 45615736377: Cloud Run revision \texttt{claimflow-00018-kzz}, image digest \texttt{sha256:dd4d3477\ldots}; smoke test: \texttt{/api/v1/health} reports the SHA, \texttt{/api/v1/ready} 200, \texttt{/} serves the web build, an unknown \texttt{/api} route returns a JSON 404 \\
+Deployed URL & \url{https://claimflow-5bcxewbqkq-as.a.run.app} \\
+Live check & 2026-11-25 about 20:20 (UTC+7): \texttt{GET /api/v1/health} returned version \texttt{3a91ea458862a02fc88384f09ef74b7a502ce762}; \texttt{GET /api/v1/ready} returned 200 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Tests on the candidate.} Go: 178 top-level tests and 241 subtests, 0 failed, 0 skipped; race run with 100\% coverage (956 of 956). Web: 182 of 182 in CI with 100\% coverage. E2E: 8 of 8 on a local seeded stack (all in B.4).
+\textbf{Build.} \texttt{bun run build} and the container image build pass in CI (jobs \texttt{build} and \texttt{image}).
