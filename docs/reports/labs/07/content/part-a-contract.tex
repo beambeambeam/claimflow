@@ -1,0 +1,97 @@
+\partsection{A-01}{Request, acceptance and baseline}
+\label{ev:request}
+\issuelink{99} (L7/01), opened by \texttt{beambeambeam} on 22 November 2026 and assigned to \texttt{Kiatisakk}, changes BR-04 under FR-06 as delivered in F-04. A six-character reason such as “No pic” passed the original rule and could leave the requester unsure what to correct. The longer minimum requires more text. The prior minimum conformed to Sprint 1 requirements.
+
+On 23 November at 14:44, \texttt{Kiatisakk} asked for the RED baseline and the missing SDS, OpenAPI, generated-client and test impacts. \texttt{beambeambeam} recorded the update at 16:16. The 24 November, 16:17:51 \href{\repo/issues/99\#issuecomment-7137433075}{waiver record in issue \#99} states, “The course announcement ‘Lab 7 Spec Sheet Change’ waived instructor and TA approval for Lab 7.” The comment retains teammate review, recorded in \prlink{101}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.7\linewidth,trim=0bp 22bp 0bp 0bp,clip]{figures/approval/lab-7-waiver-announcement.png}
+  \caption*{\textbf{A-01a.} Course announcement “Lab 7 Spec Sheet Change”, posted on 24 November 2026: instructor or TA approval is not required for the Sprint 1 change request.}
+\end{figure}
+
+\begin{longtable}{@{}R{3.4cm}R{5.4cm}R{7.1cm}@{}}
+\toprule
+\textbf{Stage} & \textbf{Version} & \textbf{Evidence and relationship} \\ \midrule \endhead
+Accepted Sprint 1 & \texttt{v0.0.3.0} / \texttt{ac5bce5} & \prlink{69}, 15 Nov. BR-04 minimum 5. \\
+Accepted Lab 6 & \texttt{bb5a0d1} / \texttt{claimflow-00010-985} & \prlink{93}, deployed 21 Nov. Partner accepted on 22 Nov at 11:27 after retesting \#86 and \#87. BR-04 minimum 5. \\
+Pre-change code and deploy & \texttt{214d1d5} / \texttt{claimflow-00015-vh7} & 22 Nov. Deploy demo \runlink{45040335622}. BR-04 minimum 5. API RED uses this source. \\
+Reviewed contract & \texttt{78fe104}, \texttt{d9feee9}, squash \texttt{124cf9a} & \prlink{101}, merged into \texttt{lab-7} on 24 Nov. See A-03 on p.~\pageref{ev:contract-review}. \\
+OpenAPI, RED, GREEN & \texttt{ea1537b}, then \texttt{405c906}, \texttt{6cabc3e}, \texttt{b51c058}, \texttt{0226536} & 24 Nov. OpenAPI schema, separate test commits, then implementation and a Playwright locator fix. See B-01 on p.~\pageref{ev:redgreen}. \\
+Staging and main & \texttt{8b660a1} then \texttt{c32e645} / \texttt{v0.1.0.0} & \prlink{105} into \texttt{lab-7}, then \prlink{106} into \texttt{main}. Same tree as approved implementation head \texttt{9b1fc9c}. See B-05 on p.~\pageref{ev:release}. \\
+Deployed main & \texttt{c32e645} / \revision{} & Deploy demo \runlink{45453647851}, 24 Nov. Deployment and smoke evidence in B-06 on p.~\pageref{ev:deploy}. \\
+\bottomrule
+\end{longtable}
+
+Between Lab 6 and the pre-change baseline, \#94, \#95, \#96 and \#98 updated documentation. Sprint 1 follow-ups \prlink{97} (\texttt{fbf4382}) changed 43 app files, including F-04's decision panel, contract reader, generated schema and test. The counter began reading the contract limit and a decision 403 opened the access page. The API minimum remained 5 in all three baselines.
+
+\clearpage
+\partsection{A-02}{Impact and versioned contract}
+\label{ev:impact}
+\begin{longtable}{@{}R{2.8cm}R{4.2cm}R{3.8cm}R{5.0cm}@{}}
+\toprule
+\textbf{Requirement / feature} & \textbf{Contract sections} & \textbf{AC / STS} & \textbf{Code and dependency} \\ \midrule \endhead
+BR-04 and NFR-08 / F-04 &
+SRS \S7 BR-04 and F-04 \S\S1.5, 1.6, 2.2 revised. SDS \S2.2 history comment revised. SRS \S8 and SDS \S4.2 field error structure preserved. &
+F04-AC-06, 18 and F04-TEST-06, 07, 21, 24 revised. &
+\texttt{rules.go}, \texttt{openapi.yaml}, \texttt{openapi-ts.config.ts}, generated clients, \texttt{contract.ts}, \texttt{decision-panel.tsx}. API callers must send 10 or more for reject. \\
+FR-06, FR-07 / F-04, F-03 &
+SRS \S6, F-04 \S\S1.3, 1.4 and 3 (decision, order, HTTP), SDS \S\S3.2, 3.3 unchanged. &
+F04-AC-05. F04-TEST-05, 23 and the existing success path in 24. &
+\texttt{handler.go} and \texttt{service.go} preserve the decision and history read. Approval comment remains optional, with max 500. \\
+BR-01, 02, 03, 11, 13 and NFR-06 / F-04 &
+F-04 \S\S1.4, 3. SDS \S\S2.2, 3.3, 5.2. &
+F04-AC-07 to 15. F04-TEST-08 to 18. &
+Only the assigned reviewer may decide and never their own claim. State, version, history transaction and access precedence stay in the service and handlers. \\
+BR-04 / later F-06 and F-08 &
+SRS \S7 sets the new minimum for return and final reject. &
+F06-AC-02 and F06-TEST-02/03 are planned in \prlink{100}. &
+Return and final reject fall outside this implementation. \\
+\bottomrule
+\end{longtable}
+
+\textbf{Data and configuration.}
+\texttt{claim\_history.comment} is nullable \texttt{VARCHAR(500)} with no minimum-length constraint. BR-04 runs on new writes, before the conditional update and history insertion. Under BR-11, history is append-only and 5--9 character historical reasons stay readable as stored. No data backfill, schema migration or new configuration is needed. ADR-0001 covers reviewer assignment and remains applicable.
+
+\textbf{Old and revised specification excerpts.}
+Part A revised SRS 0.2 to 0.3, F-04 0.7 to 0.8, System SDS 0.17 to 0.18, and the traceability change log dated 24 November.
+\begin{longtable}{@{}R{3.1cm}R{6.4cm}R{6.4cm}@{}}
+\toprule
+\textbf{Section} & \textbf{Old} & \textbf{Revised} \\ \midrule \endhead
+SRS \S7 BR-04 & Reject, return and final reject need a non-blank comment of 5--500 characters. Approve may include an optional comment. & Reject, return and final reject need a non-blank comment of 10--500 characters. Approve may include an optional comment. \\
+System SDS \S2.2 & History comment is nullable, required at 5--500 non-blank characters for REJECT, RETURN and FINAL\_REJECT, checked by the claim module. & Required at 10--500 non-blank characters on write for those actions. Entries under the former minimum are kept as stored under BR-11. \\
+F-04 \S2.2 and AC-18 (Reject control) & Required reason, counter, field messages and Reject and Cancel controls. & Keep Reject disabled below 10 after trimming. Show the minimum-length message once text is entered. Use API metadata for limits and display API 422 field errors. \\
+\bottomrule
+\end{longtable}
+
+\clearpage
+\partsection{A-03}{Acceptance criteria, STS and contract review}
+\label{ev:contract-review}
+\textbf{F-04 \S\S1.5--1.6 and F04-AC-06.}
+For \texttt{POST /claims/\{id\}/reject}, the assigned reviewer acts on a \texttt{SUBMITTED} claim using its current \texttt{If-Match} version. The prior boundary row was 4 / 5 / 500 / 501 characters. The revised row is 9 / 10 / 500 / 501. Both rows expect 422 / 200 / 200 / 422 respectively. Count Unicode code points after trimming edge whitespace.
+
+\begin{longtable}{@{}R{3.1cm}R{6.4cm}R{6.4cm}@{}}
+\toprule
+\textbf{Case} & \textbf{Old outcome} & \textbf{Revised outcome} \\ \midrule \endhead
+Missing or blank & 422, “Enter a reason (5 to 500 characters).” & 422, “Enter a reason (10 to 500 characters).” \\
+1--4 characters & 422, “Reason must be at least 5 characters.” & 422, “Reason must be at least 10 characters.” \\
+5--9 characters & 200, \texttt{REJECTED}. & 422, “Reason must be at least 10 characters.” \\
+10--500 characters & 200, \texttt{REJECTED}. & 200, \texttt{REJECTED}. \\
+501 characters & 422, “Comment cannot be more than 500 characters.” & Same 422 and message for reject or approve. \\
+\bottomrule
+\end{longtable}
+All these 422s identify field \texttt{comment} and rule \texttt{BR-04}. A 422 leaves status, version and history intact. Authentication, access, missing claim, transition, and version checks keep their prior conditions and precedence. F04-AC-05 preserves stored rejection reason and requester history.
+
+\textbf{Revised STS cases.}
+\begin{longtable}{@{}R{3.3cm}R{12.8cm}@{}}
+\toprule
+\textbf{Test / criterion} & \textbf{Preconditions, input and expected result} \\ \midrule \endhead
+F04-TEST-06 \newline Module / AC-06 & Act as assigned reviewer on a submitted claim. Missing, blank, 9 (was 4), and 501 fail with one matching \texttt{ValidationError}. 10 (was 5) and 500 succeed. Trimmed and Thai-character cases enforce character count. Approve accepts no comment or up to 500 and rejects 501. Compare stored state after refusal. \\
+F04-TEST-07 \newline HTTP / AC-06 & Same role, state and current version. Missing body, missing comment, empty, blanks, 9 (was 4), and 501 give exact 422 field errors and preserve state. 10 and 500 reject successfully. Approve with 501 gives 422. \\
+F04-TEST-21 \newline Component / AC-18 & Open Reject for a submitted claim. Empty and trimmed 9 block submission. At 10 the control enables, including Unicode vectors. A valid-length “No receipt” (was “No”) reaches the mocked 422. Keep input and show API error. Retain success, 409 and 403 checks. \\
+F04-TEST-24 \newline E2E / AC-05, 18 & Seed requester and assigned reviewer. Submit a claim, open it from the reviewer queue, check disabled for empty and “No photos” (9), and check its message. Submit “Receipt missing” (15) as before. Requester sees Rejected and the reason in history. \\
+\bottomrule
+\end{longtable}
+
+\textbf{Pre-implementation review.}
+In \prlink{101}, \texttt{beambeambeam} reviewed \texttt{d8077b2} on 24 November at 12:22. Findings covered the unreachable mocked 422, missing disabled-control steps, stale pass labels, the generator hook and OpenAPI review order. \texttt{Kiatisakk} updated \texttt{d9feee9}. The \href{\repo/pull/101\#pullrequestreview-6043052471}{16:16:11 approval} states, “Approved the Lab 7 Part A contract for \#99 at \texttt{d9feee9}.” The reviewer also wrote, “In Part B, review the OpenAPI diff first, capture RED, then update the generator and application code.” Part A approval preceded the 16:18 staging merge and the Part B tests and code. B-05 records when OpenAPI review took place.

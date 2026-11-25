@@ -1,0 +1,41 @@
+% Build from docs/reports with bun run pdf labs/07.
+\documentclass[11pt]{article}
+\newcommand{\sprintname}{Lab 7}
+\newcommand{\deliverable}{Sprint 1 maintenance and release readiness}
+\input{../../preamble}
+
+\newcolumntype{R}[1]{>{\raggedright\arraybackslash}p{#1}}
+\AtBeginEnvironment{longtable}{\small}
+\renewcommand{\arraystretch}{1.18}
+\DefineVerbatimEnvironment{record}{Verbatim}{fontsize=\footnotesize,
+  frame=single, framesep=5pt, rulecolor=\color{black!25},
+  breaklines=true, breakanywhere=true, breaksymbolleft={}}
+\newcommand{\repo}{https://github.com/beambeambeam/claimflow}
+\newcommand{\revision}{\texttt{claimflow-00016-zck}}
+\newcommand{\releaseSHA}{\texttt{c32e6455724a0b7be3a5ae8a50889ea50fd4ddbc}}
+\newcommand{\runlink}[1]{\href{\repo/actions/runs/#1}{#1}}
+\newcommand{\prlink}[1]{\href{\repo/pull/#1}{\##1}}
+\newcommand{\issuelink}[1]{\href{\repo/issues/#1}{\##1}}
+
+\begin{document}
+
+\input{content/00-front}
+
+\reportpart{A}{Change impact and revised contract}
+\input{content/part-a-contract}
+\reportpartend{A}
+
+\reportpart{B}{Implementation and regression-safe delivery}
+\input{content/part-b-delivery}
+\input{content/part-b-browser}
+\reportpartend{B}
+
+\reportpart{C}{Objective engineering metrics}
+\input{content/part-c-metrics}
+\reportpartend{C}
+
+\reportpart{D}{Release readiness and retrospective}
+\input{content/part-d-readiness}
+\reportpartend{D}
+
+\end{document}

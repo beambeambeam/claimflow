@@ -23,6 +23,7 @@ import type { Claim } from "#/lib/api/types.gen";
 import { zClaimDecision } from "#/lib/api/zod.gen";
 import {
   contractMaxLength,
+  contractMinLength,
   maxReturns,
   returnsUsedLabel,
 } from "#/lib/contract";
@@ -64,8 +65,10 @@ type Decision = keyof typeof decisions;
 const isDecision = (name: string): name is Decision =>
   Object.hasOwn(decisions, name);
 
-// The limit of BR-04, from the contract. The server checks it; the counter only shows it.
-const commentLimit = contractMaxLength(zClaimDecision.shape.comment.unwrap());
+// The BR-04 metadata supplies the reject minimum and the comment counter limit.
+const commentSchema = zClaimDecision.shape.comment.unwrap();
+const reasonMinimum = contractMinLength(commentSchema);
+const commentLimit = contractMaxLength(commentSchema);
 
 const DecisionDialog = ({
   claim,
@@ -138,9 +141,26 @@ const DecisionDialog = ({
     },
   });
 
-  const reasonError = isProblem(send.error)
+  // Match the API's Unicode whitespace trimming and code point count.
+  const reasonTooShort =
+    decision === "reject" &&
+    (comment
+      .replaceAll(
+        /^\p{White_Space}+|(?<!\p{White_Space})\p{White_Space}+$/gu,
+        ""
+      )
+      .match(/./gsu)?.length ?? 0) < reasonMinimum;
+
+  const minimumError =
+    reasonTooShort && comment !== ""
+      ? `Reason must be at least ${reasonMinimum} characters.`
+      : undefined;
+
+  const serverCommentError = isProblem(send.error)
     ? problemFieldErrors(send.error).comment?.message
     : undefined;
+
+  const commentError = minimumError ?? serverCommentError;
 
   // Astryx has no dialog width tokens: `width` is in pixels, and the dialog clamps it to the viewport.
   return (
@@ -167,9 +187,9 @@ const DecisionDialog = ({
                 maxLength={commentLimit}
                 onChange={setComment}
                 status={
-                  reasonError === undefined
+                  commentError === undefined
                     ? undefined
-                    : { type: "error", message: reasonError }
+                    : { type: "error", message: commentError }
                 }
                 value={comment}
               />
@@ -186,7 +206,7 @@ const DecisionDialog = ({
                 variant="ghost"
               />
               <Button
-                isDisabled={send.isPending}
+                isDisabled={send.isPending || reasonTooShort}
                 isLoading={send.isPending}
                 label={text.confirm}
                 onClick={() => {
