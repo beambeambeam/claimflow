@@ -1,0 +1,34 @@
+\label{ev:metrics}
+All metrics are for the ClaimFlow repository. Dates use UTC in November 2026. The evidence snapshot was taken on 24 November at about 18:23, after the main release and deploy runs completed.
+
+\begin{longtable}{@{}R{3.5cm}R{4.9cm}R{7.7cm}@{}}
+\toprule
+\textbf{Metric and value} & \textbf{Definition and window} & \textbf{Underlying evidence} \\ \midrule \endhead
+C-01 \newline Completed Lab 7 requests \newline \textbf{1 completed} &
+Count Issues with label \texttt{lab7} closed as completed from 22 Nov 00:00 through the 24 Nov snapshot. Excludes PRs, duplicates and cancellations. &
+\issuelink{99} (L7/01), the only Issue in this cohort, closed as completed on 24 Nov at 17:48:07. Incorporated by release \prlink{106}. Neither a duplicate nor a cancellation. \\
+C-02 \newline Merged maintenance PRs \newline \textbf{3 merged} &
+Count merged PRs in the L7/01 release chain on 24 Nov. Sprint 2 PRs \prlink{100} and \prlink{104} also merged that day into \texttt{sprint-2} and fall outside this scope. &
+\prlink{101}: 16:18:19, \texttt{lab-7}, \texttt{124cf9a}. \newline
+\prlink{105}: 17:31:06, \texttt{lab-7}, \texttt{8b660a1}. \newline
+\prlink{106}: 17:48:05, \texttt{main}, \texttt{c32e645}. \\
+C-03 \newline Release web tests \newline \textbf{139 passed, 0 failed, 0 skipped} &
+Count test cases in one web coverage run on released main, 24 Nov 17:48:25--17:48:50. &
+Main CI \runlink{45452555188}, \texttt{c32e645}, web job 138653270239. Summary shows 139 of 139 tests in 17 of 17 files. Command and excerpt in B-05 on p.~\pageref{ev:release}. \\
+C-04 \newline Tracked Sprint 1 UAT defects \newline \textbf{0 open, 2 resolved} &
+24 Nov snapshot of ClaimFlow's \texttt{uat}-labelled Sprint 1 findings. Resolved means a completed Issue plus passing partner retest. &
+\issuelink{86} (minor, whitespace-only title/purpose), closed 22 Nov at 08:26:45. \newline
+\issuelink{87} (major, duplicate Submit), closed 22 Nov at 08:26:39. \newline
+Both fixes were on \texttt{bb5a0d1}, retested for Lab 6 and accepted at 11:27 on 22 Nov. This is a tracked-issue snapshot. \\
+C-05 \newline Main workflow outcomes \newline \textbf{2 success, 0 fail, 0 cancelled} &
+Count \texttt{CI} and \texttt{Deploy demo} runs created on \texttt{main} on 24 Nov through the snapshot. This scope excludes PR CI and earlier pushes. &
+\runlink{45452555188}: CI push at 17:48:08, success, attempt 1. \newline
+\runlink{45453647851}: Deploy demo at 17:54:12, success, attempt 1. Both at \texttt{c32e645}. \\
+\bottomrule
+\end{longtable}
+
+\textbf{PR CI outside C-05.}
+On 24 November, contract PR run \runlink{45426025815} at 15:29:03 on \texttt{d4a8fea} was superseded by run \runlink{45426122732} and cancelled. Implementation PR run \runlink{45435957782} at 16:20:22 failed its generated-code check. See B-05 on p.~\pageref{ev:release}.
+
+\textbf{Action from the metrics.}
+Both main workflows succeeded and the release web run passed 139 cases. The deploy workflow verifies service health, so all four authenticated boundary and access checks required a separate run. Before Final Delivery, the release owner (\texttt{beambeambeam}, proposed) should add a gated synthetic post-deploy smoke for those four checks. Keep credentials in managed secrets, emit only status and state summaries, and have \texttt{Kiatisakk} review the evidence before sign-off.

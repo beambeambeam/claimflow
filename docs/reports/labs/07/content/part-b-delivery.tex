@@ -1,0 +1,205 @@
+\partsection{B-01}{API tests on the old and new rule}
+\label{ev:redgreen}
+On 24 November, the team captured RED on \texttt{214d1d5} with the revised tests from \texttt{405c906} (service) and \texttt{6cabc3e} (HTTP). GREEN ran those same tests on \texttt{b51c058}. Exact test start times were unavailable.
+
+\textbf{Setup and assertions.}
+In \texttt{apps/api/internal/claim/act\_test.go}, F04-TEST-06 creates a PostgreSQL-backed submitted claim per case. Its assigned reviewer calls \texttt{Act} with the current version. A failed decision must give exactly one \texttt{comment}/BR-04 error and leave the claim submitted at its original version, with no decision time and one history entry. Success stores the trimmed reason.
+
+In \texttt{apps/api/claims\_review\_test.go}, F04-TEST-07 logs in as the assigned reviewer on a newly submitted claim. Each 422 must return the expected message and leave the database state equal to the initial snapshot. Each accepted length uses a fresh claim. Selected test body from the 422 loop:
+\begin{record}
+recorder := decide(t, router, token, id, tc.action, "\"0\"", tc.body)
+decodeProblem(t, recorder, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+
+want := []fieldError{{Field: "comment", Rule: "BR-04", Message: tc.message}}
+if got := problemErrors(t, recorder); !slices.Equal(got, want) {
+    t.Fatalf("errors = %+v, want %+v", got, want)
+}
+
+if after := readState(t, pool, id); after != before {
+    t.Fatalf("stored = %+v after the refused decision, want %+v", after, before)
+}
+\end{record}
+
+\textbf{Commands and captured output.}
+Both commands ran from \texttt{apps/api} on RED and GREEN.
+\begin{record}
+go test -v -count=1 ./internal/claim -run '^TestF04TEST06CommentRuleBR04$'
+go test -v -count=1 . -run '^TestF04TEST07CommentRuleIs422WithTheFieldError$'
+\end{record}
+\begin{record}
+RED (exit 1 for both commands)
+=== RUN   TestF04TEST06CommentRuleBR04/reject_with_9_characters
+    act_test.go:87: Act error = <nil>, want a ValidationError with one field
+--- FAIL: TestF04TEST06CommentRuleBR04
+=== RUN   TestF04TEST07CommentRuleIs422WithTheFieldError/reject_with_9_characters
+    claims_review_test.go:483: status = 200, want 422
+--- FAIL: TestF04TEST07CommentRuleIs422WithTheFieldError
+
+GREEN (exit 0 for both commands)
+--- PASS: TestF04TEST06CommentRuleBR04
+    --- PASS: TestF04TEST06CommentRuleBR04/reject_with_9_characters
+    --- PASS: TestF04TEST06CommentRuleBR04/reject_with_10_characters
+--- PASS: TestF04TEST07CommentRuleIs422WithTheFieldError
+    --- PASS: TestF04TEST07CommentRuleIs422WithTheFieldError/reject_with_9_characters
+    --- PASS: TestF04TEST07CommentRuleIs422WithTheFieldError/reject_with_10_characters
+\end{record}
+RED had 11 pass / 5 fail in the module and 4 pass / 5 fail at HTTP. Old code accepted the 9-character input and used the old blank-reason message. GREEN had 16 module and 9 HTTP passes, 0 failures and 0 skips. GREEN also accepted 500, rejected 501, and preserved state on each 422.
+
+\clearpage
+\partsection{B-02}{Dialog and seeded test evidence}
+\label{ev:web}
+\textbf{F04-TEST-21 (component).}
+With a submitted claim and a mocked decision endpoint, the test types a padded 9-character reason and checks the message, disabled state and absence of a POST. It checks Unicode 9/10 cases with edge whitespace, and an empty field. A separate mock returns 422 for “No receipt” (10) to verify API field errors and input retention.
+\begin{record}
+bun run test run src/features/reviews/__test__/decision-panel.test.tsx
+\end{record}
+Ran in \texttt{apps/web} on 24 November. At \texttt{6cabc3e}, the short-reason test expected \texttt{ariaDisabled} to be \texttt{"true"} and received \texttt{null}. Counts were 13 passed, 1 failed, 0 skipped. At \texttt{b51c058}, all 14 passed with 0 failed and 0 skipped. The teammate's rerun matched these counts.
+
+\textbf{F04-TEST-24 (Chromium E2E).}
+The requester submits a new claim and the assigned reviewer opens it from the queue. The test checks empty and 9-character disabling, submits a valid reason, and opens the claim again as the requester to confirm the transition and stored reason. The paired F04-TEST-23 checks approval and requester history.
+\begin{record}
+bun run e2e e2e/f04-review-decision.spec.ts
+\end{record}
+Ran from \texttt{apps/web} on 24 November against local PostgreSQL 17 with seven seeded users and six sample claims. On the RED dialog and spec from \texttt{6cabc3e} with the updated API, the empty-reason check showed \texttt{Expected: disabled} and \texttt{Received: enabled}. This isolates the old dialog. The original record gives one failing case without run totals. On 25 November at 08:06 UTC, the same setup was rerun against a fresh seeded database: 1 passed (F04-TEST-23), 1 failed (F04-TEST-24, the same \texttt{Expected: disabled} failure), 0 skipped. On \texttt{0226536} with API \texttt{b51c058}, both journeys passed (2 passed, 0 failed, 0 skipped). The follow-up narrowed the Playwright locator to the reason field's accessible description.
+
+\partsection{B-03}{OpenAPI contract and implementation diff}
+\label{ev:diff}
+The schema edit in \texttt{ea1537b} changed the reject endpoint description and shared \texttt{ClaimDecision.comment} description to 10--500 after trimming. The service returns a 422 with the field error. The shared schema gained metadata while approve kept its optional comment:
+\begin{record}
++          x-min-length: 10
+           x-max-length: 500
+\end{record}
+Selected actual lines from the \texttt{b51c058} diff in \texttt{apps/api/internal/claim/rules.go}. The existing trimmed rune count applies before these branches.
+\begin{record}
+-   MinReasonLength  = 5
++   MinReasonLength  = 10
+    MaxCommentLength = 500
+
+    case action == ActionReject && length == 0:
+-       message = "Enter a reason (5 to 500 characters)."
++       message = fmt.Sprintf("Enter a reason (%d to %d characters).", MinReasonLength, MaxCommentLength)
+    case action == ActionReject && length < MinReasonLength:
+-       message = "Reason must be at least 5 characters."
++       message = fmt.Sprintf("Reason must be at least %d characters.", MinReasonLength)
+\end{record}
+
+\clearpage
+\textbf{B-03 continued.}
+The web generator propagates \texttt{x-min-length} into Zod metadata, and \texttt{contract.ts} reads it. Selected actual lines from \texttt{decision-panel.tsx} at \texttt{b51c058} show the reject-only gate and field error:
+\begin{record}
++const commentSchema = zClaimDecision.shape.comment.unwrap();
++const reasonMinimum = contractMinLength(commentSchema);
++const commentLimit = contractMaxLength(commentSchema);
+
++  const reasonTooShort =
++    decision === "reject" &&
++    (comment
++      .replaceAll(
++        /^\p{White_Space}+|(?<!\p{White_Space})\p{White_Space}+$/gu,
++        ""
++      )
++      .match(/./gsu)?.length ?? 0) < reasonMinimum;
++
++  const minimumError =
++    reasonTooShort && comment !== ""
++      ? `Reason must be at least ${reasonMinimum} characters.`
++      : undefined;
+
++  const commentError = minimumError ?? serverCommentError;
+-                isDisabled={send.isPending}
++                isDisabled={send.isPending || reasonTooShort}
+\end{record}
+Generated outputs changed in \texttt{api.gen.go}, \texttt{types.gen.ts}, \texttt{sdk.gen.ts}, \texttt{react-query.gen.ts} and \texttt{zod.gen.ts}. Generation left a clean diff. The implementation uses the existing write path, permissions, \texttt{If-Match} checks and transaction. No migration or history rewrite was added.
+
+\partsection{B-04}{Regression selection and results}
+\label{ev:regression}
+The 24 November regression set exercises F-04 dependents. F04-TEST-05 checks the reason in requester history. F04-TEST-08 to 13 cover owner and reviewer access. F04-TEST-14 to 18 cover status, stale and concurrent decisions, rollback and append-only history. F04-TEST-23 covers approval. The web suite also covers the review queue, session and decision errors. Revised expectations are listed in A-03 on p.~\pageref{ev:contract-review}.
+\begin{longtable}{@{}R{10.4cm}R{5.7cm}@{}}
+\toprule
+\textbf{Command and version} & \textbf{Actual result} \\ \midrule \endhead
+\texttt{go test -v -count=1 . ./internal/claim -run '\string^TestF04TEST'} at \texttt{b51c058} and \texttt{go test -v -count=1 ./migrations -run '\string^TestF04TEST'} at \texttt{0226536}, both in \texttt{apps/api}. &
+19 named F-04 tests passed. No failures or skips reported for this selection. \\
+\texttt{bun run test:coverage} in \texttt{apps/api} at \texttt{b51c058}. &
+All thresholds passed, 100\% (785/785). The local record gives coverage only. See B-05 for release counts. \\
+\texttt{bun run test:coverage --maxWorkers=2 --retry=2} in \texttt{apps/web} at \texttt{0226536}. &
+139 passed in 17 files. Statement, branch, function and line coverage were 100\%. Earlier concurrent F01-TEST-20 runs hit login timeouts. \\
+Local seeded F-04 E2E at \texttt{0226536} (command and setup in B-02). &
+2 passed, 0 failed, 0 skipped. \\
+\texttt{bun run generate} and \texttt{bun run vuln} at \texttt{b51c058}. &
+Generation left no diff. API scan found no vulnerabilities. \\
+\bottomrule
+\end{longtable}
+
+\clearpage
+\partsection{B-05}{Review, staging and released main}
+\label{ev:release}
+\begin{longtable}{@{}R{3.8cm}R{12.3cm}@{}}
+\toprule
+\textbf{24 Nov 2026 (UTC)} & \textbf{Recorded action and review evidence} \\ \midrule \endhead
+16:16--16:18 & Contract \prlink{101} approved, then squashed to \texttt{lab-7} as \texttt{124cf9a}. See A-03. \\
+16:20--16:28 & OpenAPI contract commit \texttt{ea1537b} came first. Test commits \texttt{405c906} and \texttt{6cabc3e} preceded code \texttt{b51c058}. Implementation proceeded at the maintainer's direction while OpenAPI teammate review was pending. \\
+17:16:23 & On \texttt{3e4b572}, \texttt{Kiatisakk} opened the \href{\repo/pull/105\#pullrequestreview-6043999986}{review} with “Requesting changes for two process items” and wrote, “I have now reviewed that diff and it matches the contract, so no contract change is needed.” The reviewer checked generation, API RED/GREEN, and 50 focused web tests. The requests were to record the late review and list RED/GREEN versions per test. \\
+17:20--17:31 & \texttt{4993321} documented the review. \texttt{9b1fc9c} listed each test's versions. \texttt{Kiatisakk} approved at 17:28:21 after a docs-only follow-up and confirmed the component counts. \prlink{105} squashed to \texttt{lab-7} as \texttt{8b660a1} at 17:31:06. \\
+17:47--17:48 & \texttt{Kiatisakk} approved \prlink{106} at 17:47:07 after checking the branch contents, generated rule, and required CI. The reviewer left the four authenticated checks for after deploy. \prlink{106} merged to \texttt{main} at 17:48:05. \issuelink{99} closed as completed at 17:48:07. \\
+17:53:02 & Semantic-release published \texttt{v0.1.0.0}. Remote \texttt{main} and that tag both resolved to \releaseSHA{}. \\
+\bottomrule
+\end{longtable}
+The release review calls \texttt{871d373} an approved head. Git identifies it as the tree ID shared by the actual approved \prlink{105} head \texttt{9b1fc9c}, staging squash \texttt{8b660a1} and release merge \texttt{c32e645}. The release's first parent is \texttt{214d1d5} and its second parent is \texttt{8b660a1}. This preserves the \texttt{feat!:} release signal. The 19 changed files cover L7/01 only. The separate Sprint 2 contract PR \#100 and release path \#102 are outside this change.
+
+\textbf{CI.}
+Early PR run \runlink{45435957782} started at 16:20:22 on OpenAPI commit \texttt{ea1537b}. The API job's generated-code check found diffs in the Go and web clients and exited 1. Commit \texttt{b51c058} regenerated the clients.
+
+The five required jobs (\texttt{api}, \texttt{test}, \texttt{code\_quality}, \texttt{image}, \texttt{build}) passed on \prlink{101} run \runlink{45434761904}, \prlink{105} run \runlink{45447692201}, and \prlink{106} run \runlink{45449479661}. The release job was skipped on PRs. On main run \runlink{45452555188}, all five jobs and the release job succeeded. The release CI ran at \texttt{c32e645}, from 17:48:08 to 17:54:08.
+
+Main CI ran these test commands in \texttt{apps/api} and \texttt{apps/web}, respectively.
+\begin{record}
+go tool -modfile=tools.mod gotestsum --junitfile .ci-reports/junit.xml \
+  -- -race -coverpkg=./... -coverprofile=coverage.out ./...
+bun run test:coverage --coverage.reporter=text-summary \
+  --coverage.reporter=cobertura --reporter=default --reporter=junit \
+  --outputFile.junit=.ci-reports/junit.xml
+\end{record}
+Selected main CI output, with ANSI formatting and runner prefixes removed:
+\begin{record}
+api   17:52:19  DONE 300 tests in 57.660s
+api   17:52:28  Total test coverage: 100% (785/785)
+api   17:52:35  No vulnerabilities found.
+test  17:48:50  Test Files  17 passed (17)
+test  17:48:50  Tests       139 passed (139)
+\end{record}
+The Go JUnit artifact (14949441476) confirms 300 passed, 0 failed, 0 errors and 0 skips. The web job recorded 0 failures and 0 skips. Local Playwright was run separately, per \prlink{96}.
+
+\clearpage
+\partsection{B-06}{Cloud Run deployment and public smoke}
+\label{ev:deploy}
+Deploy demo \runlink{45453647851} succeeded on 24 November from 17:54:12 to 17:56:06 after the main CI pass. It built from \releaseSHA{}, ran the existing migrate-and-seed job, and deployed by digest to \revision{}. The deployment step reported 100\% traffic to that revision. The digest was:
+\begin{record}
+sha256:4648f547d5250c04c9240a2b8b4ffe18a3fb4c0cf90501f949d13263f55dcb7e
+\end{record}
+
+The workflow ran \texttt{bash deploy/smoke.sh} with the public service URL and expected full SHA. Selected output from 17:55:49--17:55:59:
+\begin{record}
+Service [claimflow] revision [claimflow-00016-zck] has been deployed and is serving 100 percent of traffic.
+PASS /api/v1/health reports c32e6455724a0b7be3a5ae8a50889ea50fd4ddbc
+PASS /api/v1/ready 200
+PASS / serves the web build
+PASS unknown /api route is a JSON 404
+\end{record}
+The report session reran this read-only smoke from the release checkout against the public URL at about 18:23 UTC. All four checks passed again and the script exited 0.
+
+\partsection{B-07}{Authenticated post-deployment checks}
+\label{ev:live}
+Automated HTTP probe run on demand against the demo on 24 November, 18:25:50--18:26:14 UTC (25 November, 01:25--01:26 ICT). The input was one fresh synthetic claim, \texttt{CLM-2026-000023}, created with a 250.00 THB travel item. Three role-specific logins returned 200. Creation returned 201. The assigned reviewer read \texttt{SUBMITTED}, ETag \texttt{"0"}, and history \texttt{[SUBMIT]}.
+
+Each attempt called \texttt{POST /api/v1/claims/\{id\}/reject} with \texttt{If-Match: "0"}. After each refused request, an owner read compared status, version, decision time and history with the initial record. Public health reported \texttt{c32e645} before and after the verified run on \revision{}.
+
+\begin{longtable}{@{}R{4.2cm}R{4.8cm}R{7.1cm}@{}}
+\toprule
+\textbf{Actor and input} & \textbf{Expected result} & \textbf{Actual result at 18:26:13 UTC} \\ \midrule \endhead
+Owner \texttt{req.anan}, \texttt{abcdefghij} (10) & 403, no claim data or state change. & \textbf{PASS}. 403 \texttt{FORBIDDEN}, problem fields only, unchanged. \\
+Unassigned reviewer \texttt{rev.somchai}, \texttt{abcdefghij} (10) & 403, no claim data or state change. & \textbf{PASS}. 403 \texttt{FORBIDDEN}, problem fields only, unchanged. \\
+Assigned reviewer \texttt{rev.malee}, \texttt{abcdefghi} (9) & 422 on \texttt{comment}, BR-04. No state change. & \textbf{PASS}. 422 \texttt{VALIDATION\_FAILED}, field \texttt{comment}, rule BR-04, “Reason must be at least 10 characters.” ETag stayed \texttt{"0"}. \\
+Assigned reviewer \texttt{rev.malee}, \texttt{abcdefghij} (10) & 200, \texttt{REJECTED}, version +1, one new history entry. & \textbf{PASS}. 200. Owner reread 200, ETag \texttt{"1"}, \texttt{REJECTED}, history \texttt{[SUBMIT, REJECT]} with reason \texttt{abcdefghij} and assigned reviewer as actor. \\
+\bottomrule
+\end{longtable}
+The first attempt stopped after the owner 403 because the probe treated the standard problem \texttt{instance} request path as returned claim data. The corrected assertion checked the \texttt{instance} echo separately and confirmed the remaining fields contain no claim data. The rerun reused the same claim, finished with 4 passes, 0 failures and 0 skips, and ended all three sessions with 204. The synthetic rejection remains in append-only demo history.
