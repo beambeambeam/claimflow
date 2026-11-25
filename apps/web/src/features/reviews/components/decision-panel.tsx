@@ -65,7 +65,7 @@ type Decision = keyof typeof decisions;
 const isDecision = (name: string): name is Decision =>
   Object.hasOwn(decisions, name);
 
-// The BR-04 metadata supplies the reject minimum and the comment counter limit.
+// The BR-04 metadata supplies the reason minimum and the comment counter limit.
 const commentSchema = zClaimDecision.shape.comment.unwrap();
 const reasonMinimum = contractMinLength(commentSchema);
 const commentLimit = contractMaxLength(commentSchema);
@@ -143,7 +143,7 @@ const DecisionDialog = ({
 
   // Match the API's Unicode whitespace trimming and code point count.
   const reasonTooShort =
-    decision === "reject" &&
+    decision !== "approve" &&
     (comment
       .replaceAll(
         /^\p{White_Space}+|(?<!\p{White_Space})\p{White_Space}+$/gu,
