@@ -29,7 +29,7 @@ import {
 } from "#/lib/contract";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
-// The text and button variants of each decision (F-04 §2.2, F-06 §2.1): `trigger` opens the dialog, `variant` confirms it. A reject or a return needs a reason; an approve may have a comment.
+// The text and button variants of each decision (F-04 §2.2, F-06 §2.1): `trigger` opens the dialog, `variant` confirms it. `needsReason` marks the decisions that the API refuses without a reason; the others may have a comment.
 const decisions = {
   approve: {
     title: (claimNo: string) => `Approve claim ${claimNo}?`,
@@ -38,6 +38,7 @@ const decisions = {
     trigger: "primary",
     variant: "primary",
     done: "Claim approved.",
+    needsReason: false,
     mutation: approveClaimMutation,
   },
   reject: {
@@ -47,6 +48,7 @@ const decisions = {
     trigger: "secondary",
     variant: "destructive",
     done: "Claim rejected.",
+    needsReason: true,
     mutation: rejectClaimMutation,
   },
   return: {
@@ -56,6 +58,7 @@ const decisions = {
     trigger: "secondary",
     variant: "primary",
     done: "Claim returned.",
+    needsReason: true,
     mutation: returnClaimMutation,
   },
 } as const;
@@ -143,7 +146,7 @@ const DecisionDialog = ({
 
   // Match the API's Unicode whitespace trimming and code point count.
   const reasonTooShort =
-    decision !== "approve" &&
+    text.needsReason &&
     (comment
       .replaceAll(
         /^\p{White_Space}+|(?<!\p{White_Space})\p{White_Space}+$/gu,
