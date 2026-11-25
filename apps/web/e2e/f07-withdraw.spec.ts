@@ -24,7 +24,7 @@ test("F07-TEST-12: req.anan submits and withdraws a claim with a comment, it sho
   const dialog = page.getByRole("dialog");
 
   await expect(dialog.getByText("0/500")).toBeVisible();
-  await dialog.getByLabel("Comment (optional)").fill("No longer needed");
+  await dialog.getByLabel("Comment", { exact: true }).fill("No longer needed");
   await dialog.getByRole("button", { name: "Withdraw claim" }).click();
   await expect(page.getByText("Claim withdrawn.").first()).toBeVisible();
 

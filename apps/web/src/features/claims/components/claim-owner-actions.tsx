@@ -75,7 +75,7 @@ const WithdrawDialog = ({
                 You can&apos;t edit or resubmit a withdrawn claim.
               </Text>
               <TextArea
-                label="Comment (optional)"
+                label="Comment"
                 maxLength={withdrawCommentLimit}
                 onChange={(value) => {
                   onChange(limitComment(value));

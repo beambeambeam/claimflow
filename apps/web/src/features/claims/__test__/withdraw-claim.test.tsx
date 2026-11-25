@@ -141,14 +141,13 @@ describe("Claim Detail: withdraw", { timeout: 40_000 }, () => {
     within(dialog()).getByText("You can't edit or resubmit a withdrawn claim.");
     within(dialog()).getByText("0/500");
 
-    await user.click(within(dialog()).getByLabelText("Comment (optional)"));
+    await user.click(within(dialog()).getByLabelText("Comment"));
     await user.paste("a".repeat(500));
     await user.keyboard("b");
 
     within(dialog()).getByText("500/500");
     expect(
-      within(dialog()).getByLabelText<HTMLTextAreaElement>("Comment (optional)")
-        .value
+      within(dialog()).getByLabelText<HTMLTextAreaElement>("Comment").value
     ).toHaveLength(500);
   });
 
@@ -157,7 +156,7 @@ describe("Claim Detail: withdraw", { timeout: 40_000 }, () => {
     stalled = true;
 
     await user.click(screen.getByRole("button", { name: "Withdraw" }));
-    await user.click(within(dialog()).getByLabelText("Comment (optional)"));
+    await user.click(within(dialog()).getByLabelText("Comment"));
     await user.paste("No longer needed");
     await user.click(
       within(dialog()).getByRole("button", { name: "Withdraw claim" })
