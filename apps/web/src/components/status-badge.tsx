@@ -13,17 +13,27 @@ export const statusLabels: Record<ClaimStatus, string> = {
   WITHDRAWN: "Withdrawn",
 };
 
-// SDS §7.2 colors the 3 statuses of Sprint 1 and leaves the rest neutral.
-const variants: Partial<Record<ClaimStatus, "blue" | "green" | "red">> = {
-  SUBMITTED: "blue",
-  APPROVED: "green",
-  REJECTED: "red",
+// The badge of each status (SDS §7.2). A status without an entry is neutral and not struck through.
+const styles: Partial<
+  Record<
+    ClaimStatus,
+    {
+      variant: "neutral" | "blue" | "yellow" | "green" | "red";
+      isStruck?: boolean;
+    }
+  >
+> = {
+  SUBMITTED: { variant: "blue" },
+  RETURNED: { variant: "yellow" },
+  APPROVED: { variant: "green" },
+  REJECTED: { variant: "red" },
+  WITHDRAWN: { variant: "neutral", isStruck: true },
 };
 
 export const StatusBadge = ({ status }: { status: ClaimStatus }) => (
   <Badge
     label={
-      status === "WITHDRAWN" ? (
+      styles[status]?.isStruck === true ? (
         <Text hasStrikethrough type="inherit">
           {statusLabels[status]}
         </Text>
@@ -31,6 +41,6 @@ export const StatusBadge = ({ status }: { status: ClaimStatus }) => (
         statusLabels[status]
       )
     }
-    variant={variants[status] ?? "neutral"}
+    variant={styles[status]?.variant ?? "neutral"}
   />
 );
