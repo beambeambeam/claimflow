@@ -213,14 +213,7 @@ func TestF04TEST17HistoryFailureRollsBackTheDecision(t *testing.T) {
 	pool := pgtest.New(t)
 	created, reviewer := submittedClaim(t, pool)
 
-	// A test-only trigger makes every history insert fail.
-	if _, err := pool.Exec(t.Context(), `
-		CREATE FUNCTION fail_history_insert() RETURNS trigger LANGUAGE plpgsql AS $$
-		BEGIN RAISE EXCEPTION 'forced history failure'; END; $$;
-		CREATE TRIGGER fail_history_insert BEFORE INSERT ON claim_history
-		FOR EACH ROW EXECUTE FUNCTION fail_history_insert();`); err != nil {
-		t.Fatalf("create trigger: %v", err)
-	}
+	failHistoryInserts(t, pool)
 
 	if _, err := newService(pool).Act(t.Context(), reviewer, created.ID, created.Version, ActionApprove, "OK"); err == nil {
 		t.Fatal("Act succeeded, want the history failure")
@@ -238,5 +231,18 @@ func TestF04TEST17HistoryFailureRollsBackTheDecision(t *testing.T) {
 
 	if status != "SUBMITTED" || version != created.Version || decided {
 		t.Fatalf("claim = %s, version %d, decided %t; want SUBMITTED, version %d, not decided", status, version, decided, created.Version)
+	}
+}
+
+// failHistoryInserts adds a test-only trigger that makes every history insert fail.
+func failHistoryInserts(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+
+	if _, err := pool.Exec(t.Context(), `
+		CREATE FUNCTION fail_history_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN RAISE EXCEPTION 'forced history failure'; END; $$;
+		CREATE TRIGGER fail_history_insert BEFORE INSERT ON claim_history
+		FOR EACH ROW EXECUTE FUNCTION fail_history_insert();`); err != nil {
+		t.Fatalf("create trigger: %v", err)
 	}
 }
