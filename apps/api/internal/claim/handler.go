@@ -72,18 +72,19 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 }
 
 // listScopes maps each scope of the contract to the module's scope and the resource of its route permission:
-// claim:list for mine, which a Finance Officer lacks (F03-AC-04), and review:list for review, which a requester lacks
-// (F04-AC-02).
+// claim:list for mine, which a Finance Officer lacks (F03-AC-04), review:list for review, which a requester lacks
+// (F04-AC-02), and finance:list for finance, which only a Finance Officer has (F-08 §1.8).
 var listScopes = map[api.ListClaimsParamsScope]struct {
 	scope    Scope
 	resource string
 }{
-	api.ListScopeMine:   {scope: ScopeMine, resource: "claim"},
-	api.ListScopeReview: {scope: ScopeReview, resource: "review"},
+	api.ListScopeMine:    {scope: ScopeMine, resource: "claim"},
+	api.ListScopeReview:  {scope: ScopeReview, resource: "review"},
+	api.ListScopeFinance: {scope: ScopeFinance, resource: "finance"},
 }
 
-// ListClaims returns one page of claims in the scope: the session user's own (mine), or the SUBMITTED claims assigned
-// to them (review). A missing or unknown scope, a page below 1, and a page size outside 1–100 are 400. The route
+// ListClaims returns one page of claims in the scope: the session user's own (mine), the SUBMITTED claims assigned to
+// them (review), or every PENDING_FINANCE claim (finance). A missing or unknown scope, a page below 1, and a page size outside 1–100 are 400. The route
 // permission depends on the scope, so the handler checks it after it reads the scope.
 func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestObject) (api.ListClaimsResponseObject, error) {
 	params := request.Params
@@ -164,6 +165,28 @@ func (h Handler) RejectClaim(ctx context.Context, request api.RejectClaimRequest
 	}
 
 	return api.RejectClaim200JSONResponse{DecidedJSONResponse: decidedBody(&decided)}, nil
+}
+
+// FinalApproveClaim makes the final approval of a PENDING_FINANCE claim for the session user. The checks run in the
+// order of F-08 §1.4.
+func (h Handler) FinalApproveClaim(ctx context.Context, request api.FinalApproveClaimRequestObject) (api.FinalApproveClaimResponseObject, error) {
+	decided, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionFinalApprove, request.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.FinalApproveClaim200JSONResponse{DecidedJSONResponse: decidedBody(&decided)}, nil
+}
+
+// FinalRejectClaim makes the final rejection of a PENDING_FINANCE claim for the session user. The checks run in the
+// order of F-08 §1.4.
+func (h Handler) FinalRejectClaim(ctx context.Context, request api.FinalRejectClaimRequestObject) (api.FinalRejectClaimResponseObject, error) {
+	decided, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionFinalReject, request.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.FinalRejectClaim200JSONResponse{DecidedJSONResponse: decidedBody(&decided)}, nil
 }
 
 // ReturnClaim returns the claim to its requester for the session user. The checks run in the order of F-04 §1.4.
@@ -273,14 +296,19 @@ func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, 
 }
 
 var transitionErrors = map[Action]FieldError{
-	ActionApprove:  transitionError,
-	ActionReject:   transitionError,
-	ActionReturn:   {Field: "status", Rule: ruleTransition, Message: "Only a submitted claim can be returned."},
-	ActionEdit:     {Field: "status", Rule: "BR-10", Message: "Only a draft or a returned claim can be edited."},
-	ActionDelete:   {Field: "status", Rule: "BR-10", Message: "Only a draft can be deleted."},
-	ActionSubmit:   {Field: "status", Rule: ruleTransition, Message: "Only a draft or a returned claim can be submitted."},
-	ActionWithdraw: {Field: "status", Rule: "BR-16", Message: "Only a submitted or returned claim can be withdrawn."},
+	ActionApprove:      transitionError,
+	ActionReject:       transitionError,
+	ActionReturn:       {Field: "status", Rule: ruleTransition, Message: "Only a submitted claim can be returned."},
+	ActionEdit:         {Field: "status", Rule: "BR-10", Message: "Only a draft or a returned claim can be edited."},
+	ActionDelete:       {Field: "status", Rule: "BR-10", Message: "Only a draft can be deleted."},
+	ActionSubmit:       {Field: "status", Rule: ruleTransition, Message: "Only a draft or a returned claim can be submitted."},
+	ActionWithdraw:     {Field: "status", Rule: "BR-16", Message: "Only a submitted or returned claim can be withdrawn."},
+	ActionFinalApprove: finalTransitionError,
+	ActionFinalReject:  finalTransitionError,
 }
+
+// finalTransitionError is the field error of a final decision on a claim that is not PENDING_FINANCE (F-08 §1.5).
+var finalTransitionError = FieldError{Field: "status", Rule: ruleTransition, Message: "Only a claim pending finance can be finally approved or rejected."}
 
 // returnLimitError is the field error of ErrReturnLimit: the claim was already returned MaxReturns times (BR-14).
 var returnLimitError = FieldError{Field: "returnCount", Rule: "BR-14", Message: fmt.Sprintf("This claim has already been returned %d times.", MaxReturns)}

@@ -124,8 +124,15 @@ func TestF08TEST08OnlyFinanceMakesTheFinalDecision(t *testing.T) {
 		t.Fatalf("claim = %+v, want %+v", after, before)
 	}
 
-	// Finance cannot create claims, so the test stores one of hers (BR-01).
-	own := storedClaim(t, pool, "fin.wanida", "PENDING_FINANCE", claimsNow.Add(-time.Hour)).String()
+	// Finance cannot create claims and fin.wanida has no reviewer, so the test stores rev.prasert's claim, which is
+	// assigned to her, and swaps the two: she becomes the requester (BR-01).
+	stored := storedClaim(t, pool, "rev.prasert", "PENDING_FINANCE", claimsNow.Add(-time.Hour))
+	if _, err := pool.Exec(t.Context(),
+		`UPDATE claims SET requester_id = assigned_reviewer_id, assigned_reviewer_id = requester_id WHERE id = $1`, stored); err != nil {
+		t.Fatalf("make the claim fin.wanida's: %v", err)
+	}
+
+	own := stored.String()
 	for _, action := range []string{"final-approve", "final-reject"} {
 		recorder := decide(t, router, loginAs(t, router, "fin.wanida"), own, action, ifMatch(0), `{"comment": "Budget code is wrong"}`)
 		decodeProblem(t, recorder, http.StatusForbidden, "FORBIDDEN")

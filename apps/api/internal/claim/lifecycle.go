@@ -8,11 +8,18 @@ type transition struct {
 	history db.ClaimAction
 }
 
-// transitions lists the status changes by action and source status (F-04 §1.3, F-05 §1.10).
+// transitions lists the status changes by action and source status (F-04 §1.3, F-05 §1.10, F-08 §1.3). An approval's
+// destination here is the one without a second stage; Act picks the real one with approveTarget.
 var transitions = map[Action]map[db.ClaimStatus]transition{
 	ActionApprove: {db.ClaimStatusSUBMITTED: {to: db.ClaimStatusAPPROVED, history: db.ClaimActionAPPROVE}},
 	ActionReject:  {db.ClaimStatusSUBMITTED: {to: db.ClaimStatusREJECTED, history: db.ClaimActionREJECT}},
 	ActionReturn:  {db.ClaimStatusSUBMITTED: {to: db.ClaimStatusRETURNED, history: db.ClaimActionRETURN}},
+	ActionFinalApprove: {
+		db.ClaimStatusPENDINGFINANCE: {to: db.ClaimStatusAPPROVED, history: db.ClaimActionFINALAPPROVE},
+	},
+	ActionFinalReject: {
+		db.ClaimStatusPENDINGFINANCE: {to: db.ClaimStatusREJECTED, history: db.ClaimActionFINALREJECT},
+	},
 	ActionWithdraw: {
 		db.ClaimStatusSUBMITTED: {to: db.ClaimStatusWITHDRAWN, history: db.ClaimActionWITHDRAW},
 		db.ClaimStatusRETURNED:  {to: db.ClaimStatusWITHDRAWN, history: db.ClaimActionWITHDRAW},

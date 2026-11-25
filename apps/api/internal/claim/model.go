@@ -86,6 +86,8 @@ const (
 	ScopeMine Scope = "mine"
 	// ScopeReview is the SUBMITTED claims assigned to the actor, oldest submission first (F-04 §3).
 	ScopeReview Scope = "review"
+	// ScopeFinance is every PENDING_FINANCE claim, oldest submission first (F-08 §1.9).
+	ScopeFinance Scope = "finance"
 )
 
 // Query selects one page of a list: the scope, the page number, 1-based, and the page size. F-09 adds filters here.

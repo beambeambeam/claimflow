@@ -3,18 +3,19 @@ package claim
 import (
 	"errors"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
+	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 )
 
 // F03-TEST-09 (F03-AC-09, NFR-02, F04-AC-07): the claim policy matrix. A claim is visible to its requester, and to its
 // assigned reviewer once it is no longer a DRAFT. The assigned reviewer, when not also the requester, may approve and
-// reject a SUBMITTED claim (F-04); nobody else has an action. The rows cover every role, relation, and status. The
-// policy never reads the role, so a finance officer follows the same rules as everyone else. Later features extend
-// this table.
+// reject a SUBMITTED claim (F-04); nobody else has an action. The rows cover every role, relation, and status. Since
+// F-08 a Finance Officer also sees every claim that is not a DRAFT, with no action on these statuses (F08-TEST-09).
 func TestF03TEST09PolicyMatrix(t *testing.T) {
 	actors := map[string]uuid.UUID{
 		"requester": uuid.Must(uuid.NewV7()),
@@ -91,7 +92,8 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 				t.Run(role+"/"+name+"/"+string(status), func(t *testing.T) {
 					visible, actions := Allowed(Actor{ID: actor, Role: role}, relation.subject(actor, status))
 
-					if want := relation.visible(status); visible != want {
+					want := relation.visible(status) || (role == RoleFinance && status != db.ClaimStatusDRAFT)
+					if visible != want {
 						t.Fatalf("visible = %t, want %t", visible, want)
 					}
 
@@ -210,5 +212,87 @@ func TestF07TEST05WithdrawIsTheOwnersOnSubmittedOrReturned(t *testing.T) {
 	// An unrelated member cannot see the claim, so the check refuses before the status.
 	if err := check(Actor{ID: uuid.New()}, subject, ActionWithdraw); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("check error = %v, want ErrForbidden", err)
+	}
+}
+
+// F08-TEST-09 (F08-AC-07, F08-AC-11, SDS §5.2): the Finance rows of the policy matrix, on every status and with totals
+// on both sides of the threshold, which the policy does not read. Only a Finance Officer who is not the requester gets
+// final-approve and final-reject, and only on PENDING_FINANCE. A Finance Officer sees every claim but a DRAFT, and gets
+// approve, reject, and return only when assigned. The owner and the reviewer get nothing on PENDING_FINANCE.
+func TestF08TEST09FinancePolicyMatrix(t *testing.T) {
+	requester, reviewer, unrelated, finance := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+
+	decisions := []Action{ActionApprove, ActionReject, ActionReturn}
+	final := []Action{ActionFinalApprove, ActionFinalReject}
+	ownActions := map[db.ClaimStatus][]Action{
+		db.ClaimStatusDRAFT:     {ActionEdit, ActionDelete, ActionSubmit},
+		db.ClaimStatusSUBMITTED: {ActionWithdraw},
+		db.ClaimStatusRETURNED:  {ActionEdit, ActionSubmit, ActionWithdraw},
+	}
+
+	// subject is the claim's requester and assigned reviewer; visible and actions are by status, absent meaning
+	// false and [].
+	rows := []struct {
+		name               string
+		actor              Actor
+		owner, assigned    uuid.UUID
+		visibleOnDraft     bool
+		visibleAfterSubmit bool
+		actions            map[db.ClaimStatus][]Action
+	}{
+		{"owner", Actor{ID: requester, Role: "requester"}, requester, reviewer, true, true, ownActions},
+		{
+			"assigned reviewer",
+			Actor{ID: reviewer, Role: "reviewer"},
+			requester, reviewer, false, true,
+			map[db.ClaimStatus][]Action{db.ClaimStatusSUBMITTED: decisions},
+		},
+		{"unrelated reviewer", Actor{ID: unrelated, Role: "reviewer"}, requester, reviewer, false, false, nil},
+		{
+			"finance, not own",
+			Actor{ID: finance, Role: RoleFinance},
+			requester, reviewer, false, true,
+			map[db.ClaimStatus][]Action{db.ClaimStatusPENDINGFINANCE: final},
+		},
+		{"finance, own", Actor{ID: finance, Role: RoleFinance}, finance, reviewer, true, true, ownActions},
+		{
+			"finance, assigned",
+			Actor{ID: finance, Role: RoleFinance},
+			requester, finance, false, true,
+			map[db.ClaimStatus][]Action{db.ClaimStatusSUBMITTED: decisions, db.ClaimStatusPENDINGFINANCE: final},
+		},
+	}
+
+	statuses := []db.ClaimStatus{
+		db.ClaimStatusDRAFT, db.ClaimStatusSUBMITTED, db.ClaimStatusRETURNED, db.ClaimStatusPENDINGFINANCE,
+		db.ClaimStatusAPPROVED, db.ClaimStatusREJECTED, db.ClaimStatusWITHDRAWN,
+	}
+
+	for _, row := range rows {
+		for _, status := range statuses {
+			for _, total := range []int64{1_000_000, 1_500_000} {
+				t.Run(row.name+"/"+string(status)+"/"+strconv.FormatInt(total, 10), func(t *testing.T) {
+					subject := Subject{
+						RequesterID: row.owner, AssignedReviewerID: row.assigned, Status: status,
+						OwnerHasReviewer: true, TotalSatang: money.Satang(total),
+					}
+					visible, actions := Allowed(row.actor, subject)
+
+					wantVisible := row.visibleAfterSubmit
+					if status == db.ClaimStatusDRAFT {
+						wantVisible = row.visibleOnDraft
+					}
+
+					wantActions := row.actions[status]
+					if wantActions == nil {
+						wantActions = []Action{}
+					}
+
+					if visible != wantVisible || actions == nil || !slices.Equal(actions, wantActions) {
+						t.Fatalf("visible = %t, actions = %v; want %t, %v", visible, actions, wantVisible, wantActions)
+					}
+				})
+			}
+		}
 	}
 }

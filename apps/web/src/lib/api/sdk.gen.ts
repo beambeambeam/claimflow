@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, DeleteClaimData, DeleteClaimErrors, DeleteClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses, ReturnClaimData, ReturnClaimErrors, ReturnClaimResponses, SubmitClaimData, SubmitClaimErrors, SubmitClaimResponses, UpdateClaimData, UpdateClaimErrors, UpdateClaimResponses, WithdrawClaimData, WithdrawClaimErrors, WithdrawClaimResponses } from './types.gen';
-import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zDeleteClaimHeaders, zDeleteClaimPath, zDeleteClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse, zReturnClaimBody, zReturnClaimHeaders, zReturnClaimPath, zReturnClaimResponse, zSubmitClaimHeaders, zSubmitClaimPath, zSubmitClaimResponse, zUpdateClaimBody, zUpdateClaimHeaders, zUpdateClaimPath, zUpdateClaimResponse, zWithdrawClaimBody, zWithdrawClaimHeaders, zWithdrawClaimPath, zWithdrawClaimResponse } from './zod.gen';
+import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, DeleteClaimData, DeleteClaimErrors, DeleteClaimResponses, FinalApproveClaimData, FinalApproveClaimErrors, FinalApproveClaimResponses, FinalRejectClaimData, FinalRejectClaimErrors, FinalRejectClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses, ReturnClaimData, ReturnClaimErrors, ReturnClaimResponses, SubmitClaimData, SubmitClaimErrors, SubmitClaimResponses, UpdateClaimData, UpdateClaimErrors, UpdateClaimResponses, WithdrawClaimData, WithdrawClaimErrors, WithdrawClaimResponses } from './types.gen';
+import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zDeleteClaimHeaders, zDeleteClaimPath, zDeleteClaimResponse, zFinalApproveClaimBody, zFinalApproveClaimHeaders, zFinalApproveClaimPath, zFinalApproveClaimResponse, zFinalRejectClaimBody, zFinalRejectClaimHeaders, zFinalRejectClaimPath, zFinalRejectClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse, zReturnClaimBody, zReturnClaimHeaders, zReturnClaimPath, zReturnClaimResponse, zSubmitClaimHeaders, zSubmitClaimPath, zSubmitClaimResponse, zUpdateClaimBody, zUpdateClaimHeaders, zUpdateClaimPath, zUpdateClaimResponse, zWithdrawClaimBody, zWithdrawClaimHeaders, zWithdrawClaimPath, zWithdrawClaimResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -96,9 +96,9 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
 });
 
 /**
- * List claims in a scope (F-03, F-04).
+ * List claims in a scope (F-03, F-04, F-08).
  *
- * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+ * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. `scope=finance` lists every `PENDING_FINANCE` claim, oldest `submittedAt` first, and needs `finance:list` (F-08). The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
  */
 export const listClaims = <ThrowOnError extends boolean = false>(options: Options<ListClaimsData, ThrowOnError>): RequestResult<ListClaimsResponses, ListClaimsErrors, ThrowOnError> => (options.client ?? client).get<ListClaimsResponses, ListClaimsErrors, ThrowOnError>({
   requestValidator: async (data) => await z.object({
@@ -199,6 +199,48 @@ export const approveClaim = <ThrowOnError extends boolean = false>(options: Opti
   }).parseAsync(data),
   responseValidator: async (data) => await zApproveClaimResponse.parseAsync(data),
   url: '/claims/{id}/approve',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Make the final approval of a claim pending finance (F-08).
+ *
+ * Needs a session; the claim policy decides the rest. The checks run in this order (F-08 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it, is not a Finance Officer, or is its requester (403); the claim is not `PENDING_FINANCE` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional. The claim becomes `APPROVED` with a decision time.
+ */
+export const finalApproveClaim = <ThrowOnError extends boolean = false>(options: Options<FinalApproveClaimData, ThrowOnError>): RequestResult<FinalApproveClaimResponses, FinalApproveClaimErrors, ThrowOnError> => (options.client ?? client).post<FinalApproveClaimResponses, FinalApproveClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zFinalApproveClaimBody.optional(),
+    headers: zFinalApproveClaimHeaders.optional(),
+    path: zFinalApproveClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zFinalApproveClaimResponse.parseAsync(data),
+  url: '/claims/{id}/final-approve',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Make the final rejection of a claim pending finance (F-08).
+ *
+ * Needs a session; the claim policy decides the rest. The checks run in this order (F-08 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it, is not a Finance Officer, or is its requester (403); the claim is not `PENDING_FINANCE` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the reason is missing or has fewer than 10 or more than 500 characters after trimming (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The claim becomes `REJECTED` with a decision time. There is no return from the final stage.
+ */
+export const finalRejectClaim = <ThrowOnError extends boolean = false>(options: Options<FinalRejectClaimData, ThrowOnError>): RequestResult<FinalRejectClaimResponses, FinalRejectClaimErrors, ThrowOnError> => (options.client ?? client).post<FinalRejectClaimResponses, FinalRejectClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zFinalRejectClaimBody.optional(),
+    headers: zFinalRejectClaimHeaders.optional(),
+    path: zFinalRejectClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zFinalRejectClaimResponse.parseAsync(data),
+  url: '/claims/{id}/final-reject',
   ...options,
   headers: {
     'Content-Type': 'application/json',

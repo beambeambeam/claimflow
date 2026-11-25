@@ -25,6 +25,19 @@ func (q *Queries) CheckReady(ctx context.Context) (int32, error) {
 	return ok, err
 }
 
+const countFinanceClaims = `-- name: CountFinanceClaims :one
+SELECT count(*)::int AS total
+FROM claims
+WHERE status = 'PENDING_FINANCE'
+`
+
+func (q *Queries) CountFinanceClaims(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, countFinanceClaims)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const countRequesterClaims = `-- name: CountRequesterClaims :one
 SELECT count(*)::int AS total
 FROM claims
@@ -571,6 +584,66 @@ func (q *Queries) ListClaimLineItems(ctx context.Context, claimID uuid.UUID) ([]
 			&i.ExpenseDate,
 			&i.AmountSatang,
 			&i.ReceiptRef,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFinanceClaims = `-- name: ListFinanceClaims :many
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE c.status = 'PENDING_FINANCE'
+ORDER BY c.submitted_at, c.id
+LIMIT $2 OFFSET $1
+`
+
+type ListFinanceClaimsParams struct {
+	PageOffset int32
+	PageLimit  int32
+}
+
+type ListFinanceClaimsRow struct {
+	ID                uuid.UUID
+	ClaimNo           string
+	Status            ClaimStatus
+	Title             string
+	TotalSatang       money.Satang
+	SubmittedAt       pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	RequesterID       uuid.UUID
+	RequesterName     string
+	RequesterPosition string
+}
+
+// ListFinanceClaims returns one page of the PENDING_FINANCE claims, oldest submission first (F-08 §1.9).
+func (q *Queries) ListFinanceClaims(ctx context.Context, arg ListFinanceClaimsParams) ([]ListFinanceClaimsRow, error) {
+	rows, err := q.db.Query(ctx, listFinanceClaims, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFinanceClaimsRow
+	for rows.Next() {
+		var i ListFinanceClaimsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClaimNo,
+			&i.Status,
+			&i.Title,
+			&i.TotalSatang,
+			&i.SubmittedAt,
+			&i.CreatedAt,
+			&i.RequesterID,
+			&i.RequesterName,
+			&i.RequesterPosition,
 		); err != nil {
 			return nil, err
 		}

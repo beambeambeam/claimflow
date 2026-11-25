@@ -116,13 +116,16 @@ func (s Service) Get(ctx context.Context, actor Actor, id uuid.UUID) (Claim, err
 // List returns one page of the claims in q's scope (SDS §3.1). ScopeMine is the actor's own claims in every status,
 // newest first: created time descending, then id descending (F-03 §1.4). ScopeReview is the SUBMITTED claims assigned
 // to the actor, oldest submission first: submitted time ascending, then id ascending (F-04 §3); decided claims leave
-// it. A page past the last one has no claims and the correct total.
+// it. ScopeFinance is every PENDING_FINANCE claim in the same order (F-08 §1.9). A page past the last one has no claims
+// and the correct total.
 func (s Service) List(ctx context.Context, actor Actor, q Query) (Page, error) {
 	switch q.Scope {
 	case ScopeMine:
 		return s.listMine(ctx, actor, q)
 	case ScopeReview:
 		return s.listReview(ctx, actor, q)
+	case ScopeFinance:
+		return s.listFinance(ctx, q)
 	default:
 		return Page{}, fmt.Errorf("claim: unknown scope %q", q.Scope)
 	}
@@ -172,6 +175,31 @@ func (s Service) listReview(ctx context.Context, actor Actor, q Query) (Page, er
 		for i := range rows {
 			// Both queries select the same columns. Go converts between struct types only when their fields match,
 			// so a change to either query that breaks this stops the build.
+			summaries = append(summaries, summarize((*db.ListRequesterClaimsRow)(&rows[i])))
+		}
+
+		return summaries, nil
+	})
+}
+
+// listFinance is List for ScopeFinance. The queue is the same for every Finance Officer.
+func (s Service) listFinance(ctx context.Context, q Query) (Page, error) {
+	queries := db.New(s.pool)
+
+	total, err := queries.CountFinanceClaims(ctx)
+	if err != nil { // coverage-ignore
+		return Page{}, fmt.Errorf("count finance claims: %w", err)
+	}
+
+	return listPage(int(total), q, func(offset, limit int32) ([]Summary, error) {
+		rows, err := queries.ListFinanceClaims(ctx, db.ListFinanceClaimsParams{PageOffset: offset, PageLimit: limit})
+		if err != nil { // coverage-ignore
+			return nil, fmt.Errorf("list finance claims: %w", err)
+		}
+
+		summaries := make([]Summary, 0, len(rows))
+		for i := range rows {
+			// The same columns as ListRequesterClaims; see listReview.
 			summaries = append(summaries, summarize((*db.ListRequesterClaimsRow)(&rows[i])))
 		}
 
