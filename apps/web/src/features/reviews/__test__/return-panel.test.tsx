@@ -110,7 +110,7 @@ const unprocessable = () =>
       {
         field: "comment",
         rule: "BR-04",
-        message: "Reason must be at least 5 characters.",
+        message: "Reason must be at least 10 characters.",
       },
     ]),
     { status: 422 }
@@ -163,16 +163,43 @@ describe("Decision panel: return", () => {
     returnResponse = unprocessable;
     await user.type(
       within(dialog()).getByRole("textbox", { name: "Reason for return" }),
-      "No"
+      "No receipt"
     );
-    within(dialog()).getByText("2/500");
+    within(dialog()).getByText("10/500");
     await user.click(within(dialog()).getByRole("button", { name: "Return" }));
 
-    await within(dialog()).findByText("Reason must be at least 5 characters.");
+    await within(dialog()).findByText("Reason must be at least 10 characters.");
     expect(
       within(dialog()).getByRole("textbox", { name: "Reason for return" })
-    ).toHaveProperty("value", "No");
-    expect(sent).toEqual([{ ifMatch: '"2"', body: { comment: "No" } }]);
+    ).toHaveProperty("value", "No receipt");
+    expect(sent).toEqual([{ ifMatch: '"2"', body: { comment: "No receipt" } }]);
+  }, 30_000);
+
+  it("F06-TEST-13: return requires 10 characters, as reject does", async () => {
+    const { user } = await open(returnable());
+
+    await user.click(screen.getByRole("button", { name: "Return" }));
+
+    const reason = within(dialog()).getByRole("textbox", {
+      name: "Reason for return",
+    });
+
+    const confirm = within(dialog()).getByRole("button", { name: "Return" });
+    const shortMessage = "Reason must be at least 10 characters.";
+
+    expect(confirm).toHaveProperty("ariaDisabled", "true");
+    expect(within(dialog()).queryByText(shortMessage)).toBeNull();
+
+    await user.type(reason, "  abcdefghi  ");
+    expect(confirm).toHaveProperty("ariaDisabled", "true");
+    within(dialog()).getByText(shortMessage);
+    await user.click(confirm);
+    expect(sent).toHaveLength(0);
+
+    await user.clear(reason);
+    await user.type(reason, "abcdefghij");
+    expect(confirm).not.toHaveProperty("ariaDisabled", "true");
+    expect(within(dialog()).queryByText(shortMessage)).toBeNull();
   }, 30_000);
 
   it("F06-TEST-13: the buttons are disabled with a spinner while the return is sent", async () => {
@@ -180,6 +207,10 @@ describe("Decision panel: return", () => {
     const { user } = await open(returnable());
 
     await user.click(screen.getByRole("button", { name: "Return" }));
+    await user.type(
+      within(dialog()).getByRole("textbox", { name: "Reason for return" }),
+      "Please attach the receipt."
+    );
     await user.click(within(dialog()).getByRole("button", { name: "Return" }));
 
     await waitFor(() => {
@@ -232,6 +263,10 @@ describe("Decision panel: return", () => {
       });
     };
 
+    await user.type(
+      within(dialog()).getByRole("textbox", { name: "Reason for return" }),
+      "Please attach the receipt."
+    );
     await user.click(within(dialog()).getByRole("button", { name: "Return" }));
 
     await screen.findAllByText(
