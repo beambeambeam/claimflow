@@ -157,7 +157,7 @@ describe("Decision panel: return", () => {
     const { user } = await open(returnable());
 
     await user.click(screen.getByRole("button", { name: "Return" }));
-    within(dialog()).getByText("Return claim CLM-2026-000123?");
+    within(dialog()).getByRole("heading", { name: "Return claim" });
     within(dialog()).getByText("0/500");
 
     returnResponse = unprocessable;

@@ -45,7 +45,7 @@ const decisions = {
     mutation: rejectClaimMutation,
   },
   return: {
-    title: (claimNo: string) => `Return claim ${claimNo}?`,
+    title: () => "Return claim",
     label: "Reason for return",
     confirm: "Return",
     trigger: "secondary",
