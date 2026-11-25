@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-01 (new endpoints), SR-04 (`SUBMIT` from `DRAFT`, edit and delete with the version check), SR-06
 - **Depends on:** F-02 (claim rules, `ClaimInput`, New Claim form), F-03 (claim policy, Claim Detail), F-04 (`If-Match` handling)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claims`, `line_items`; §2.4 time; §3.1; §3.2 `SAVE_DRAFT`, `SUBMIT`, `DELETE`; §3.3; §4.1 versions; §4.3 `POST /claims?draft=true`, `PUT /claims/{id}`, `DELETE /claims/{id}`, `POST /claims/{id}/submit`; §5.2; §7.1 Edit Claim
-- **Version:** 0.2 · **Last updated:** 2026-11-24
+- **Version:** 0.3 · **Last updated:** 2026-11-25
 
 ---
 
@@ -311,10 +311,10 @@ Levels as in F-01 §6. Module tests call `claim.Service` against `pgtest` Postgr
 
 The Sprint 2 Product DoD (`docs/sprints/sprint-2/definition-of-done.md`) applies. For F-05 the evidence is:
 
-- [ ] All F05-TEST rows run: unit, integration, and component tests pass in CI on the merge commit; F05-TEST-25 passes on a local seeded stack with the tested commit recorded.
-- [ ] TDD evidence for BR-10 (F05-TEST-09 or 19) and BR-07 at draft submission (F05-TEST-12): commit IDs of the failing test and the passing implementation.
-- [ ] `openapi.yaml` has `draft`, `updateClaim`, `deleteClaim`, and `submitClaim`; both apps regenerate with no diff in CI.
-- [ ] `docs/traceability.md` lists the actual test names and results for the F-05 rows.
+- [x] All F05-TEST rows run: unit, integration, and component tests pass in CI on the merge commit; F05-TEST-25 passes on a local seeded stack with the tested commit recorded. Evidence: CI [run 45443149848](https://github.com/beambeambeam/claimflow/actions/runs/45443149848) on the #104 head `b3cecd1`, whose tree equals the squash `35052ae`; F05-TEST-25 passes on a local seeded stack on `45bf736`.
+- [x] TDD evidence for BR-10 (F05-TEST-09 or 19) and BR-07 at draft submission (F05-TEST-12): commit IDs of the failing test and the passing implementation. Evidence: BR-10 red `ec2179d`, green `dd31979`; BR-07 red `4dcf8d4`, green `06c5fa0`.
+- [x] `openapi.yaml` has `draft`, `updateClaim`, `deleteClaim`, and `submitClaim`; both apps regenerate with no diff in CI. Evidence: `generate` leaves no diff on a clean clone of `45bf736`; CI [run 45443149848](https://github.com/beambeambeam/claimflow/actions/runs/45443149848) on the #104 head `b3cecd1`, whose tree equals the squash `35052ae`.
+- [x] `docs/traceability.md` lists the actual test names and results for the F-05 rows. Evidence: `docs/traceability.md`, F-05 test results.
 
 ## 8. Revision history
 
@@ -322,3 +322,4 @@ The Sprint 2 Product DoD (`docs/sprints/sprint-2/definition-of-done.md`) applies
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-23 | Initial contract, from the F-05 feature spec (#23) and tickets #39–#42 | beambeambeam |
 | 0.2 | 2026-11-24 | Review fixes (PR #100): §1.4 step 4 and §1.8 check BR-15 on `submit` only for a `DRAFT`; a `RETURNED` claim keeps its assigned reviewer (F06-TEST-17) | beambeambeam |
+| 0.3 | 2026-11-25 | Sprint 2 release checks: Feature DoD ticked with its evidence. No rule, AC, or test changed | Kiatisakk |

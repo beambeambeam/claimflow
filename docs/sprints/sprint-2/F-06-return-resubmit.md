@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-01 (new endpoint), SR-04 (`RETURN`, `RESUBMIT` with the version check), SR-06
 - **Depends on:** F-04 (decision flow, reason rule, Decision Panel), F-05 (edit path, `submit` endpoint, owner action bar)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claims.return_count`; §3.2 `RETURN`, `RESUBMIT`; §3.3; §4.1 versions; §4.3 `POST /claims/{id}/return`, `POST /claims/{id}/submit`; §5.2 `return`; §7.2 badges and "Returned n / 3"
-- **Version:** 0.3 · **Last updated:** 2026-11-25
+- **Version:** 0.4 · **Last updated:** 2026-11-25
 
 ---
 
@@ -208,10 +208,10 @@ The amber **Returned** badge shows in My Claims. The Review Queue does not list 
 
 The Sprint 2 Product DoD applies. For F-06 the evidence is:
 
-- [ ] All F06-TEST rows run: unit, integration, and component tests pass in CI on the merge commit; F06-TEST-15 passes on a local seeded stack with the tested commit recorded.
-- [ ] TDD evidence for BR-14 (F06-TEST-07) and BR-07 from the first submission (F06-TEST-10).
-- [ ] `openapi.yaml` has `returnClaim`; both apps regenerate with no diff in CI.
-- [ ] `docs/traceability.md` lists the actual test names and results for the F-06 rows.
+- [x] All F06-TEST rows run: unit, integration, and component tests pass in CI on the merge commit; F06-TEST-15 passes on a local seeded stack with the tested commit recorded. Evidence: CI [run 45575353690](https://github.com/beambeambeam/claimflow/actions/runs/45575353690) on the #108 head `f40c6f4`, whose tree equals the squash `aaf17af`; F06-TEST-15 passes on a local seeded stack on `45bf736`.
+- [x] TDD evidence for BR-14 (F06-TEST-07) and BR-07 from the first submission (F06-TEST-10). Evidence: BR-14 red `a547ac0`, green `71a8e43`; BR-07 from the first submission is a mutation check, as 0.3 allows (`docs/traceability.md`, F-06 test results).
+- [x] `openapi.yaml` has `returnClaim`; both apps regenerate with no diff in CI. Evidence: `generate` leaves no diff on a clean clone of `45bf736`; CI [run 45575353690](https://github.com/beambeambeam/claimflow/actions/runs/45575353690) on the #108 head `f40c6f4`, whose tree equals the squash `aaf17af`.
+- [x] `docs/traceability.md` lists the actual test names and results for the F-06 rows. Evidence: `docs/traceability.md`, F-06 test results.
 
 Note on TDD evidence, proposed in 0.3 and accepted when the pull request reviewer approves it: for behaviour that already existed before its test was written, a mutation check is accepted as the evidence in place of a red commit. This applies to BR-07 from the first submission (F06-TEST-10). The check: setting `firstSubmittedAt` to the resubmission time in `submitClaim` made the "90 days before the first submission" case fail. The change was reverted and not committed.
 
@@ -222,3 +222,4 @@ Note on TDD evidence, proposed in 0.3 and accepted when the pull request reviewe
 | 0.1 | 2026-11-23 | Initial contract, from the F-06 feature spec and tickets #43–#44 | beambeambeam |
 | 0.2 | 2026-11-24 | Review fixes (PR #100): the Return dialog behaves like the Reject dialog and reads the same schema, so it adds no client minimum of its own (§1.6, §2.1, F06-AC-11, F06-TEST-13). A Finance Officer returning a department head's claim cites ADR-0001 and BR-02, not BR-15, and F06-TEST-04 tests it (§1.8, F06-AC-03). F06-TEST-17: resubmission works when the owner's `reviewer_id` is NULL (§1.8, F06-AC-07). F06-AC-09 adds FR-03 (the edit recalculates the total) and F06-AC-13 adds FR-07 (the history order), as `docs/traceability.md` lists them. The Return button reads **Return** with "Returned n / 3" next to it, as SDS §7.2 says (§2.1, F06-AC-11, F06-TEST-13) | beambeambeam |
 | 0.3 | 2026-11-25 | Proposed in the F-06 implementation review (PR #108): for behaviour that already existed before its test was written, a mutation check is accepted as TDD evidence, here BR-07 from the first submission (F06-TEST-10) (§7). No AC or planned test changed | Kiatisakk |
+| 0.4 | 2026-11-25 | Sprint 2 release checks: Feature DoD ticked with its evidence. No rule, AC, or test changed | Kiatisakk |

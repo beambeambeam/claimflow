@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-01 (new endpoint), SR-04 (`WITHDRAW` with the version check)
 - **Depends on:** F-04 (decision flow), F-05 (owner action bar), F-06 (`RETURNED` state)
 - **Design baseline:** `docs/system-sds.md` v0.8 §3.2 `WITHDRAW`; §3.3; §4.1 versions; §4.3 `POST /claims/{id}/withdraw`; §5.2 `withdraw`; §7.2 Withdrawn badge
-- **Version:** 0.1 · **Last updated:** 2026-11-23
+- **Version:** 0.2 · **Last updated:** 2026-11-25
 
 ---
 
@@ -167,13 +167,14 @@ Operation ID `withdrawClaim`. It reuses the `ClaimId` and `IfMatch` parameters a
 
 The Sprint 2 Product DoD applies. For F-07 the evidence is:
 
-- [ ] All F07-TEST rows run: unit, integration, and component tests pass in CI on the merge commit; F07-TEST-12 passes on a local seeded stack with the tested commit recorded.
-- [ ] TDD evidence for BR-16 (F07-TEST-03).
-- [ ] `openapi.yaml` has `withdrawClaim` and `ClaimWithdrawal`; both apps regenerate with no diff in CI.
-- [ ] `docs/traceability.md` lists the actual test names and results for the F-07 rows.
+- [x] All F07-TEST rows run: unit, integration, and component tests pass in CI on the merge commit; F07-TEST-12 passes on a local seeded stack with the tested commit recorded. Evidence: CI [run 45575353690](https://github.com/beambeambeam/claimflow/actions/runs/45575353690) on the #108 head `f40c6f4`, whose tree equals the squash `aaf17af`; F07-TEST-12 passes on a local seeded stack on `45bf736`.
+- [x] TDD evidence for BR-16 (F07-TEST-03). Evidence: BR-16 red `53e8827`, green `38e0165`.
+- [x] `openapi.yaml` has `withdrawClaim` and `ClaimWithdrawal`; both apps regenerate with no diff in CI. Evidence: `generate` leaves no diff on a clean clone of `45bf736`; CI [run 45575353690](https://github.com/beambeambeam/claimflow/actions/runs/45575353690) on the #108 head `f40c6f4`, whose tree equals the squash `aaf17af`.
+- [x] `docs/traceability.md` lists the actual test names and results for the F-07 rows. Evidence: `docs/traceability.md`, F-07 test results.
 
 ## 8. Revision history
 
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-23 | Initial contract, from the F-07 feature spec and ticket #45 | beambeambeam |
+| 0.2 | 2026-11-25 | Sprint 2 release checks: Feature DoD ticked with its evidence. No rule, AC, or test changed | Kiatisakk |
