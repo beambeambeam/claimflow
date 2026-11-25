@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import type userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -159,8 +159,8 @@ describe("auth routing", () => {
 });
 
 describe("app header", () => {
-  // F01-TEST-22 (F01-AC-20): role labels and header links follow F-01 §2.2. Links come from `permissions`,
-  // so the finance map's extra `finance` and `report` entries add no link until F-08 and F-10.
+  // F01-TEST-22 (F01-AC-20): role labels and header links follow F-01 §2.2. Links come from `permissions`: the
+  // finance map's `finance` entry adds the Finance Queue (F-08), and its `report` entry adds no link until F-10.
   const roleLabels: Record<Role, string> = {
     requester: "Requester",
     reviewer: "Reviewer",
@@ -170,7 +170,7 @@ describe("app header", () => {
   const expectedLinks: Record<Role, string[]> = {
     requester: ["My Claims", "New Claim"],
     reviewer: ["My Claims", "New Claim", "Review Queue"],
-    finance: ["Review Queue"],
+    finance: ["Review Queue", "Finance Queue"],
   };
 
   it.each(roles)(
@@ -219,6 +219,24 @@ describe("app header", () => {
     ).toBeNull();
     expect(
       within(header).queryByRole("link", { name: "New Claim" })
+    ).toBeNull();
+  });
+
+  it("F08-TEST-17: shows the Finance Queue link only with finance:list", async () => {
+    sessionUser = users.finance;
+    renderAt("/reviews");
+
+    const link = await screen.findByRole("link", { name: "Finance Queue" });
+    expect(link.getAttribute("href")).toBe("/finance");
+
+    cleanup();
+    sessionUser = { ...users.finance, permissions: { review: ["list"] } };
+    renderAt("/reviews");
+
+    const header = await screen.findByRole("banner");
+    within(header).getByRole("link", { name: "Review Queue" });
+    expect(
+      within(header).queryByRole("link", { name: "Finance Queue" })
     ).toBeNull();
   });
 });

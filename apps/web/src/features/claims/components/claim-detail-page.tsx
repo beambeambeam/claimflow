@@ -231,7 +231,15 @@ const ClaimView = ({
             No history yet – history starts when the claim is submitted.
           </Text>
         ) : (
-          <HistoryTimeline history={claim.history} />
+          <>
+            {claim.status === "PENDING_FINANCE" ? (
+              <Banner
+                status="info"
+                title="Waiting for a final decision by Finance."
+              />
+            ) : null}
+            <HistoryTimeline history={claim.history} />
+          </>
         )}
       </Section>
     </VStack>

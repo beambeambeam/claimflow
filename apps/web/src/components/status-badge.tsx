@@ -18,13 +18,14 @@ const styles: Partial<
   Record<
     ClaimStatus,
     {
-      variant: "neutral" | "blue" | "yellow" | "green" | "red";
+      variant: "neutral" | "blue" | "yellow" | "purple" | "green" | "red";
       isStruck?: boolean;
     }
   >
 > = {
   SUBMITTED: { variant: "blue" },
   RETURNED: { variant: "yellow" },
+  PENDING_FINANCE: { variant: "purple" },
   APPROVED: { variant: "green" },
   REJECTED: { variant: "red" },
   WITHDRAWN: { variant: "neutral", isStruck: true },
