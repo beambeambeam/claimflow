@@ -521,6 +521,53 @@ describe("Draft recovery", { timeout: 20_000 }, () => {
     }
   );
 
+  // The reload is held, so the form renders while the save still has its 409.
+  it("F05-TEST-23: shows no form error while a conflicting draft reloads", async () => {
+    let submittedEdit = false;
+    let released = false;
+    server.use(
+      http.get(detailUrl, async () => {
+        if (!submittedEdit) {
+          return HttpResponse.json({ data: draft });
+        }
+
+        await waitFor(() => {
+          expect(released).toBe(true);
+        }, slow);
+
+        return HttpResponse.json({
+          data: { ...draft, title: "Latest draft", version: 3 },
+        });
+      }),
+      http.put(detailUrl, () => {
+        submittedEdit = true;
+
+        return conflict();
+      })
+    );
+
+    const { user } = renderAt(`${path}/edit`);
+    await user.click(
+      await screen.findByRole("button", { name: "Save changes" }, slow)
+    );
+
+    try {
+      await screen.findAllByText(
+        "This claim was changed by someone else – reloaded"
+      );
+      expect(button("Save changes").getAttribute("aria-disabled")).toBe("true");
+      expect(screen.queryByText(/draft-conflict/u)).toBeNull();
+    } finally {
+      released = true;
+    }
+
+    await waitFor(() => {
+      expect(screen.getByLabelText<HTMLInputElement>("Title").value).toBe(
+        "Latest draft"
+      );
+    });
+  });
+
   it("F05-TEST-23: retries a failed conflict reload and opens the latest draft", async () => {
     let submittedEdit = false;
     let failedReload = false;
