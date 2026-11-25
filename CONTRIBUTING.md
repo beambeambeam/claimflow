@@ -22,7 +22,7 @@ feat/claim-submission ──squash──▶ sprint-1 ──merge commit──▶
 ```
 
 1. Feature pull requests target the current sprint's staging branch. They are squash-merged, so the pull request title becomes the commit subject. Set the title to the final `type: description` subject before merging.
-2. At the end of the sprint, open one release pull request from `sprint-N` into `main`. Merge it with a merge commit, so `main` keeps each feature's commit subject as a release signal.
+2. At the end of the sprint, open one release pull request from `sprint-N` into `main`. Merge it with a merge commit, so `main` keeps each feature's commit subject as a release signal. If `main` has moved and the repository admin has not rebased `sprint-N` onto it, create `chore/release-sprint-N` from `sprint-N`, merge `main` into it there (`sprint-*` requires linear history, so the merge cannot happen on `sprint-N`), and open the release pull request from that branch.
 3. Create `sprint-N+1` from `main` after the release.
 
 GitHub rulesets enforce this. On `main`, every `sprint-*` branch, and every `lab-*` branch (the Lab staging branches):
