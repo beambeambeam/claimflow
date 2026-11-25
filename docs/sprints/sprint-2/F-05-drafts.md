@@ -322,4 +322,4 @@ The Sprint 2 Product DoD (`docs/sprints/sprint-2/definition-of-done.md`) applies
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-23 | Initial contract, from the F-05 feature spec (#23) and tickets #39–#42 | beambeambeam |
 | 0.2 | 2026-11-24 | Review fixes (PR #100): §1.4 step 4 and §1.8 check BR-15 on `submit` only for a `DRAFT`; a `RETURNED` claim keeps its assigned reviewer (F06-TEST-17) | beambeambeam |
-| 0.3 | 2026-11-25 | Sprint 2 release checks: Feature DoD ticked with its evidence. No rule, AC, or test changed | Kiatisakk |
+| 0.3 | 2026-11-25 | Sprint 2 release checks: Feature DoD ticked with its evidence; F05-TEST-23 gained a case for the edit form while a conflicting draft reloads (`89df198`). No rule or AC changed | Kiatisakk |
