@@ -15,7 +15,7 @@
 
 \noindent The Lab 6 release PR \#93 (\texttt{bb5a0d1}, deployed 2026-11-21 as Cloud Run revision \texttt{claimflow-00010-985}) produced no tag of its own: semantic-release found no relevant change, and its commits first appear under \texttt{v0.1.0.0}.
 
-\textbf{Continuity demonstration.} The original Sprint 1 journey (submit, review, approve, read back) and one Sprint 1 rule (BR-12), run on the Sprint 2 release. The submitted candidate is \texttt{v0.1.1.0} until the Sprint 3 release exists. \todo{recapture on candidate: rerun \texttt{bun run capture-demo 02} on the stack built from the candidate tag and replace figures \texttt{a1-*}} Demonstrations are taken by \path{docs/reports/sprints/02/demo.ts} (Playwright) on a local stack: PostgreSQL 17 started empty, \texttt{migrate up}, \texttt{seed} (7 users and 9 sample claims; a second \texttt{seed} added 0), the API built from the \texttt{3a91ea4} tree with \texttt{APP\_VERSION} set to that SHA, and the web dev server, on 2026-11-25 in Chrome with synthetic data. The seed password was a throwaway value set only in the process environment; it is in no file and in no figure. Claim numbers in the screenshots (\texttt{CLM-2026-000001} and following) come from that fresh database; a rerun gives the next free numbers.
+\textbf{Continuity demonstration.} The original Sprint 1 journey (submit, review, approve, read back) and one Sprint 1 rule (BR-12), run on the Sprint 2 release. The submitted candidate is \texttt{v0.1.1.0}, and this was run on the candidate: the stack below was built from its tree. Demonstrations are taken by \path{docs/reports/sprints/02/demo.ts} (Playwright) on a local stack: PostgreSQL 17 started empty, \texttt{migrate up}, \texttt{seed} (7 users and 9 sample claims; a second \texttt{seed} added 0), the API built from the \texttt{3a91ea4} tree with \texttt{APP\_VERSION} set to that SHA, and the web dev server, on 2026-11-25 in Chrome with synthetic data. The seed password was a throwaway value set only in the process environment; it is in no file and in no figure. Claim numbers in the screenshots (\texttt{CLM-2026-000001} and following) come from that fresh database; a rerun gives the next free numbers.
 
 \newcommand{\demofacts}[7]{%
   \begin{center}\small
@@ -52,4 +52,4 @@
 
 \textbf{Backend read-back of the continuity claim and of the Sprint 2 demonstration claims} (PostgreSQL of the demo stack; the Sprint 2 rows are explained in Part B):
 
-\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/db-readback.txt}
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/db-readback.txt}

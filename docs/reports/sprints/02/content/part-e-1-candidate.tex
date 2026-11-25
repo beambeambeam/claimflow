@@ -1,6 +1,8 @@
 \partsection{E.1}{Release candidate: build, test, CI and deploy}\label{E:1}
 
-The candidate is the Sprint 2 release \texttt{v0.1.1.0}, commit \texttt{3a91ea4} on \texttt{main}. It stands in until the Sprint 3 candidate exists. \todo{recapture on candidate: replace tag, commit, CI run, deploy run, revision and image digest with those of the submitted candidate}
+The candidate is the Sprint 2 release \texttt{v0.1.1.0}, commit \texttt{3a91ea4} on \texttt{main}. There is no second release, so this is the submitted candidate.
+
+\textbf{The live site runs a later commit, once stated.} The Deploy demo workflow runs for every merge to \texttt{main}. PR \#112 merged \texttt{1ee2563} after the release, and Deploy demo run 45656061391 (\texttt{success}, 2026-11-25 16:38 UTC) deployed it. \texttt{git show --stat 1ee2563} lists one file, \path{docs/reports/labs/07/content/00-front.tex}, the text of the Lab 7 report; \texttt{git diff --stat 3a91ea4 1ee2563} shows that file only (15 insertions). No application code, migration or configuration differs from \texttt{v0.1.1.0}.
 
 \begin{center}\small
 \begin{tabular}{@{}>{\bfseries}p{3.6cm}p{12.7cm}@{}}
@@ -13,6 +15,12 @@ Live check & 2026-11-25 about 20:20 (UTC+7): \texttt{GET /api/v1/health} returne
 \bottomrule
 \end{tabular}
 \end{center}
+
+\textbf{Post-deployment check on the live site} (section 3.5 asks for a critical journey and persistence). Read on 2026-11-26 at 00:44 (UTC+7), which is 2026-11-25 17:44 UTC, with \texttt{curl} and a cookie jar; the output is verbatim:
+
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/live-check.txt}
+
+The health answer reports \texttt{1ee2563}, the later docs-only commit stated above; \texttt{/api/v1/ready} is 200 and the API refuses a request without a session with a 401. The login, the read-back of a saved claim and a 403 for a forbidden role were not run against the live site, because no seed password was available to this run. The same journey, read-back and 403 were run on the stack built from the \texttt{3a91ea4} tree (A.1, B.3). \todo{kiatisakk: run the live login, claim read-back and 403 with the seed password and add the output here}
 
 \textbf{Tests on the candidate.} Go: 178 top-level tests and 241 subtests, 0 failed, 0 skipped; race run with 100\% coverage (956 of 956). Web: 182 of 182 in CI with 100\% coverage. E2E: 8 of 8 on a local seeded stack (all in B.4).
 \textbf{Build.} \texttt{bun run build} and the container image build pass in CI (jobs \texttt{build} and \texttt{image}).

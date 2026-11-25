@@ -11,4 +11,23 @@ Full steps are in \path{README.md}, \path{apps/api/README.md} and \path{apps/web
 
 \textbf{Environment variable names} (values are never in this report or in the repository). API: \texttt{GIN\_MODE}, \texttt{PORT}, \texttt{DATABASE\_URL}, \texttt{COOKIE\_SECURE}, \texttt{BCRYPT\_COST}, \texttt{LOG\_LEVEL}, \texttt{WEB\_DIR}, \texttt{APP\_VERSION}, \texttt{SEED\_USER\_PASSWORD}. Web: the \texttt{VITE\_}-prefixed variables of \path{apps/web/.env.schema}. Report: \texttt{STUDENT\_1\_NAME}, \texttt{STUDENT\_1\_ID}, \texttt{STUDENT\_2\_NAME}, \texttt{STUDENT\_2\_ID}.
 
-\textbf{Deployment.} A merge to \texttt{main} builds the image and runs the Deploy demo workflow to Cloud Run on GCP; credentials are Workload Identity and repository secrets, none in the code. \todo{recapture on candidate: confirm the setup steps on a clean clone of the candidate}
+\textbf{Deployment.} A merge to \texttt{main} builds the image and runs the Deploy demo workflow to Cloud Run on GCP; credentials are Workload Identity and repository secrets, none in the code.
+
+\textbf{Setup run on a clean clone of the candidate} (2026-11-26, 00:45 to 00:52 UTC+7, Windows, Git Bash). The clone was made into a temporary folder and checked out at the tag; every command below ran there and its result is the real one.
+
+\begin{center}\small
+\begin{tabular}{@{}p{6.6cm}p{9.8cm}@{}}
+\toprule \textbf{Command} & \textbf{Result} \\ \midrule
+\texttt{git clone}, \texttt{git checkout --detach v0.1.1.0} & HEAD \texttt{3a91ea4}, clean tree \\
+\texttt{bun install} & 716 packages installed in 80.5 s, exit 0 \\
+PostgreSQL 17 for the run & my own container (\texttt{postgres:17}, host port 55432), not \texttt{docker compose}; \texttt{DATABASE\_URL} in \path{apps/api/.env} points to it; the seed password was a random throwaway value that is not shown \\
+\texttt{bun run generate} (env, OpenAPI server, sqlc, web client) & exit 0, 5 of 5 tasks successful; no generated file differs from the committed one except for line endings (\texttt{git diff --ignore-cr-at-eol}: no file, apart from \path{apps/web/env.d.ts}, which was not compared) \\
+\texttt{bun run --cwd apps/api migrate up} & \texttt{applied 00001\_auth.sql}, \texttt{applied 00002\_claims.sql}, exit 0 \\
+\texttt{bun run --cwd apps/api seed}, run twice & first: \texttt{seeded 7 users and 9 new claims}; second: \texttt{seeded 7 users and 0 new claims} \\
+\texttt{bun run build} & exit 0, 2 of 2 tasks successful; web build finished in 18.9 s \\
+\texttt{bun run check} & see the note below \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Note on \texttt{bun run check}.} The first run failed on 148 files because the clone's checkout converted line endings to CRLF (\texttt{core.autocrlf=true}). With an LF checkout, \texttt{vp check} reports formatting issues in three files only: the three \path{CLAUDE.md} files, which are symbolic links in the repository and plain text files on this machine; it stops there, so the API half was run separately (\texttt{bun run --cwd apps/api check}: Go format check, \texttt{golangci-lint} with 0 issues and the three \texttt{go mod tidy -diff} checks, exit 0). The full web test suite and web coverage were not run here; CI is their verdict (B.4, run 45614889848).

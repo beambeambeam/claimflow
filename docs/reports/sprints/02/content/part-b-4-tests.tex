@@ -3,7 +3,7 @@
 \subsubsection*{Commands, tested commit and counts}
 
 Every local command below ran on 2026-11-25 on the tree of \texttt{v0.1.1.0} (\texttt{3a91ea4}, a clean worktree at that commit) on the author's Windows machine with Docker Desktop (PostgreSQL 17 containers through \path{internal/pgtest}). CI ran the same suites on \texttt{3a91ea4} itself: CI run 45614889848 (push to \texttt{main}), every job \texttt{success} (\texttt{image}, \texttt{code\_quality}, \texttt{test}, \texttt{build}, \texttt{api}, \texttt{release}), followed by Deploy demo run 45615736377 (Part E).
-\todo{recapture on candidate: rerun the commands on the candidate commit and replace the counts and run IDs}
+The candidate is \texttt{v0.1.1.0}, so these commands were run on the candidate.
 
 \textbf{Go API: tests.} \texttt{bun run go-test 02} runs \texttt{go test -json -count=1 ./...} in \path{apps/api} and keeps the JSON stream that feeds the AC table.
 
@@ -68,29 +68,29 @@ $ SEED_USER_PASSWORD=<set in the process environment> playwright test --timeout=
 \path{apps/api/internal/claim/return_test.go}, commit \texttt{3a91ea4}, lines 98--132.
 The setup is the seeded requester and reviewer and the real \texttt{claim.Service} on PostgreSQL; the helper \texttt{returnAndResubmit} returns and resubmits the claim \texttt{MaxReturns} times; the assertions are that the fourth return fails with \texttt{ErrInvalidTransition} for the return limit, that the stored status, return count and version are unchanged, and that Approve still works.
 
-\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/excerpt-br14.go}
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/excerpt-br14.go}
 
 \textbf{Access restriction: only the owner can withdraw} (F07-TEST-04, F07-AC-04, NFR-02).
 \path{apps/api/claims_withdraw_test.go}, commit \texttt{3a91ea4}, lines 147--169.
 The setup is the real router with the seeded users: \texttt{req.anan} submits a claim; the assigned reviewer \texttt{rev.malee} and another requester \texttt{req.ploy} each send \texttt{POST /claims/\{id\}/withdraw} with the current version. The assertions are the 403 \texttt{FORBIDDEN} problem, that the body leaks none of \texttt{data}, \texttt{claimNo} or the title, and that the stored claim is unchanged.
 
-\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/excerpt-f07-access.go}
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/excerpt-f07-access.go}
 
 \textbf{Execution results of the two excerpts} (run on \texttt{3a91ea4}):
 
-\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/excerpt-results.txt}
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/excerpt-results.txt}
 
 \subsubsection*{TDD: the failing test first, then the code}
 
 Two pairs, each a test commit that fails and the commit that makes it pass. All four are commits of PR \#108 (50 commits on \path{feat/f06-f07-return-resubmit-withdraw}); the PR was squash-merged into \texttt{sprint-2} as \texttt{aaf17af}, so they stay reachable under the PR's Commits tab and as \texttt{refs/pull/108/head}. Author of all four: \texttt{Kiatisakk}. Output: the same command run on a clean checkout of each commit (Docker Desktop running); container start-up lines removed.
 
 \begin{center}\small
-\begin{tabular}{@{}lllp{7.7cm}@{}}
+\begin{tabular}{@{}lllp{6.9cm}@{}}
 \toprule \textbf{Rule, test} & \textbf{Step, commit} & \textbf{Author date (UTC+7)} & \textbf{Subject} \\ \midrule
-BR-14, F06-TEST-07 & Red \texttt{a547ac0} & 2026-11-25 01:13:33 & \path{test: refuse a fourth return of a claim (F06-TEST-07)} \\
- & Green \texttt{71a8e43} & 2026-11-25 01:17:19 & \path{feat: limit a claim to three returns} \\
-BR-16, F07-TEST-03 & Red \texttt{53e8827} & 2026-11-25 02:24:32 & \path{test: only a submitted or returned claim can be withdrawn (F07-TEST-03)} \\
- & Green \texttt{38e0165} & 2026-11-25 02:35:27 & \path{feat: add the withdraw operation for a submitted or returned claim (F07-TEST-03)} \\
+BR-14, F06-TEST-07 & Red \texttt{a547ac0} & 2026-11-25 01:13:33 & \texttt{\detokenize{test: refuse a fourth return of a claim (F06-TEST-07)}} \\
+ & Green \texttt{71a8e43} & 2026-11-25 01:17:19 & \texttt{\detokenize{feat: limit a claim to three returns}} \\
+BR-16, F07-TEST-03 & Red \texttt{53e8827} & 2026-11-25 02:24:32 & \texttt{\detokenize{test: only a submitted or returned claim can be withdrawn (F07-TEST-03)}} \\
+ & Green \texttt{38e0165} & 2026-11-25 02:35:27 & \texttt{\detokenize{feat: add the withdraw operation for a submitted or returned claim (F07-TEST-03)}} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -99,20 +99,20 @@ BR-16, F07-TEST-03 & Red \texttt{53e8827} & 2026-11-25 02:24:32 & \path{test: on
 
 \textbf{Red, \texttt{a547ac0}:}
 
-\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/tdd-br14-red.txt}
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/tdd-br14-red.txt}
 
 \textbf{Green, \texttt{71a8e43}:}
 
-\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/tdd-br14-green.txt}
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/tdd-br14-green.txt}
 
 \textbf{BR-16: why the red test failed.} At \texttt{53e8827} only the test exists: the withdraw route is not in the API, so each of the four starting statuses (\texttt{DRAFT}, \texttt{APPROVED}, \texttt{REJECTED}, \texttt{WITHDRAWN}) got 404 \texttt{NOT\_FOUND} where the test expects 409. At \texttt{38e0165} the operation and its lifecycle rule exist, and all four cases return 409 \texttt{INVALID\_TRANSITION} with BR-16.
 
 \textbf{Red, \texttt{53e8827}:}
 
-\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/tdd-br16-red.txt}
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/tdd-br16-red.txt}
 
 \textbf{Green, \texttt{38e0165}:}
 
-\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true]{content/data/tdd-br16-green.txt}
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/tdd-br16-green.txt}
 
 \textbf{Other test-first pairs and honest exceptions.} The Test column of the F-05, F-06 and F-07 result tables in \path{docs/traceability.md} (Part D) lists a red and a green commit for every other test that went red first, for example BR-10 (F05-TEST-09, 19: red \texttt{ec2179d}, green \texttt{dd31979}) and BR-07 (F05-TEST-12: red \texttt{4dcf8d4}, green \texttt{06c5fa0}) in PR \#104. Where a test could not go red first the same table says so and the contract accepts it: F06-TEST-03, 04, 06, 08, 09, 10, 11, 12, 17 and F07-TEST-04, 06 to 10 passed when written because earlier green commits already covered them; F06-TEST-15 and F07-TEST-12 were written after the code; the BR-07 resubmission window (F06-TEST-10) has a mutation check instead of a red commit, accepted in F-06 contract revision 0.3 after review on PR \#108.

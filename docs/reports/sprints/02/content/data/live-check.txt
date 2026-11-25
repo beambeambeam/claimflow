@@ -1,0 +1,18 @@
+$ B=https://claimflow-5bcxewbqkq-as.a.run.app/api/v1
+$ curl -s -b jar -c jar -w "HTTP %{http_code}\n" $B/<path>      (cookie jar, no login)
+
+[2026-11-26 00:44:46 UTC+0700] GET /health
+HTTP 200
+{"status":"ok","version":"1ee2563de7cddf237e5066e5bdf1c577ae66e9bf"}
+
+[2026-11-26 00:44:47 UTC+0700] GET /ready
+HTTP 200
+{"status":"ok"}
+
+[2026-11-26 00:44:47 UTC+0700] GET /auth/me                  (no session)
+HTTP 401
+{"code":"UNAUTHENTICATED","instance":"/api/v1/auth/me","status":401,"title":"Authentication required.","type":"about:blank"}
+
+[2026-11-26 00:44:48 UTC+0700] GET /claims?scope=mine        (no session)
+HTTP 401
+{"code":"UNAUTHENTICATED","instance":"/api/v1/claims","status":401,"title":"Authentication required.","type":"about:blank"}

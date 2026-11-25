@@ -1,15 +1,18 @@
 \partsection{E.3}{Readiness review and plan to 13 December}\label{E:3}
 
-\textbf{Readiness of \texttt{v0.1.1.0}.} Ready for Sprint 2 acceptance: all 43 Sprint 2 AC have passing tests, CI and the deploy are green, the 100\% coverage gates hold, and the register (A.2) has no open item. Not ready as a final product: F-08, F-09 and F-10 are not implemented, NFR-07 is not measured, and the E2E specs run locally only. \todo{beam: confirm the readiness statement for the submitted candidate once Sprint 3 work is in}
+\textbf{Readiness of \texttt{v0.1.1.0}.} Ready for Sprint 2 acceptance: all 43 Sprint 2 AC have passing tests, CI and the deploy are green, the 100\% coverage gates hold, and the register (A.2) has no open item. Not ready as a final product: F-08, F-09 and F-10 are not implemented, NFR-07 is not measured, and the E2E specs run locally only. Deliverable 2 (section 2) asks for at least one tested Sprint 3 workflow or rule in the candidate on \texttt{main}; this candidate has none (C.2). The Sprint 3 contracts are merged, and F-08 has started (PR \#113, open).
 
-\textbf{Plan} (from \path{docs/sprints/plan.md}, section 2.3):
+\textbf{Plan} (from \path{docs/sprints/plan.md}, section 2.3, with the dates of C.4):
 
-\begin{center}\small
-\begin{tabular}{@{}p{3.0cm}p{9.0cm}p{4.3cm}@{}}
+\begin{center}\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{3.0cm}p{8.2cm}p{4.6cm}@{}}
 \toprule \textbf{Date} & \textbf{Work} & \textbf{Owner} \\ \midrule
-until 29 Nov & F-08 working for Deliverable 2; Sprint 3 contracts merged (PR \#111) & \todo{beam: owner} \\
-30 Nov to 11 Dec & F-09, F-10; defect fixes and UAT re-tests; NFR-07 timed run on the deployed release; final regression; demo video (no new workflows) & \todo{beam: owner split} \\
-12 to 13 Dec & Final release to \texttt{main}, deploy, report; due 13 Dec 23:59 on LEB2 & both \\
+done, 25 Nov & Sprint 3 contracts merged (PR \#111); F-08 started (PR \#113) & \studentTwoName{} (\texttt{@beambeambeam}) \\
+by 3 Dec & F-08 merged into \texttt{sprint-3}, tests green & \studentTwoName{} (\texttt{@beambeambeam}) \\
+by 6 Dec & F-09 merged & \studentTwoName{} (\texttt{@beambeambeam}) \\
+by 8 Dec & F-10 merged, with the load dataset & \studentOneName{} (\texttt{@Kiatisakk}) \\
+by 10 Dec & Final regression, UAT re-tests, NFR-07 timed run on the deployed release & both \\
+by 13 Dec & Final video, final release to \texttt{main}, deploy, report; due 13 Dec 23:59 on LEB2 & both \\
 \bottomrule
 \end{tabular}
 \end{center}

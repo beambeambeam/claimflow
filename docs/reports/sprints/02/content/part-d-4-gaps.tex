@@ -1,6 +1,6 @@
 \partsection{D.4}{Coverage and gaps}\label{D:4}
 
-From \path{docs/traceability.md} section 4, checked against SRS 0.3. Sprint 2 contracts were checked on 2026-11-23.
+From \path{docs/traceability.md} section 4, checked against the SRS (the check date is below). Sprint 2 contracts were checked on 2026-11-23.
 
 \begin{center}\small
 \begin{tabular}{@{}lllll@{}}
@@ -16,7 +16,7 @@ Non-functional (NFR) & 10 & 10 & 10 & 0 \\
 Every one of the 43 Sprint 2 AC has at least one of the 56 planned tests, and all 56 have an actual passing test (B.2, B.4). The gaps that remain, stated plainly:
 
 \begin{itemize}\setlength\itemsep{2pt}
-\item \textbf{Sprint 3 features have no contract merged on \texttt{main}} (F-08, F-09, F-10; PR \#111 is open). Their requirements are mapped to features, but their AC and tests are not yet in the matrix.
+\item \textbf{Sprint 3 contracts are on \texttt{sprint-3}, not on \texttt{main}} (F-08, F-09, F-10; PR \#111 merged into \texttt{sprint-3} at \texttt{ef38550}, C.1). The matrix shown here is the one on \texttt{main}: its requirements are mapped to features, but the AC and tests of the Sprint 3 contracts reach \texttt{main} with the final release, and no Sprint 3 test has run.
 \item \textbf{NFR-07 is not measured yet.} The timed API run on at least 200 seeded claims is planned for Sprint 3 on the deployed instance.
 \item \textbf{E2E specs do not run in CI} (Product DoD 0.3): they run on a local seeded stack before each release (8 of 8 on \texttt{3a91ea4}).
 \item \textbf{Web suite local run.} A full local run of the web suite times out under load, so CI is its verdict; one test (F01-TEST-20) fails locally alone and passes in CI.
@@ -24,4 +24,6 @@ Every one of the 43 Sprint 2 AC has at least one of the 56 planned tests, and al
 \item \textbf{NFR-04 (cloud half), NFR-05 and NFR-10} are verified in Lab 5, not in a sprint test (listed as verified outside a sprint deliverable).
 \end{itemize}
 
-\todo{recapture on candidate: update the coverage figures and gaps if the SRS or the traceability matrix change before submission}
+\begin{sloppypar}
+\textbf{Re-check on 2026-11-26.} \texttt{git diff --stat 3a91ea4 origin/main} restricted to \path{docs/traceability.md}, \path{docs/srs.md} and \path{docs/features.md} is empty (\texttt{origin/main} is \texttt{1ee2563}), and section 4 of \path{docs/traceability.md} on \texttt{main} gives the same figures as the table above: FR 14/14/14/0, BR 17/17/17/0, NFR 10/10/10/0, total 41/41/41/0, ``Uncovered requirements: none''. The file states that its check was made against SRS 0.2 on 2026-11-04; the SRS is 0.3 since L7/01 (A.3), which changed a value of BR-04 and no requirement ID.
+\end{sloppypar}
