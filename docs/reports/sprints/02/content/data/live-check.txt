@@ -16,3 +16,37 @@ HTTP 401
 [2026-11-26 00:44:48 UTC+0700] GET /claims?scope=mine        (no session)
 HTTP 401
 {"code":"UNAUTHENTICATED","instance":"/api/v1/claims","status":401,"title":"Authentication required.","type":"about:blank"}
+
+--- Authenticated check: seed accounts, password loaded through varlock and not shown ---
+
+[2026-11-26 03:29:51 UTC+0700] req.anan: POST /auth/login {"username":"req.anan","password":"<seed password>"}
+HTTP 200
+{"data":{"id":"01a1eedf-19bc-70aa-a601-8dd26584353a","name":"Anan K.","permissions":{"claim":["create","list"]},"role":"requester","username":"req.anan"}}
+
+[2026-11-26 03:29:51 UTC+0700] req.anan: GET /auth/me
+HTTP 200
+{"data":{"id":"01a1eedf-19bc-70aa-a601-8dd26584353a","name":"Anan K.","permissions":{"claim":["create","list"]},"role":"requester","username":"req.anan"}}
+
+[2026-11-26 03:29:51 UTC+0700] req.anan: GET /claims?scope=mine
+HTTP 200
+10 claims: CLM-2026-900007 DRAFT, CLM-2026-000024 REJECTED, CLM-2026-000023 REJECTED, CLM-2026-900008 RETURNED, CLM-2026-000011 SUBMITTED, CLM-2026-000003 APPROVED, CLM-2026-000002 APPROVED, CLM-2026-000001 SUBMITTED, CLM-2026-900001 SUBMITTED, CLM-2026-900002 APPROVED
+
+[2026-11-26 03:29:52 UTC+0700] req.anan: GET /claims/01a1f7b6-32f0-7972-888e-a6c61dee2b51   (read back from PostgreSQL)
+HTTP 200
+{"claimNo":"CLM-2026-000011","title":"UAT-03 run 1 – Office supplies","status":"SUBMITTED","version":0,"total":"1200.00","items":1,"submittedAt":"2026-11-20T06:47:55.353755Z","history":[{"action":"SUBMIT","fromStatus":null,"toStatus":"SUBMITTED","createdAt":"2026-11-20T06:47:55.353755Z"}]}   (fields trimmed)
+
+[2026-11-26 03:29:52 UTC+0700] req.ploy: POST /auth/login {"username":"req.ploy","password":"<seed password>"}
+HTTP 200
+{"data":{"id":"01a1eedf-1af8-77ad-a5b8-28dcd2388d05","name":"Ploy","permissions":{"claim":["create","list"]},"role":"requester","username":"req.ploy"}}
+
+[2026-11-26 03:29:52 UTC+0700] req.ploy: GET /claims/01a1f7b6-32f0-7972-888e-a6c61dee2b51   (req.anan's claim)
+HTTP 403
+{"code":"FORBIDDEN","instance":"/api/v1/claims/01a1f7b6-32f0-7972-888e-a6c61dee2b51","requestId":"01a21466-821d-7a7c-94a6-f02b31c136cd","status":403,"title":"Forbidden.","type":"about:blank"}
+
+[2026-11-26 03:29:52 UTC+0700] fin.wanida: POST /auth/login {"username":"fin.wanida","password":"<seed password>"}
+HTTP 200
+{"data":{"id":"01a1eedf-1495-73a7-a5bc-bb2dedf2f2e7","name":"Wanida","permissions":{"finance":["list"],"report":["read"],"review":["list"]},"role":"finance","username":"fin.wanida"}}
+
+[2026-11-26 03:29:52 UTC+0700] fin.wanida: POST /claims?draft=true {title, purpose, 1 line item}   (Finance Officer saves a draft)
+HTTP 403
+{"code":"FORBIDDEN","instance":"/api/v1/claims","requestId":"01a21466-839c-7cac-9ccc-9a6ea65658be","status":403,"title":"Forbidden.","type":"about:blank"}

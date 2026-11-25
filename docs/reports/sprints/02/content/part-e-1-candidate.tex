@@ -16,11 +16,11 @@ Live check & 2026-11-25 about 20:20 (UTC+7): \texttt{GET /api/v1/health} returne
 \end{tabular}
 \end{center}
 
-\textbf{Post-deployment check on the live site} (section 3.5 asks for a critical journey and persistence). Read on 2026-11-26 at 00:44 (UTC+7), which is 2026-11-25 17:44 UTC, with \texttt{curl} and a cookie jar; the output is verbatim:
+\textbf{Post-deployment check on the live site} (section 3.5 asks for a critical journey and persistence). The unauthenticated part was read on 2026-11-26 at 00:44 (UTC+7), which is 2026-11-25 17:44 UTC, with \texttt{curl} and a cookie jar. The authenticated part was run at 03:29 (UTC+7) with a small Bun script that keeps one session cookie per seed account and loads the seed password through varlock, so the password does not appear. The output is verbatim, except that the read-back of the claim is trimmed to the fields shown:
 
 \VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/live-check.txt}
 
-The health answer reports \texttt{1ee2563}, the later docs-only commit stated above; \texttt{/api/v1/ready} is 200 and the API refuses a request without a session with a 401. The login, the read-back of a saved claim and a 403 for a forbidden role were not run against the live site, because no seed password was available to this run. The same journey, read-back and 403 were run on the stack built from the \texttt{3a91ea4} tree (A.1, B.3). \todo{kiatisakk: run the live login, claim read-back and 403 with the seed password and add the output here}
+The health answer reports \texttt{1ee2563}, the later docs-only commit stated above; \texttt{/api/v1/ready} is 200 and the API refuses a request without a session with a 401. With a session, the critical journey and persistence hold on the live site: \texttt{req.anan} logs in (200), lists 10 own claims, and reads back \texttt{CLM-2026-000011}, a claim submitted on 2026-11-20 during UAT, with its status, total, line item and \texttt{SUBMIT} history row as stored in Cloud SQL across later deployments. The API enforces both access rules on the live site: \texttt{req.ploy} gets 403 \texttt{FORBIDDEN} with no claim data when reading \texttt{req.anan}'s claim (ownership, NFR-02), and the Finance Officer \texttt{fin.wanida} gets 403 when saving a draft (role, BR-15). The check wrote no claim.
 
 \textbf{Tests on the candidate.} Go: 178 top-level tests and 241 subtests, 0 failed, 0 skipped; race run with 100\% coverage (956 of 956). Web: 182 of 182 in CI with 100\% coverage. E2E: 8 of 8 on a local seeded stack (all in B.4).
 \textbf{Build.} \texttt{bun run build} and the container image build pass in CI (jobs \texttt{build} and \texttt{image}).
