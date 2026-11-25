@@ -198,12 +198,13 @@ Tested code commit: `16279a9`, the same merge as in [F-06 test results](#f-06-te
 Tested commit: `45bf736`, `main` (Lab 7) merged into `sprint-2` (`7955fdd`) with the Return dialog following the 10-character minimum, as F-06 §2.1 says (test `1b15ac7`, fix `45bf736`). Three Return tests of F06-TEST-13 now type a reason of at least 10 characters before they send, and one test for the minimum was added.
 
 - Go, in `apps/api`: `go vet` clean, all packages pass, coverage 100% (956/956), `govulncheck` found no vulnerabilities.
-- Clean clone in a `node:26` container: `bun run check` passes, `generate` leaves no diff, `build` passes, `vuln` is clean. Web tests: 177 of 181 passed; three F01-TEST-20 cases and one F06-TEST-14 case timed out under load. Run alone on the development machine, `return-banner.test.tsx` passes 2 of 2 and one F01-TEST-20 case still times out. CI on the release pull request decides these.
+- Clean clone in a `node:26` container: `bun run check` passes, `generate` leaves no diff, `build` passes, `vuln` is clean. Web tests: 177 of 181 passed; three F01-TEST-20 cases and one F06-TEST-14 case timed out under load. Run alone on the development machine, `return-banner.test.tsx` passes 2 of 2 and one F01-TEST-20 case still times out. With `--retry=3 --testTimeout=60000` all 181 pass, and branch coverage is 99.68%: the `409` arm of `edit-claim-page.tsx` line 55 is not reached. The `sprint-2` head `aaf17af` gives the same result in the same container (179 of 179, 99.66%), while CI covered it on the same tree, so it depends on timing.
 - E2E, local seeded stack (new PostgreSQL 17, Go API, web dev server, Chrome): 8 of 8 Playwright specs pass.
 - Database from empty: `migrate up` applies two migrations; `seed` adds 7 users and 9 claims; a second `seed` adds 0 claims.
 - API: a 9-character return reason gets `422` with "Reason must be at least 10 characters."; 10 characters gets `200` and `RETURNED`.
 - Restart check: the claims `req.anan` and `rev.malee` read are identical before and after a restart of the database and the API.
-- Secrets: only `.env.example` and `.env.schema` files are tracked, and the added lines hold no credential pattern. Gitleaks was not run again.
+- Secrets: only `.env.example` and `.env.schema` files are tracked, and each `.env.example` lists the variables of its `.env.schema`. Gitleaks found no leaks in the seven commits of `979173b..a4a2314`; over the whole history it reports 11 hits, all in `apps/api/*.sum` module checksums.
+- README on a clean clone of `a4a2314` (Windows, database on port 55432 through `DB_PORT`): `bun install`, `db:up`, `migrate up`, `seed` twice, the web server, and the restart check pass. `bun run dev` cannot start the API on Windows, because `.air.toml` builds `tmp/api` without `.exe`; the API was run with `varlock run -- go run .`.
 
 ## 5. Change log
 
