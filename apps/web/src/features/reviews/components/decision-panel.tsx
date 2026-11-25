@@ -21,7 +21,11 @@ import {
 } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim } from "#/lib/api/types.gen";
 import { zClaimDecision } from "#/lib/api/zod.gen";
-import { contractMaxLength, maxReturns } from "#/lib/contract";
+import {
+  contractMaxLength,
+  maxReturns,
+  returnsUsedLabel,
+} from "#/lib/contract";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 // The text and button variants of each decision (F-04 §2.2, F-06 §2.1): `trigger` opens the dialog, `variant` confirms it. A reject or a return needs a reason; an approve may have a comment.
@@ -222,7 +226,7 @@ export const DecisionPanel = ({
   }
 
   const canReturn = allowed.includes("return");
-  const returnsUsed = `Returned ${claim.returnCount} / ${maxReturns}`;
+  const returnsUsed = returnsUsedLabel(claim.returnCount);
 
   return (
     <>
