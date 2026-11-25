@@ -165,6 +165,7 @@ Tested code commit: `16279a9`, the merge of the F-06 (#43, #44) and F-07 (#45) t
 - F06-TEST-03, 04, 06, 08 and 12 (return part) have no red commit: they passed when written in `40ea01c` because earlier green commits already covered them.
 - F06-TEST-09, 10, 11, 12 (resubmit part) and 17 have no red commit, because the resubmit behaviour already existed when the tests were written (`39a05c2`, `8a2a40f`). For BR-07 from the first submission (F06-TEST-10) the only red evidence is a mutation check, not a failing commit: changing `firstSubmittedAt = row.FirstSubmittedAt.Time` to `= now` made the "90 days before" case fail, and the change was reverted and not committed.
 - F06-TEST-15 was written in `1c2b974` after the code, so it has no red commit.
+- The amber **Returned** badge (F-06 §2.3, SDS §7.2) has no F06-TEST ID. `apps/web/src/components/__test__/status-badge.test.tsx` · `colors RETURNED yellow` covers it: red 5a844a5, green 3d7091e (local run).
 - Not verified: CI on the merge commit, so the F-06 DoD item "tests pass in CI on the merge commit" stays open. Of the web tests, F06-TEST-13 (`return-panel`, 7 of 7) and the banner case of F06-TEST-14 (`return-banner`) pass alone locally; the Resubmit cases of F06-TEST-14 (`resubmit.test.tsx`) were not run alone.
 
 ### F-07 test results
