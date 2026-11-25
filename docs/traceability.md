@@ -1,7 +1,7 @@
 # Requirements Traceability Matrix
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System
-- **Baseline:** `docs/srs.md` v0.2 · Features: `docs/features.md` v1.0 · Design: `docs/system-sds.md` v0.8 · Sprint 1 contracts: `docs/sprints/sprint-1/` · Sprint 2 contracts: `docs/sprints/sprint-2/` · Sprint 3 contracts: `docs/sprints/sprint-3/`
+- **Baseline:** `docs/srs.md` v0.3 · Features: `docs/features.md` v1.0 · Design: `docs/system-sds.md` v0.18 · Sprint 1 contracts: `docs/sprints/sprint-1/` · Sprint 2 contracts: `docs/sprints/sprint-2/` · Sprint 3 contracts: `docs/sprints/sprint-3/`
 - **Last updated:** 2026-11-25
 
 There is one row per SRS requirement. Each row traces requirement → feature or system responsibility → sprint → acceptance criteria → test → result. The design sections for each feature and responsibility are in section 4 of `docs/features.md`.

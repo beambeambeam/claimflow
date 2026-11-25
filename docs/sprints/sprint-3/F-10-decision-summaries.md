@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-01 (new endpoint), SR-05 (performance, NFR-07)
 - **Depends on:** F-08 (`PENDING_FINANCE`, final decisions, Finance visibility), F-09 (filter queries for the timed run)
 - **Design baseline:** `docs/system-sds.md` v0.18 §1 `internal/report`; §2.5 `seed:load`; §4.3 `GET /reports/summary`; §4.4; §5.1 `report:read`; §5.3; §7.1 Summary
-- **Version:** 0.1 · **Last updated:** 2026-11-25
+- **Version:** 0.2 · **Last updated:** 2026-11-25
 
 ---
 
@@ -92,14 +92,16 @@ For a two-stage claim, `decided_at` is the time of the final decision (F-08 §1.
 - It adds 240 claims with claim numbers `CLM-LOAD-0001` to `CLM-LOAD-0240`. The claim-number sequence never produces that range. Running it again adds nothing (idempotent by `claim_no`).
 - The claims spread over the seed requesters and reviewers, every non-draft status, every category, and decision dates in each month from July to November 2026.
 - Each claim has 1–5 line items within the BR rules, and a history that the lifecycle allows (for example, `SUBMIT`, `APPROVE`, `FINAL_APPROVE` for a two-stage claim over 10,000.00).
-- At least 40 claims are `SUBMITTED` to `rev.malee`, so the timed run has claims to approve.
+- At least 60 claims are `SUBMITTED` to `rev.malee`, so three timed runs of 20 rounds have claims to approve.
 - **Index check:** `EXPLAIN ANALYZE` of the `mine`, `review`, `finance`, and `all` list queries (with and without filters) and of the three summary queries, on the load data. The PR records the plans. If a query on the load data misses NFR-07, an index migration is added in the same PR.
 
 ### 1.9 Timed run (F-10/02, NFR-07)
 
 - The script `scripts/nfr07-timed-run.ts` (Bun) runs at the root with `bun run perf -- --base-url <url> --rounds 20`.
 - Seed user passwords come from `SEED_USER_PASSWORD` in the environment. None are in Git (NFR-04).
-- Each round sends these requests in order, each timed from send to the last body byte:
+- Before timing, the script counts the `SUBMITTED` load claims assigned to `rev.malee`. If there are fewer than `--rounds`, it exits non-zero with "Not enough submitted load claims to approve; reset the database and run seed:load again." It never skips the approve, so every saved run covers the same requests.
+- It first sends one warm-up round of every request type except `approve`. The warm-up is not timed and not counted, so a Cloud Run cold start does not decide NFR-07.
+- Each timed round sends these requests in order, each timed from send to the last body byte:
   - log in as `req.anan`, `rev.malee`, and `fin.wanida`;
   - `GET /auth/me`;
   - `scope=mine`, `review`, `finance`, and `all`;
@@ -190,7 +192,7 @@ Operation ID `getDecisionSummary`, tag `reports`. New schemas:
 | F10-TEST-09 | F10-AC-09 | Component | MSW summary with `[]` and `null`; MSW 403 | Render `/reports` | "No decisions in this date range." and "–"; the 403 page |
 | F10-TEST-10 | F10-AC-10 | Integration | Database with the base seed | Run `seed-load` twice; replay each load claim's history through the lifecycle table | ≥ 200 load claims after the first run and the same counts after the second; every non-draft status, every category, and five decision months present; every history is a valid path; line items pass the BR rules |
 | F10-TEST-11 | F10-AC-11 | Manual | Load data on a local stack | `EXPLAIN ANALYZE` of each list, filter, and summary query | Plans recorded in the F-10/02 PR with the commit ID |
-| F10-TEST-12 | F10-AC-12 | Manual | Deployed release with the base seed and the load data | `bun run perf -- --base-url <deployed URL> --rounds 20` | Overall p95 < 1 s; output saved as `docs/perf/nfr-07-<tag>.md` with the tag and commit |
+| F10-TEST-12 | F10-AC-12 | Manual | Deployed release with the base seed and the load data | `bun run perf -- --base-url <deployed URL> --rounds 20` | Warm-up round not counted; overall p95 < 1 s; output saved as `docs/perf/nfr-07-<tag>.md` with the tag and commit |
 | F10-TEST-13 | F10-AC-08 | E2E | Seeded local stack with the load data | `rev.malee` opens Summary, picks October 2026 | The tiles, the table, and the average show for her assigned claims |
 
 ## 7. Feature Definition of Done
@@ -208,3 +210,4 @@ The Sprint 3 Product DoD applies. For F-10 the evidence is:
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-25 | Initial contract, from the F-10 feature spec and tickets #49 and #50 | beambeambeam |
+| 0.2 | 2026-11-25 | Review on #111: at least 60 load claims to approve; the timed run stops when too few are left and starts with an untimed warm-up round | beambeambeam |

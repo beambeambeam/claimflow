@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-01 (new scope; the list and the policy agree on visibility), SR-05 (filter indexes)
 - **Depends on:** F-03 (list and pagination), F-04 (review scope), F-08 (Finance visibility)
 - **Design baseline:** `docs/system-sds.md` v0.18 §4.3 `GET /claims` filters; §5.2 visibility; §5.3 `scope=all`; §7.2 shared UI behaviour
-- **Version:** 0.1 · **Last updated:** 2026-11-25
+- **Version:** 0.2 · **Last updated:** 2026-11-25
 
 ---
 
@@ -140,7 +140,7 @@ The page lives in `features/claims`.
 | --- | --- | --- | --- | --- | --- |
 | GET | `/claims?scope=all&status=&category=&from=&to=&q=&page=&pageSize=` | Query parameters as §1.3 | 200 `ClaimPage` | 400, 401 | session |
 
-The `scope` enum gains `all` (`ListScopeAll`). The new query parameters are `status` (`ClaimStatus`), `category` (`ExpenseCategory`), `from` and `to` (`format: date`), and `q` (`maxLength: 120`). The contract validator handles enum, format, and length. The handler handles `from` > `to` and filters with another scope. The `listClaims` description lists the §1.3 rules.
+The `scope` enum gains `all` (`ListScopeAll`). The new query parameters are `status` (`ClaimStatus`), `category` (`ExpenseCategory`), `from` and `to` (`format: date`), and `q` (`maxLength: 120`). The handler validates `status`, `category`, `from`, `to`, and `q`, and returns one `errors` entry per bad parameter with the §1.3 messages. The OpenAPI schema documents the enums and formats; the request validator (`validatedOperations` in `apps/api/validate.go`) checks only JSON bodies, not query parameters. The `listClaims` description lists the §1.3 rules.
 
 ## 4. Data spec
 
@@ -179,7 +179,7 @@ The `scope` enum gains `all` (`ListScopeAll`). The new query parameters are `sta
 | F09-TEST-06 | F09-AC-06 | Integration | Session as `req.anan` | `scope=all` with `status=PAID`; `category=FOOD`; `from=05/11/2026`; `from=2026-11-10&to=2026-11-01`; a 121-character `q`; `status=PAID&category=FOOD`; `scope=mine&status=APPROVED` | 400 each with the §1.3 messages; two `errors` entries for the combined case |
 | F09-TEST-07 | F09-AC-06 | Unit | Filter inputs | Handler filter check | Same results as F09-TEST-06 without HTTP; valid inputs give no errors |
 | F09-TEST-08 | F09-AC-07 | Integration (module) | Seed data plus one claim of every status for each requester | For each seed user: `List(ScopeAll)` with no filters, and `Allowed` on every claim in the table | Same set of IDs; repeated with `Status` and `Category` filters, every listed claim is visible |
-| F09-TEST-09 | F09-AC-08 | Integration | Migrated database | Read `pg_indexes` | Both §4 indexes exist |
+| F09-TEST-09 | F09-AC-08 | Integration | Migrated database; claims titled "Taxi" and "' OR 1=1 --" | Read `pg_indexes`; `GET /claims?scope=all&q=' OR 1=1 --` | Both §4 indexes exist; 200 with only the claim whose title contains that literal text |
 | F09-TEST-10 | F09-AC-09 | Component | MSW list handler that records query params | Render `/all-claims?status=APPROVED&page=3`; change category; type "taxi" quickly | Controls filled from the URL; category change sets `page=1`; one request with `q=taxi` after 300 ms, not one per key |
 | F09-TEST-11 | F09-AC-10 | Component | MSW: empty page with filters; empty page without filters | Render; click **Clear filters** | "No claims match these filters." and the button; URL has no filter params after the click; "No claims yet." with no button |
 | F09-TEST-12 | F09-AC-09 | Component | `/auth/me` for each role | Render the header | "All Claims" link for every role |
@@ -202,3 +202,4 @@ The Sprint 3 Product DoD applies. For F-09 the evidence is:
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-25 | Initial contract, from the F-09 feature spec and ticket #48 | beambeambeam |
+| 0.2 | 2026-11-25 | Review on #111: the handler validates the query parameters (§3); F09-TEST-09 checks that `q` is a SQL parameter | beambeambeam |
