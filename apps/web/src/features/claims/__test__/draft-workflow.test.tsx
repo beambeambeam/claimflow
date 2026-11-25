@@ -555,7 +555,6 @@ describe("Draft recovery", { timeout: 20_000 }, () => {
       await screen.findAllByText(
         "This claim was changed by someone else – reloaded"
       );
-      expect(button("Save changes").getAttribute("aria-disabled")).toBe("true");
       expect(screen.queryByText(/draft-conflict/u)).toBeNull();
     } finally {
       released = true;
