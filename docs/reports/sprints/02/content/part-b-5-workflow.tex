@@ -154,7 +154,7 @@ Release \texttt{sprint-2} into \texttt{main} & \#109 & \texttt{3a91ea4} (merge) 
 \end{tabular}
 \end{center}
 
-The contract PR \#100 merged 3.5 minutes before the first red commit of PR \#104 (\texttt{fad37c0}, 15:36 UTC) and 8 minutes... \todo{kiatisakk: state the first red commit of PR \#108 and its date, to compare with PR \#100}
+The contract PR \#100 merged on 2026-11-24 at 15:32 UTC, 3.5 minutes before the first red commit of PR \#104 (\texttt{fad37c0}, 15:36 UTC). The first commit of PR \#108 is a test commit too, \texttt{93c0d9c} (``test: return a submitted claim (F06-TEST-01)'', 2026-11-24 17:41 UTC): 2 hours 9 minutes after the merge of \#100, and 34 minutes after the merge of \#104. In both chains the contract was merged before the first test was written, and the test commit comes before the code commit it drives (\texttt{630fca4}, 18:01 UTC, for \texttt{93c0d9c}).
 
 \textbf{Release PR \#109.} Opened 2026-11-25 10:10 by Kiatisakk (17 commits, 67 files); beambeambeam commented on 2026-11-25 10:17 (the merge resolution of \texttt{main} into \texttt{sprint-2}, and stale counts and run IDs in the evidence), the author fixed each in \texttt{bd7c196}, \texttt{c96c609}, \texttt{cb79064} and \texttt{3a9de41}, and he approved the head \texttt{cb79064} at 12:25 after checking the merge resolution and that CI passed on that head (\texttt{code\_quality}, \texttt{test}, \texttt{api}, \texttt{build}, \texttt{image}). Merged with a merge commit at 12:33 so \texttt{main} keeps each feature's subject. Tag \texttt{v0.1.1.0} followed, and the Deploy demo workflow deployed it (Part E).
 
