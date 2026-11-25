@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
+	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 )
 
 // Action is a step that the claim policy allows and Act takes. Its value is the one in a claim's allowedActions and
@@ -31,25 +32,26 @@ type Subject struct {
 	Status             db.ClaimStatus
 	OwnerHasReviewer   bool
 	ReturnCount        int
+	TotalSatang        money.Satang
 }
 
 // allActions lists every action in the order that Allowed returns them.
 var allActions = []Action{ActionApprove, ActionReject, ActionReturn, ActionEdit, ActionDelete, ActionSubmit, ActionWithdraw}
 
 // isVisible reports whether actor may see the claim: it is own, or it is assigned and not a DRAFT.
-func isVisible(actor uuid.UUID, claim Subject) bool {
-	return claim.RequesterID == actor || (claim.AssignedReviewerID == actor && claim.Status != db.ClaimStatusDRAFT)
+func isVisible(actor Actor, claim Subject) bool {
+	return claim.RequesterID == actor.ID || (claim.AssignedReviewerID == actor.ID && claim.Status != db.ClaimStatusDRAFT)
 }
 
 // check applies visibility, the actor relation, and the status rules in that order (F-04 §1.4, F-05 §1.4).
-func check(actor uuid.UUID, claim Subject, action Action) error {
+func check(actor Actor, claim Subject, action Action) error {
 	if !isVisible(actor, claim) {
 		return ErrForbidden
 	}
 
 	switch action {
 	case ActionEdit, ActionDelete:
-		if claim.RequesterID != actor {
+		if claim.RequesterID != actor.ID {
 			return ErrForbidden
 		}
 		if claim.Status == db.ClaimStatusDRAFT || (action == ActionEdit && claim.Status == db.ClaimStatusRETURNED) {
@@ -57,15 +59,15 @@ func check(actor uuid.UUID, claim Subject, action Action) error {
 		}
 		return ErrInvalidTransition
 	case ActionSubmit:
-		if claim.RequesterID != actor || (claim.Status == db.ClaimStatusDRAFT && !claim.OwnerHasReviewer) {
+		if claim.RequesterID != actor.ID || (claim.Status == db.ClaimStatusDRAFT && !claim.OwnerHasReviewer) {
 			return ErrForbidden
 		}
 	case ActionWithdraw:
-		if claim.RequesterID != actor {
+		if claim.RequesterID != actor.ID {
 			return ErrForbidden
 		}
 	case ActionApprove, ActionReject, ActionReturn:
-		if claim.RequesterID == actor || claim.AssignedReviewerID != actor {
+		if claim.RequesterID == actor.ID || claim.AssignedReviewerID != actor.ID {
 			return ErrForbidden
 		}
 	}
@@ -86,7 +88,7 @@ func check(actor uuid.UUID, claim Subject, action Action) error {
 // may approve and reject a SUBMITTED claim. It is a pure function of its inputs. Actions is never nil.
 //
 // The requester may edit or submit a draft or returned claim and may delete a draft (F-05 §1.9).
-func Allowed(actor uuid.UUID, claim Subject) (visible bool, allowed []Action) {
+func Allowed(actor Actor, claim Subject) (visible bool, allowed []Action) {
 	allowed = []Action{}
 
 	for _, action := range allActions {

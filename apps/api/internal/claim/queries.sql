@@ -147,3 +147,11 @@ WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
 UPDATE claims
 SET status = 'SUBMITTED', submitted_at = sqlc.arg(now), updated_at = sqlc.arg(now), version = version + 1
 WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: SendClaimToFinance :execrows
+-- SendClaimToFinance moves an approved high-value claim to PENDING_FINANCE and adds one to the version, but only while
+-- the version is still the one the caller read (BR-09, BR-13). The claim waits for a final decision, so decided_at
+-- stays NULL. It returns the rows changed: 0 means the claim changed since.
+UPDATE claims
+SET status = 'PENDING_FINANCE', version = version + 1, updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);

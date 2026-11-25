@@ -40,6 +40,8 @@ const (
 	MaxMealsAmount money.Satang = 150_000
 	// MaxExpenseAgeDays is how many days before the first submission an expense date may fall (BR-07).
 	MaxExpenseAgeDays = 90
+	// HighValueThresholdSatang is the total, 10,000.00 THB, above which an approval needs a final decision by Finance (BR-09).
+	HighValueThresholdSatang money.Satang = 1_000_000
 )
 
 // Rule IDs of the field errors.
@@ -155,7 +157,13 @@ func checkComment(action Action, comment string) error {
 	return ValidationError{Fields: []FieldError{{Field: "comment", Rule: ruleComment, Message: message}}}
 }
 
-// approveTarget is the status an approval leads to (BR-09).
-func approveTarget(_ money.Satang, _ string) db.ClaimStatus {
+// approveTarget is the status that an approval leads to (BR-09, ADR-0001): PENDING_FINANCE when the total is more than
+// HighValueThresholdSatang and the approver is not a Finance Officer, otherwise APPROVED. It is the only place that
+// derives it.
+func approveTarget(total money.Satang, role string) db.ClaimStatus {
+	if total > HighValueThresholdSatang && role != RoleFinance {
+		return db.ClaimStatusPENDINGFINANCE
+	}
+
 	return db.ClaimStatusAPPROVED
 }

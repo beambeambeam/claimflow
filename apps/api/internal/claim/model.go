@@ -11,10 +11,14 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 )
 
-// Actor is the member who makes a call. Only the id comes from the request; the module reads everything else, such as
+// RoleFinance is the role of a Finance Officer, the only role that the claim policy reads (F-08 §1.8).
+const RoleFinance = "finance"
+
+// Actor is the member who makes a call: the id and role of the session user. The module reads everything else, such as
 // the assigned reviewer, from the database.
 type Actor struct {
-	ID uuid.UUID
+	ID   uuid.UUID
+	Role string
 }
 
 // LineItemInput is one line item of a new claim. ExpenseDate is a calendar date.
@@ -124,6 +128,7 @@ type Claim struct {
 func (c *Claim) subject() Subject {
 	subject := Subject{
 		RequesterID: c.Requester.ID, Status: c.Status, OwnerHasReviewer: c.ownerReviewerID.Valid, ReturnCount: c.ReturnCount,
+		TotalSatang: c.Total,
 	}
 	if c.AssignedReviewer != nil {
 		subject.AssignedReviewerID = c.AssignedReviewer.ID

@@ -89,7 +89,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 		for name, relation := range relations {
 			for _, status := range statuses {
 				t.Run(role+"/"+name+"/"+string(status), func(t *testing.T) {
-					visible, actions := Allowed(actor, relation.subject(actor, status))
+					visible, actions := Allowed(Actor{ID: actor, Role: role}, relation.subject(actor, status))
 
 					if want := relation.visible(status); visible != want {
 						t.Fatalf("visible = %t, want %t", visible, want)
@@ -111,7 +111,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 func TestF04TEST09PolicyGivesNoDecisionOnOwnClaim(t *testing.T) {
 	malee := uuid.Must(uuid.NewV7())
 
-	visible, actions := Allowed(malee, Subject{RequesterID: malee, AssignedReviewerID: malee, Status: db.ClaimStatusSUBMITTED})
+	visible, actions := Allowed(Actor{ID: malee}, Subject{RequesterID: malee, AssignedReviewerID: malee, Status: db.ClaimStatusSUBMITTED})
 
 	if !visible {
 		t.Fatal("visible = false, want true: the requester sees their own claim")
@@ -143,7 +143,7 @@ func TestF05TEST06DraftAndReturnedPolicy(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			subject := Subject{RequesterID: owner, Status: test.status, OwnerHasReviewer: test.reviewer}
-			visible, actions := Allowed(test.actor, subject)
+			visible, actions := Allowed(Actor{ID: test.actor}, subject)
 			if visible != test.visible || actions == nil || !slices.Equal(actions, test.actions) {
 				t.Fatalf("visible = %t, actions = %v; want %t, %v", visible, actions, test.visible, test.actions)
 			}
@@ -166,7 +166,7 @@ func TestF06TEST06ReturnIsAllowedBelowTheReturnLimit(t *testing.T) {
 	} {
 		subject := Subject{RequesterID: uuid.New(), AssignedReviewerID: reviewer, Status: db.ClaimStatusSUBMITTED, ReturnCount: test.returnCount}
 
-		if _, actions := Allowed(reviewer, subject); !slices.Equal(actions, test.actions) {
+		if _, actions := Allowed(Actor{ID: reviewer}, subject); !slices.Equal(actions, test.actions) {
 			t.Fatalf("return count %d: actions = %v, want %v", test.returnCount, actions, test.actions)
 		}
 	}
@@ -195,7 +195,7 @@ func TestF07TEST05WithdrawIsTheOwnersOnSubmittedOrReturned(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			subject := Subject{RequesterID: owner, AssignedReviewerID: reviewer, Status: test.status, OwnerHasReviewer: true}
 
-			if _, actions := Allowed(test.actor, subject); !slices.Equal(actions, test.actions) {
+			if _, actions := Allowed(Actor{ID: test.actor}, subject); !slices.Equal(actions, test.actions) {
 				t.Fatalf("actions = %v, want %v", actions, test.actions)
 			}
 		})
@@ -203,12 +203,12 @@ func TestF07TEST05WithdrawIsTheOwnersOnSubmittedOrReturned(t *testing.T) {
 
 	// The reviewer of a SUBMITTED claim has the decisions and no withdraw.
 	subject := Subject{RequesterID: owner, AssignedReviewerID: reviewer, Status: db.ClaimStatusSUBMITTED}
-	if _, actions := Allowed(reviewer, subject); slices.Contains(actions, ActionWithdraw) {
+	if _, actions := Allowed(Actor{ID: reviewer}, subject); slices.Contains(actions, ActionWithdraw) {
 		t.Fatalf("actions = %v, want no withdraw for the reviewer", actions)
 	}
 
 	// An unrelated member cannot see the claim, so the check refuses before the status.
-	if err := check(uuid.New(), subject, ActionWithdraw); !errors.Is(err, ErrForbidden) {
+	if err := check(Actor{ID: uuid.New()}, subject, ActionWithdraw); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("check error = %v, want ErrForbidden", err)
 	}
 }

@@ -57,7 +57,7 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 		return nil, errUnauthenticated
 	}
 
-	created, err := h.service.Create(ctx, Actor{ID: user.ID}, input(request.Body), request.Params.Draft == nil || !*request.Params.Draft)
+	created, err := h.service.Create(ctx, Actor{ID: user.ID, Role: user.Role}, input(request.Body), request.Params.Draft == nil || !*request.Params.Draft)
 	if err != nil {
 		return nil, problem(err)
 	}
@@ -109,7 +109,7 @@ func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestOb
 		return nil, fmt.Errorf("authorize: %w", err)
 	}
 
-	result, err := h.service.List(ctx, Actor{ID: user.ID}, q)
+	result, err := h.service.List(ctx, Actor{ID: user.ID, Role: user.Role}, q)
 	if err != nil { // coverage-ignore
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (h Handler) GetClaim(ctx context.Context, request api.GetClaimRequestObject
 		return nil, httperr.ErrValidation
 	}
 
-	found, err := h.service.Get(ctx, Actor{ID: user.ID}, id)
+	found, err := h.service.Get(ctx, Actor{ID: user.ID, Role: user.Role}, id)
 	if err != nil {
 		return nil, problem(err)
 	}
@@ -269,7 +269,7 @@ func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, 
 		return Actor{}, uuid.Nil, 0, httperr.ErrValidation
 	}
 
-	return Actor{ID: user.ID}, id, version, nil
+	return Actor{ID: user.ID, Role: user.Role}, id, version, nil
 }
 
 var transitionErrors = map[Action]FieldError{

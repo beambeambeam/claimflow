@@ -90,7 +90,7 @@ func (s Service) Create(ctx context.Context, actor Actor, in Input, submit bool)
 		return Claim{}, fmt.Errorf("create claim: %w", err)
 	}
 
-	_, created.AllowedActions = Allowed(actor.ID, created.subject())
+	_, created.AllowedActions = Allowed(actor, created.subject())
 
 	return created, nil
 }
@@ -103,7 +103,7 @@ func (s Service) Get(ctx context.Context, actor Actor, id uuid.UUID) (Claim, err
 		return Claim{}, fmt.Errorf("get claim: %w", err)
 	}
 
-	visible, actions := Allowed(actor.ID, found.subject())
+	visible, actions := Allowed(actor, found.subject())
 	if !visible {
 		return Claim{}, ErrForbidden
 	}
@@ -241,7 +241,7 @@ func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int
 		return Claim{}, fmt.Errorf("act on claim: %w", err)
 	}
 
-	_, acted.AllowedActions = Allowed(actor.ID, acted.subject())
+	_, acted.AllowedActions = Allowed(actor, acted.subject())
 
 	return acted, nil
 }
@@ -259,6 +259,9 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetCl
 		}
 		if int(row.Version) != version {
 			return ErrConflict
+		}
+		if action == ActionApprove {
+			step.to = approveTarget(row.TotalSatang, actor.Role)
 		}
 		changed, err = reviewStep(ctx, queries, row, action, step, now)
 	}
@@ -286,7 +289,8 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetCl
 }
 
 // reviewStep applies the step at the version that was read: a return keeps the claim open for its requester, a
-// withdrawal ends it without a decision, and a decision stamps the decision time.
+// withdrawal ends it without a decision, an approval that goes to Finance waits for the final decision, and a decision
+// stamps the decision time.
 func reviewStep(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, action Action, step transition, now time.Time) (int64, error) {
 	if action == ActionWithdraw {
 		changed, err := queries.WithdrawClaim(ctx, db.WithdrawClaimParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
@@ -301,6 +305,15 @@ func reviewStep(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, a
 		changed, err := queries.ReturnClaim(ctx, db.ReturnClaimParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
 		if err != nil { // coverage-ignore
 			return 0, fmt.Errorf("return claim: %w", err)
+		}
+
+		return changed, nil
+	}
+
+	if step.to == db.ClaimStatusPENDINGFINANCE {
+		changed, err := queries.SendClaimToFinance(ctx, db.SendClaimToFinanceParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
+		if err != nil { // coverage-ignore
+			return 0, fmt.Errorf("send claim to finance: %w", err)
 		}
 
 		return changed, nil
@@ -435,7 +448,7 @@ func insertItems(ctx context.Context, queries *db.Queries, id uuid.UUID, items [
 
 // checkVersionedAction reports a stale version rather than an invalid transition when the status changed.
 func checkVersionedAction(actor Actor, subject Subject, action Action, version, current int) error {
-	err := check(actor.ID, subject, action)
+	err := check(actor, subject, action)
 	if errors.Is(err, ErrInvalidTransition) && version != current {
 		return ErrConflict
 	}
@@ -458,7 +471,7 @@ func findClaim(ctx context.Context, queries *db.Queries, id uuid.UUID) (db.GetCl
 func claimSubject(row *db.GetClaimRow) Subject {
 	return Subject{
 		RequesterID: row.RequesterID, AssignedReviewerID: row.ReviewerID.UUID, Status: row.Status,
-		OwnerHasReviewer: row.OwnerReviewerID.Valid, ReturnCount: int(row.ReturnCount),
+		OwnerHasReviewer: row.OwnerReviewerID.Valid, ReturnCount: int(row.ReturnCount), TotalSatang: row.TotalSatang,
 	}
 }
 
