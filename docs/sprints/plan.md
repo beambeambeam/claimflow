@@ -2,7 +2,7 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System
 - **Baseline:** `docs/srs.md` v0.2 · Features: `docs/features.md` v1.0 · Design: `docs/system-sds.md` v0.8
-- **Issue:** #5 · **Version:** 0.2 · **Last updated:** 2026-11-15
+- **Issue:** #5 · **Version:** 0.3 · **Last updated:** 2026-11-25
 
 This plan orders the features in `docs/features.md` into three sprints. It shows the dependencies, fits the work around the labs and the exam period, and explains the Sprint 1 scope. Feature IDs and requirement IDs are unchanged from those documents. Work items for each feature are GitHub Issues titled `F-NN/NN` (see `docs/agents/issue-tracker.md`).
 
@@ -67,7 +67,7 @@ After F-02/01, the work splits into three paths (rules, My Claims, detail → de
   - **By 30 Nov:** F-09 and F-10 implemented and tested, so no main workflow is left for the exam period.
   - **1–11 Dec:** defect fixes, UAT re-tests, NFR-07 timed run on the deployed release, final regression, and the demo video only.
   - **By 13 Dec (Final):** final release on `main`, deployed on GCP.
-- **Work order:** Sprint 3 contracts (19–23 Nov, next to the end of Sprint 2; `docs:` PRs go to `sprint-2` until `sprint-3` exists) → F-08/01 Pending finance → F-08/02 Finance Queue and final decisions → F-09/01 filters and search → F-10/01 decision summary → F-10/02 load dataset and NFR-07 run.
+- **Work order:** Sprint 3 contracts (25–26 Nov, one `docs:` PR into `sprint-3`, merged before any implementation) → F-08/01 Pending finance → F-08/02 Finance Queue and final decisions → F-09/01 filters and search → F-10/01 decision summary → F-10/02 load dataset and NFR-07 run.
 
 ## 3. Feature dependency graph
 
@@ -212,3 +212,4 @@ Record every scope or date change here with its reason. Do not rewrite earlier e
 | 2026-11-07 | Staging branches are named `sprint-N`, as #7 says. `staging-1` was renamed to `sprint-1` and the ruleset now targets `sprint-*`. | Replaces the 2026-11-05 entry: the issue name was the intended one. | Pending review |
 | 2026-11-15 | Sprint 1 finished on 15 Nov, not 8 Nov. The four features merged into `sprint-1` between 13 and 15 Nov, and the release PR to `main` follows. F-05 and F-06/01 (planned for 12–15 Nov) and the Lab 5 implementation (#52 to #55) have not started, so Sprint 2 starts after the release. The feature scope of the three sprints is unchanged. | The eleven Sprint 1 tickets, each with a teammate review, needed more than the 6–8 Nov window in §4. | Pending review |
 | 2026-11-23 | Sprint 2 starts on 23 Nov from `sprint-2` (cut from `main` at the Sprint 1 release). The F-05, F-06, and F-07 contracts are written on 23–24 Nov and merged before any implementation; the seven tickets (#39 to #45) follow the §2 work order, and the Sprint 2 release to `main` is planned for 27–28 Nov, before the D2 and Lab 7 deadline on 29 Nov. F-08 for D2 (§2.3) overlaps Sprint 2: the F-08 contract is written on 25–26 Nov next to the Sprint 2 tickets, and `sprint-3` is cut from `sprint-2` once F-07/01 (#45) merges, because F-08/01 tests withdrawal from `PendingFinance`. The D2 candidate on 28 Nov is still the release PR from `sprint-3` (§7). If F-08 is not done by then, the D2 candidate is the Sprint 2 release alone and the D2 report lists F-08 as incomplete (Product DoD item 10). The feature scope is unchanged. | Sprint 1 ended on 15 Nov (entry above), and Lab 5 and Lab 6 used 16–22 Nov. | Pending review |
+| 2026-11-25 | The Sprint 2 release merged to `main` on 25 Nov (#109, tag `v0.1.1.0`), not on 27–28 Nov. `sprint-3` was cut from `main` after that release, not from `sprint-2` after F-07/01 as the 2026-11-23 entry says. This is the normal §7 flow, and F-08/01 builds on the released F-07. The Sprint 3 contracts (F-08, F-09, F-10, and the Sprint 3 Product DoD) are written on 25–26 Nov and merge into `sprint-3` before any implementation; the §2.3 work order now says so. F-08 (#46, #47) targets the D2 candidate release PR from `sprint-3` on 28 Nov. If F-08 is not done by then, the D2 report lists it as incomplete (Product DoD item 10). F-09 and F-10 (#48 to #50) are done by 30 Nov. The feature scope is unchanged. | Sprint 2 finished on 25 Nov. | Pending review |
