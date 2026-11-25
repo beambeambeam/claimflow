@@ -7,25 +7,25 @@
       "title": "Submit full report of 1st Sprint"
     },
     {
-      "assignees": [],
+      "assignees": ["beambeambeam"],
       "closed_at": "2026-11-24T17:08:43Z",
       "number": 39,
       "title": "F-05/01: Save and view drafts"
     },
     {
-      "assignees": [],
+      "assignees": ["beambeambeam"],
       "closed_at": "2026-11-24T17:08:45Z",
       "number": 40,
       "title": "F-05/02: Edit a draft"
     },
     {
-      "assignees": [],
+      "assignees": ["beambeambeam"],
       "closed_at": "2026-11-24T17:08:46Z",
       "number": 41,
       "title": "F-05/03: Submit a draft"
     },
     {
-      "assignees": [],
+      "assignees": ["beambeambeam"],
       "closed_at": "2026-11-24T17:08:47Z",
       "number": 42,
       "title": "F-05/04: Delete a draft"
@@ -85,31 +85,31 @@
       "title": "F-EXTRA-01 Receipt files for line items"
     },
     {
-      "assignees": [],
+      "assignees": ["beambeambeam"],
       "closed_at": "2026-11-22T14:39:07Z",
       "number": 66,
       "title": "Run the Playwright E2E specs in CI"
     },
     {
-      "assignees": [],
+      "assignees": ["beambeambeam"],
       "closed_at": "2026-11-22T15:33:36Z",
       "number": 67,
       "title": "Sprint 1 review follow-ups"
     },
     {
-      "assignees": [],
+      "assignees": ["beambeambeam"],
       "closed_at": "2026-11-22T15:33:36Z",
       "number": 70,
       "title": "Sprint 1 cleanup"
     },
     {
-      "assignees": [],
+      "assignees": ["beambeambeam"],
       "closed_at": "2026-11-22T08:26:45Z",
       "number": 86,
       "title": "[UAT] Title or purpose made only of spaces is accepted and the claim is stored blank"
     },
     {
-      "assignees": [],
+      "assignees": ["beambeambeam"],
       "closed_at": "2026-11-22T08:26:39Z",
       "number": 87,
       "title": "[UAT] Double-clicking Submit can create two identical claims"
@@ -449,6 +449,28 @@
         "beambeambeam": ["APPROVED", "COMMENTED"]
       },
       "title": "chore: release Sprint 2"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "sprint-3",
+      "merged_at": "2026-11-25T16:32:49Z",
+      "merged_by": "Kiatisakk",
+      "number": 111,
+      "reviews": {
+        "Kiatisakk": ["APPROVED", "CHANGES_REQUESTED"]
+      },
+      "title": "docs: add the Sprint 3 engineering contracts and record the Sprint 3 start"
+    },
+    {
+      "author": "beambeambeam",
+      "base": "main",
+      "merged_at": "2026-11-25T16:32:59Z",
+      "merged_by": "Kiatisakk",
+      "number": 112,
+      "reviews": {
+        "Kiatisakk": ["APPROVED"]
+      },
+      "title": "docs: list the seeded users and their permissions in the Lab 7 report"
     }
   ]
 }
