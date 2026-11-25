@@ -10,9 +10,13 @@ const config: SprintConfig = {
   docs: {
     "adr-0001": "docs/adr/0001-finance-officer-reviews-department-head.md",
     dod: "docs/sprints/sprint-2/definition-of-done.md",
+    dod3: "docs/sprints/sprint-3/definition-of-done.md",
     f05: "docs/sprints/sprint-2/F-05-drafts.md",
     f06: "docs/sprints/sprint-2/F-06-return-resubmit.md",
     f07: "docs/sprints/sprint-2/F-07-withdraw.md",
+    f08: "docs/sprints/sprint-3/F-08-two-stage-approval.md",
+    f09: "docs/sprints/sprint-3/F-09-filter-and-search.md",
+    f10: "docs/sprints/sprint-3/F-10-decision-summaries.md",
     features: "docs/features.md",
     srs: "docs/srs.md",
     "system-sds": "docs/system-sds.md",
@@ -24,6 +28,12 @@ const config: SprintConfig = {
       ["f06", "F-06 contract"],
       ["f07", "F-07 contract"],
       ["dod", "Sprint 2 Definition of Done"],
+    ],
+    "part-c-1-contracts": [
+      ["f08", "F-08 contract"],
+      ["f09", "F-09 contract"],
+      ["f10", "F-10 contract"],
+      ["dod3", "Sprint 3 Definition of Done"],
     ],
     "part-d-1-requirements": [
       ["srs", "Software Requirements Specification"],
@@ -81,6 +91,13 @@ const config: SprintConfig = {
     },
     { anchor: null, group: "pr109", name: "pr109-header", pr: 109 },
   ],
+  // The Sprint 3 contracts at ef38550 hold one Mermaid sequence diagram each
+  // that GitHub does not draw (a semicolon inside a message ends the line).
+  knownFaults: {
+    f08: String.raw`GitHub does not draw the workflow diagram of this contract at \texttt{ef38550}: it shows \textquotedblleft{}Unable to render rich display\textquotedblright{} (parse error on diagram line 11, the semicolon in the message of that line). The diagram source is printed under the error and the contract text is unaffected. A fix is a revision of the contract on \texttt{sprint-3}, not part of this report.`,
+    f09: String.raw`GitHub does not draw the workflow diagram of this contract at \texttt{ef38550}: it shows \textquotedblleft{}Unable to render rich display\textquotedblright{} (parse error on diagram line 7). The diagram source is printed under the error and the contract text is unaffected. A fix is a revision of the contract on \texttt{sprint-3}, not part of this report.`,
+    f10: String.raw`GitHub does not draw the workflow diagram of this contract at \texttt{ef38550}: it shows \textquotedblleft{}Unable to render rich display\textquotedblright{} (parse error on diagram line 9). The diagram source is printed under the error and the contract text is unaffected. A fix is a revision of the contract on \texttt{sprint-3}, not part of this report.`,
+  },
   release: "v0.1.1.0",
   implementation: {
     "F05-AC-01":

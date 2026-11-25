@@ -13,6 +13,18 @@
       "diagrams": ["f07-1.png"],
       "file": "docs/sprints/sprint-2/F-07-withdraw.md"
     },
+    "f08": {
+      "diagrams": ["f08-1.png"],
+      "file": "docs/sprints/sprint-3/F-08-two-stage-approval.md"
+    },
+    "f09": {
+      "diagrams": ["f09-1.png"],
+      "file": "docs/sprints/sprint-3/F-09-filter-and-search.md"
+    },
+    "f10": {
+      "diagrams": ["f10-1.png"],
+      "file": "docs/sprints/sprint-3/F-10-decision-summaries.md"
+    },
     "features": {
       "diagrams": ["features-1.png"],
       "file": "docs/features.md"
