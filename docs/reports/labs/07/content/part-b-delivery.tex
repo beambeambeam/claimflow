@@ -60,7 +60,7 @@ The requester submits a new claim and the assigned reviewer opens it from the qu
 \begin{record}
 bun run e2e e2e/f04-review-decision.spec.ts
 \end{record}
-Ran from \texttt{apps/web} on 24 November against local PostgreSQL 17 with seven seeded users and six sample claims. On the RED dialog and spec from \texttt{6cabc3e} with the updated API, the empty-reason check showed \texttt{Expected: disabled} and \texttt{Received: enabled}. This isolates the old dialog. The record gives one failing case. The full RED run totals are unavailable. On \texttt{0226536} with API \texttt{b51c058}, both journeys passed (2 passed, 0 failed, 0 skipped). The follow-up narrowed the Playwright locator to the reason field's accessible description.
+Ran from \texttt{apps/web} on 24 November against local PostgreSQL 17 with seven seeded users and six sample claims. On the RED dialog and spec from \texttt{6cabc3e} with the updated API, the empty-reason check showed \texttt{Expected: disabled} and \texttt{Received: enabled}. This isolates the old dialog. The original record gives one failing case without run totals. On 25 November at 08:06 UTC, the same setup was rerun against a fresh seeded database: 1 passed (F04-TEST-23), 1 failed (F04-TEST-24, the same \texttt{Expected: disabled} failure), 0 skipped. On \texttt{0226536} with API \texttt{b51c058}, both journeys passed (2 passed, 0 failed, 0 skipped). The follow-up narrowed the Playwright locator to the reason field's accessible description.
 
 \partsection{B-03}{OpenAPI contract and implementation diff}
 \label{ev:diff}
