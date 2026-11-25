@@ -208,9 +208,9 @@ The amber **Returned** badge shows in My Claims. The Review Queue does not list 
 
 The Sprint 2 Product DoD applies. For F-06 the evidence is:
 
-- [x] All F06-TEST rows run: unit, integration, and component tests pass in CI on the merge commit; F06-TEST-15 passes on a local seeded stack with the tested commit recorded. Evidence: CI [run 45575353690](https://github.com/beambeambeam/claimflow/actions/runs/45575353690) on the #108 head `f40c6f4`, whose tree equals the squash `aaf17af`; F06-TEST-15 passes on a local seeded stack on `45bf736`.
+- [x] All F06-TEST rows run: unit, integration, and component tests pass in CI on the merge commit; F06-TEST-15 passes on a local seeded stack with the tested commit recorded. Evidence: CI [run 45595745310](https://github.com/beambeambeam/claimflow/actions/runs/45595745310) on the release head `bd7c196`; F06-TEST-15 passes on a local seeded stack on `bd7c196`.
 - [x] TDD evidence for BR-14 (F06-TEST-07) and BR-07 from the first submission (F06-TEST-10). Evidence: BR-14 red `a547ac0`, green `71a8e43`; BR-07 from the first submission is a mutation check, as 0.3 allows (`docs/traceability.md`, F-06 test results).
-- [x] `openapi.yaml` has `returnClaim`; both apps regenerate with no diff in CI. Evidence: `generate` leaves no diff on a clean clone of `45bf736`; CI [run 45575353690](https://github.com/beambeambeam/claimflow/actions/runs/45575353690) on the #108 head `f40c6f4`, whose tree equals the squash `aaf17af`.
+- [x] `openapi.yaml` has `returnClaim`; both apps regenerate with no diff in CI. Evidence: `generate` leaves no diff: CI [run 45595745310](https://github.com/beambeambeam/claimflow/actions/runs/45595745310) on `bd7c196` runs that check.
 - [x] `docs/traceability.md` lists the actual test names and results for the F-06 rows. Evidence: `docs/traceability.md`, F-06 test results.
 
 Note on TDD evidence, proposed in 0.3 and accepted when the pull request reviewer approves it: for behaviour that already existed before its test was written, a mutation check is accepted as the evidence in place of a red commit. This applies to BR-07 from the first submission (F06-TEST-10). The check: setting `firstSubmittedAt` to the resubmission time in `submitClaim` made the "90 days before the first submission" case fail. The change was reverted and not committed.

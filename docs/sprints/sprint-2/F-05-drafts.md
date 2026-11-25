@@ -311,9 +311,9 @@ Levels as in F-01 §6. Module tests call `claim.Service` against `pgtest` Postgr
 
 The Sprint 2 Product DoD (`docs/sprints/sprint-2/definition-of-done.md`) applies. For F-05 the evidence is:
 
-- [x] All F05-TEST rows run: unit, integration, and component tests pass in CI on the merge commit; F05-TEST-25 passes on a local seeded stack with the tested commit recorded. Evidence: CI [run 45443149848](https://github.com/beambeambeam/claimflow/actions/runs/45443149848) on the #104 head `b3cecd1`, whose tree equals the squash `35052ae`; F05-TEST-25 passes on a local seeded stack on `45bf736`.
+- [x] All F05-TEST rows run: unit, integration, and component tests pass in CI on the merge commit; F05-TEST-25 passes on a local seeded stack with the tested commit recorded. Evidence: CI [run 45595745310](https://github.com/beambeambeam/claimflow/actions/runs/45595745310) on the release head `bd7c196`; F05-TEST-25 passes on a local seeded stack on `bd7c196`.
 - [x] TDD evidence for BR-10 (F05-TEST-09 or 19) and BR-07 at draft submission (F05-TEST-12): commit IDs of the failing test and the passing implementation. Evidence: BR-10 red `ec2179d`, green `dd31979`; BR-07 red `4dcf8d4`, green `06c5fa0`.
-- [x] `openapi.yaml` has `draft`, `updateClaim`, `deleteClaim`, and `submitClaim`; both apps regenerate with no diff in CI. Evidence: `generate` leaves no diff on a clean clone of `45bf736`; CI [run 45443149848](https://github.com/beambeambeam/claimflow/actions/runs/45443149848) on the #104 head `b3cecd1`, whose tree equals the squash `35052ae`.
+- [x] `openapi.yaml` has `draft`, `updateClaim`, `deleteClaim`, and `submitClaim`; both apps regenerate with no diff in CI. Evidence: `generate` leaves no diff: CI [run 45595745310](https://github.com/beambeambeam/claimflow/actions/runs/45595745310) on `bd7c196` runs that check.
 - [x] `docs/traceability.md` lists the actual test names and results for the F-05 rows. Evidence: `docs/traceability.md`, F-05 test results.
 
 ## 8. Revision history
