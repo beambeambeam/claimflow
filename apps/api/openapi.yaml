@@ -840,8 +840,9 @@ components:
       properties:
         comment:
           type: string
-          description: Optional note on why the claim is withdrawn, at most 500 characters.
+          description: Optional note on why the claim is withdrawn, at most 500 characters. `x-max-length` repeats the limit for the web counter.
           maxLength: 500
+          x-max-length: 500
     ClaimEnvelope:
       type: object
       required: [data]

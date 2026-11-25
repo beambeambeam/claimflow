@@ -133,7 +133,7 @@ export type ClaimDecision = {
  */
 export type ClaimWithdrawal = {
   /**
-   * Optional note on why the claim is withdrawn, at most 500 characters.
+   * Optional note on why the claim is withdrawn, at most 500 characters. `x-max-length` repeats the limit for the web counter.
    */
   comment?: string;
 };

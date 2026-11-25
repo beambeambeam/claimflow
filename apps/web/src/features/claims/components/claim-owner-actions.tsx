@@ -23,10 +23,14 @@ import {
   withdrawClaimMutation,
 } from "#/lib/api/@tanstack/react-query.gen";
 import type { Claim, FieldError, Problem } from "#/lib/api/types.gen";
+import { zClaimWithdrawal } from "#/lib/api/zod.gen";
+import { contractMaxLength } from "#/lib/contract";
 import { isProblem } from "#/lib/problem";
 
-// The limit of the withdrawal comment (F-07 §3, `maxLength` of ClaimWithdrawal). The server checks it; the counter only shows it.
-const withdrawCommentLimit = 500;
+// The limit of the withdrawal comment (F-07 §3), from the contract. The server checks it; the counter only shows it.
+const withdrawCommentLimit = contractMaxLength(
+  zClaimWithdrawal.shape.comment.unwrap()
+);
 
 // The counter shows the limit but does not stop typing, so the text is cut at it.
 const limitComment = (value: string) => value.slice(0, withdrawCommentLimit);
