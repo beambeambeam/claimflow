@@ -31,7 +31,7 @@ bun run --cwd apps/api migrate up  # create the tables
 bun run --cwd apps/api seed        # add the demo users and sample claims
 ```
 
-`seed` adds seven demo accounts, all with the password from `SEED_USER_PASSWORD`, and seven sample claims, including a draft with two line items. It runs again without harm: users are updated in place, and a sample claim is found by its claim number (`CLM-2026-9000xx`) and added only once.
+`seed` adds seven demo accounts, all with the password from `SEED_USER_PASSWORD`, and nine sample claims. It runs again without harm: users are updated in place, and a sample claim is found by its claim number (`CLM-2026-9000xx`) and added only once.
 
 | Username                   | Role                       | Reviewer      |
 | -------------------------- | -------------------------- | ------------- |
@@ -41,7 +41,7 @@ bun run --cwd apps/api seed        # add the demo users and sample claims
 | `rev.prasert`              | Reviewer (Department Head) | `fin.wanida`  |
 | `fin.wanida`               | Finance Officer            | –             |
 
-Sample claims: two `Submitted`, one `Approved`, and one `Rejected` (with a reason) from `req.anan`, `req.ploy`, and `req.niran` to their reviewers, plus a `Submitted` claim each from `rev.malee` and `rev.prasert` (40,000.00) for the next reviewer up.
+Sample claims: two `Submitted`, one `Approved`, and one `Rejected` (with a reason) from `req.anan`, `req.ploy`, and `req.niran` to their reviewers, plus a `Submitted` claim each from `rev.malee` and `rev.prasert` (40,000.00) for the next reviewer up. Sprint 2 adds a `Draft` with two line items and a `Returned` claim from `req.anan`, and a `Withdrawn` claim from `req.ploy`.
 
 ## End-to-end tests
 
