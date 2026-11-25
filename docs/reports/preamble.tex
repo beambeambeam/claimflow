@@ -57,11 +57,25 @@
 % ---- Evidence that is not there yet ---------------------------------------
 
 % Red inline text. check-report counts every \todo and \pending.
-\newcommand{\todo}[1]{\textcolor{todored}{\textbf{[TODO: #1]}}}
+% Each one also writes \reportdraft into the .aux file, so the next pass knows
+% the report is a draft and \draftbanner can say so on the first page.
+\makeatletter
+\newcommand{\reportdrafttrue}{\protected@write\@auxout{}{\string\gdef\string\reportdraft{1}}}
+\makeatother
+\newcommand{\todo}[1]{\textcolor{todored}{\textbf{[TODO: #1]}}\reportdrafttrue}
+
+% \draftbanner: a red DRAFT box while any \todo or \pending remains.
+\newcommand{\draftbanner}{%
+  \ifdefined\reportdraft
+    \par\medskip\noindent\fcolorbox{todored}{white}{\parbox{0.97\linewidth}{\centering
+      \textcolor{todored}{\Large\bfseries DRAFT}\\[2pt]
+      \textcolor{todored}{\small Not the submitted version: open items are marked
+      \textbf{[TODO: \ldots]} in red.}}}\par\medskip
+  \fi}
 
 % A red box where a capture or section is still waiting for something.
 % \pending{what it shows}{what it waits for}
-\newcommand{\pending}[2]{%
+\newcommand{\pending}[2]{\reportdrafttrue%
   \par\medskip\noindent\fcolorbox{todored}{white}{\parbox{0.97\linewidth}{%
     \textcolor{todored}{\textbf{[PENDING: #1]}}\\
     \small\itshape Waits for: #2}}\par\medskip}

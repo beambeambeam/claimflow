@@ -16,9 +16,19 @@ export interface SprintConfig {
   reviews: { group: string; name: string; pr: number; anchor: string | null }[];
   // The project board view to capture (capture-board).
   board?: string;
-  // Repo folder of the sprint's contracts, the F-0N-*.md test tables
-  // (gen-ac-table).
-  contracts?: string;
+  // Repo folder (or folders) of the sprint's contracts, the F-0N-*.md test
+  // tables (gen-ac-table).
+  contracts?: string | string[];
+  // Release that accepted the sprint (a tag), and for each AC id the code that
+  // implements it. With both, gen-ac-table also writes completion-table.tex.
+  release?: string;
+  implementation?: Record<string, string>;
+  // collect-team counts only pull requests merged and issues closed on or
+  // after this date (YYYY-MM-DD, UTC). Omitted: everything.
+  since?: string;
+  // Status text of a CI-recorded check in the AC table. The default names the
+  // required checks on the commit and the Sprint 1 release PR.
+  ciCheck?: (commit: string) => string;
   // Open issues whose bodies list planned tests not implemented yet.
   tickets?: number[];
   // Status text of manual checks in the AC table, by TEST id. Others get the

@@ -50,6 +50,8 @@ const Issues = z.array(
 );
 
 const sprint = await loadSprint(process.argv[2]);
+const since = sprint.config.since ?? "";
+const counted = (date: string) => date >= since;
 
 const prs = gh(
   Prs,
@@ -79,6 +81,7 @@ const out = {
     "--json",
     "number,title,assignees,closedAt"
   )
+    .filter((i) => counted(i.closedAt))
     .toSorted((a, b) => a.number - b.number)
     .map((i) => ({
       assignees: i.assignees.map((a) => a.login),
@@ -87,6 +90,7 @@ const out = {
       title: i.title,
     })),
   prs: prs
+    .filter((pr) => counted(pr.mergedAt))
     .toSorted((a, b) => a.number - b.number)
     .map((pr) => {
       const who = new Map<string, Set<string>>();
