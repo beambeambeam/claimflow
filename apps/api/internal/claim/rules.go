@@ -154,3 +154,8 @@ func checkComment(action Action, comment string) error {
 
 	return ValidationError{Fields: []FieldError{{Field: "comment", Rule: ruleComment, Message: message}}}
 }
+
+// approveTarget is the status an approval leads to (BR-09).
+func approveTarget(_ money.Satang, _ string) db.ClaimStatus {
+	return db.ClaimStatusAPPROVED
+}
