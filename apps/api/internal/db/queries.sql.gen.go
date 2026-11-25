@@ -106,6 +106,32 @@ func (q *Queries) DecideClaim(ctx context.Context, arg DecideClaimParams) (int64
 	return result.RowsAffected(), nil
 }
 
+const deleteClaimLineItems = `-- name: DeleteClaimLineItems :exec
+DELETE FROM line_items WHERE claim_id = $1
+`
+
+func (q *Queries) DeleteClaimLineItems(ctx context.Context, claimID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteClaimLineItems, claimID)
+	return err
+}
+
+const deleteDraftClaim = `-- name: DeleteDraftClaim :execrows
+DELETE FROM claims WHERE id = $1 AND version = $2 AND status = 'DRAFT'
+`
+
+type DeleteDraftClaimParams struct {
+	ID      uuid.UUID
+	Version int32
+}
+
+func (q *Queries) DeleteDraftClaim(ctx context.Context, arg DeleteDraftClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteDraftClaim, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
 DELETE FROM session WHERE expires_at <= $1
 `
@@ -129,7 +155,7 @@ func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 const getClaim = `-- name: GetClaim :one
 SELECT c.id, c.claim_no, c.status, c.title, c.purpose, c.total_satang, c.return_count, c.version,
        c.first_submitted_at, c.submitted_at, c.decided_at, c.created_at, c.updated_at,
-       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position, r.reviewer_id AS owner_reviewer_id,
        a.id AS reviewer_id, a.name AS reviewer_name, a.position AS reviewer_position
 FROM claims c
 JOIN "user" r ON r.id = c.requester_id
@@ -154,6 +180,7 @@ type GetClaimRow struct {
 	RequesterID       uuid.UUID
 	RequesterName     string
 	RequesterPosition string
+	OwnerReviewerID   uuid.NullUUID
 	ReviewerID        uuid.NullUUID
 	ReviewerName      pgtype.Text
 	ReviewerPosition  pgtype.Text
@@ -180,6 +207,7 @@ func (q *Queries) GetClaim(ctx context.Context, id uuid.UUID) (GetClaimRow, erro
 		&i.RequesterID,
 		&i.RequesterName,
 		&i.RequesterPosition,
+		&i.OwnerReviewerID,
 		&i.ReviewerID,
 		&i.ReviewerName,
 		&i.ReviewerPosition,
@@ -349,6 +377,35 @@ func (q *Queries) InsertClaimHistory(ctx context.Context, arg InsertClaimHistory
 	return err
 }
 
+const insertDraftClaim = `-- name: InsertDraftClaim :exec
+INSERT INTO claims (id, claim_no, requester_id, title, purpose, status, total_satang, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5,
+        'DRAFT', $6, $7, $7)
+`
+
+type InsertDraftClaimParams struct {
+	ID          uuid.UUID
+	ClaimNo     string
+	RequesterID uuid.UUID
+	Title       string
+	Purpose     string
+	TotalSatang money.Satang
+	Now         pgtype.Timestamptz
+}
+
+func (q *Queries) InsertDraftClaim(ctx context.Context, arg InsertDraftClaimParams) error {
+	_, err := q.db.Exec(ctx, insertDraftClaim,
+		arg.ID,
+		arg.ClaimNo,
+		arg.RequesterID,
+		arg.Title,
+		arg.Purpose,
+		arg.TotalSatang,
+		arg.Now,
+	)
+	return err
+}
+
 const insertLineItem = `-- name: InsertLineItem :exec
 INSERT INTO line_items (id, claim_id, line_no, category, description, expense_date, amount_satang, receipt_ref)
 VALUES ($1, $2, $3, $4, $5,
@@ -382,41 +439,46 @@ func (q *Queries) InsertLineItem(ctx context.Context, arg InsertLineItemParams) 
 
 const insertSeedClaim = `-- name: InsertSeedClaim :execrows
 INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
-                    first_submitted_at, submitted_at, decided_at, created_at, updated_at)
-SELECT $1, $2, u.id, u.reviewer_id, $3, $4, $5,
-       $6, $7, $8::timestamptz, $8::timestamptz,
-       $9::timestamptz, $8::timestamptz,
-       coalesce($9::timestamptz, $8::timestamptz)
+                    return_count, first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+SELECT $1, $2, u.id,
+       CASE WHEN $3::claim_status <> 'DRAFT' THEN u.reviewer_id END,
+       $4, $5, $3::claim_status,
+       $6, $7, $8,
+       CASE WHEN $3::claim_status <> 'DRAFT' THEN $9::timestamptz END,
+       CASE WHEN $3::claim_status <> 'DRAFT' THEN $9::timestamptz END,
+       $10::timestamptz, $9::timestamptz,
+       coalesce($10::timestamptz, $9::timestamptz)
 FROM "user" u
-WHERE u.username = $10
+WHERE u.username = $11
 ON CONFLICT (claim_no) DO NOTHING
 `
 
 type InsertSeedClaimParams struct {
 	ID          uuid.UUID
 	ClaimNo     string
+	Status      ClaimStatus
 	Title       string
 	Purpose     string
-	Status      ClaimStatus
 	TotalSatang money.Satang
 	Version     int32
-	SubmittedAt pgtype.Timestamptz
+	ReturnCount int16
+	CreatedAt   pgtype.Timestamptz
 	DecidedAt   pgtype.Timestamptz
 	Requester   string
 }
 
-// InsertSeedClaim adds a demo claim with the status it should have after its history, unless a claim with the same
-// claim_no exists. It returns the rows added: 0 means the claim was seeded before, so its children must not be added again.
+// InsertSeedClaim adds a demo claim unless its claim number exists. A draft has no reviewer or submission times.
 func (q *Queries) InsertSeedClaim(ctx context.Context, arg InsertSeedClaimParams) (int64, error) {
 	result, err := q.db.Exec(ctx, insertSeedClaim,
 		arg.ID,
 		arg.ClaimNo,
+		arg.Status,
 		arg.Title,
 		arg.Purpose,
-		arg.Status,
 		arg.TotalSatang,
 		arg.Version,
-		arg.SubmittedAt,
+		arg.ReturnCount,
+		arg.CreatedAt,
 		arg.DecidedAt,
 		arg.Requester,
 	)
@@ -655,6 +717,107 @@ func (q *Queries) NextClaimSequence(ctx context.Context) (int64, error) {
 	return seq, err
 }
 
+const resubmitClaim = `-- name: ResubmitClaim :execrows
+UPDATE claims
+SET status = 'SUBMITTED', submitted_at = $1, updated_at = $1, version = version + 1
+WHERE id = $2 AND version = $3
+`
+
+type ResubmitClaimParams struct {
+	Now     pgtype.Timestamptz
+	ID      uuid.UUID
+	Version int32
+}
+
+func (q *Queries) ResubmitClaim(ctx context.Context, arg ResubmitClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, resubmitClaim, arg.Now, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const returnClaim = `-- name: ReturnClaim :execrows
+UPDATE claims
+SET status = 'RETURNED', return_count = return_count + 1, version = version + 1, updated_at = $1
+WHERE id = $2 AND version = $3
+`
+
+type ReturnClaimParams struct {
+	Now     pgtype.Timestamptz
+	ID      uuid.UUID
+	Version int32
+}
+
+// ReturnClaim sends a claim back to its requester: it adds one to the return count and to the version, but only while the
+// version is still the one the caller read (BR-13). A return is a step in the review, so decided_at stays NULL. It
+// returns the rows changed: 0 means the claim changed since.
+func (q *Queries) ReturnClaim(ctx context.Context, arg ReturnClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, returnClaim, arg.Now, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const submitDraftClaim = `-- name: SubmitDraftClaim :execrows
+UPDATE claims
+SET status = 'SUBMITTED', assigned_reviewer_id = $1, first_submitted_at = $2,
+    submitted_at = $2, updated_at = $2, version = version + 1
+WHERE id = $3 AND version = $4
+`
+
+type SubmitDraftClaimParams struct {
+	ReviewerID uuid.NullUUID
+	Now        pgtype.Timestamptz
+	ID         uuid.UUID
+	Version    int32
+}
+
+func (q *Queries) SubmitDraftClaim(ctx context.Context, arg SubmitDraftClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, submitDraftClaim,
+		arg.ReviewerID,
+		arg.Now,
+		arg.ID,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateClaimContent = `-- name: UpdateClaimContent :execrows
+UPDATE claims
+SET title = $1, purpose = $2, total_satang = $3,
+    version = version + 1, updated_at = $4
+WHERE id = $5 AND version = $6
+`
+
+type UpdateClaimContentParams struct {
+	Title       string
+	Purpose     string
+	TotalSatang money.Satang
+	Now         pgtype.Timestamptz
+	ID          uuid.UUID
+	Version     int32
+}
+
+func (q *Queries) UpdateClaimContent(ctx context.Context, arg UpdateClaimContentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateClaimContent,
+		arg.Title,
+		arg.Purpose,
+		arg.TotalSatang,
+		arg.Now,
+		arg.ID,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const upsertSeedAccount = `-- name: UpsertSeedAccount :exec
 INSERT INTO account (id, user_id, provider_id, account_id, password)
 VALUES ($1, $2, 'credential', $3, $4)
@@ -722,4 +885,27 @@ func (q *Queries) UpsertSeedUser(ctx context.Context, arg UpsertSeedUserParams) 
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const withdrawClaim = `-- name: WithdrawClaim :execrows
+UPDATE claims
+SET status = 'WITHDRAWN', version = version + 1, updated_at = $1
+WHERE id = $2 AND version = $3
+`
+
+type WithdrawClaimParams struct {
+	Now     pgtype.Timestamptz
+	ID      uuid.UUID
+	Version int32
+}
+
+// WithdrawClaim moves a claim to WITHDRAWN and adds one to the version, but only while the version is still the one the
+// caller read (BR-13). A withdrawal is not a decision, so decided_at stays NULL. It returns the rows changed: 0 means the
+// claim changed since.
+func (q *Queries) WithdrawClaim(ctx context.Context, arg WithdrawClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, withdrawClaim, arg.Now, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

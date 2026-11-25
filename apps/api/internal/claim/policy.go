@@ -12,40 +12,72 @@ type Action string
 
 // The actions of the claim policy.
 const (
-	ActionApprove Action = "approve"
-	ActionReject  Action = "reject"
+	ActionApprove  Action = "approve"
+	ActionReject   Action = "reject"
+	ActionReturn   Action = "return"
+	ActionEdit     Action = "edit"
+	ActionDelete   Action = "delete"
+	ActionSubmit   Action = "submit"
+	ActionWithdraw Action = "withdraw"
 )
+
+// MaxReturns is how many times a claim can be returned to its requester (BR-14).
+const MaxReturns = 3
 
 // Subject is what the claim policy reads about a claim. A claim with no assigned reviewer has the nil UUID there.
 type Subject struct {
 	RequesterID        uuid.UUID
 	AssignedReviewerID uuid.UUID
 	Status             db.ClaimStatus
+	OwnerHasReviewer   bool
+	ReturnCount        int
 }
 
 // allActions lists every action in the order that Allowed returns them.
-var allActions = []Action{ActionApprove, ActionReject}
+var allActions = []Action{ActionApprove, ActionReject, ActionReturn, ActionEdit, ActionDelete, ActionSubmit, ActionWithdraw}
 
 // isVisible reports whether actor may see the claim: it is own, or it is assigned and not a DRAFT.
 func isVisible(actor uuid.UUID, claim Subject) bool {
 	return claim.RequesterID == actor || (claim.AssignedReviewerID == actor && claim.Status != db.ClaimStatusDRAFT)
 }
 
-// check decides whether actor may take action on the claim, in the order of F-04 §1.4: a requester (BR-01), a member
-// who is not the assigned reviewer (BR-02), and a DRAFT, which the assigned reviewer cannot see, are ErrForbidden
-// whatever the status; a claim whose status does not allow the action is ErrInvalidTransition (BR-03). It returns what
-// the action does.
-func check(actor uuid.UUID, claim Subject, action Action) (transition, error) {
-	if claim.RequesterID == actor || claim.AssignedReviewerID != actor || claim.Status == db.ClaimStatusDRAFT {
-		return transition{}, ErrForbidden
+// check applies visibility, the actor relation, and the status rules in that order (F-04 §1.4, F-05 §1.4).
+func check(actor uuid.UUID, claim Subject, action Action) error {
+	if !isVisible(actor, claim) {
+		return ErrForbidden
 	}
 
-	found := transitions[action]
-	if claim.Status != found.from {
-		return transition{}, ErrInvalidTransition
+	switch action {
+	case ActionEdit, ActionDelete:
+		if claim.RequesterID != actor {
+			return ErrForbidden
+		}
+		if claim.Status == db.ClaimStatusDRAFT || (action == ActionEdit && claim.Status == db.ClaimStatusRETURNED) {
+			return nil
+		}
+		return ErrInvalidTransition
+	case ActionSubmit:
+		if claim.RequesterID != actor || (claim.Status == db.ClaimStatusDRAFT && !claim.OwnerHasReviewer) {
+			return ErrForbidden
+		}
+	case ActionWithdraw:
+		if claim.RequesterID != actor {
+			return ErrForbidden
+		}
+	case ActionApprove, ActionReject, ActionReturn:
+		if claim.RequesterID == actor || claim.AssignedReviewerID != actor {
+			return ErrForbidden
+		}
 	}
 
-	return found, nil
+	if _, ok := transitions[action][claim.Status]; ok {
+		if action == ActionReturn && claim.ReturnCount >= MaxReturns {
+			return ErrReturnLimit
+		}
+
+		return nil
+	}
+	return ErrInvalidTransition
 }
 
 // Allowed is the claim policy (F-03 §1.3, F-04 §1.3): whether actor may see the claim, and which actions actor may take
@@ -53,13 +85,12 @@ func check(actor uuid.UUID, claim Subject, action Action) (transition, error) {
 // visible when it is own, or when it is assigned and not a DRAFT. The assigned reviewer, when not also the requester,
 // may approve and reject a SUBMITTED claim. It is a pure function of its inputs. Actions is never nil.
 //
-// The requester's edit, submit, delete, and withdraw come in Sprint 2. Later features add rows here and do not change the
-// visibility.
+// The requester may edit or submit a draft or returned claim and may delete a draft (F-05 §1.9).
 func Allowed(actor uuid.UUID, claim Subject) (visible bool, allowed []Action) {
 	allowed = []Action{}
 
 	for _, action := range allActions {
-		if _, err := check(actor, claim, action); err == nil {
+		if check(actor, claim, action) == nil {
 			allowed = append(allowed, action)
 		}
 	}

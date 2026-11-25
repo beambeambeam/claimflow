@@ -23,6 +23,7 @@ describe("StatusBadge", () => {
 
   it.each<[ClaimStatus, string]>([
     ["SUBMITTED", "blue"],
+    ["RETURNED", "yellow"],
     ["APPROVED", "green"],
     ["REJECTED", "red"],
     ["DRAFT", "neutral"],
@@ -32,5 +33,23 @@ describe("StatusBadge", () => {
     expect(
       container.querySelector<HTMLElement>("[data-variant]")?.dataset.variant
     ).toBe(variant);
+  });
+
+  it("F07-AC-09: shows Withdrawn grey, with its label in a struck-through Text that no other status has", () => {
+    const { container, rerender } = render(<StatusBadge status="WITHDRAWN" />);
+
+    expect(
+      container.querySelector<HTMLElement>("[data-variant]")?.dataset.variant
+    ).toBe("neutral");
+    // The strike-through is a style class of Text, so the test checks that the label is a Text and the others are not.
+    expect(
+      screen.getByText("Withdrawn").classList.contains("astryx-text")
+    ).toBe(true);
+
+    rerender(<StatusBadge status="DRAFT" />);
+
+    expect(screen.getByText("Draft").classList.contains("astryx-text")).toBe(
+      false
+    );
   });
 });

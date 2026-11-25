@@ -2,14 +2,23 @@ package claim
 
 import "github.com/beambeambeam/claimflow/apps/api/internal/db"
 
-// transition is what an action does to a claim: the status it needs, the status it leads to, and the history action.
+// transition is the destination and history action for an allowed status change.
 type transition struct {
-	from, to db.ClaimStatus
-	history  db.ClaimAction
+	to      db.ClaimStatus
+	history db.ClaimAction
 }
 
-// transitions is the lifecycle of Sprint 1 (F-04 §1.3). APPROVED and REJECTED are terminal. A later feature adds rows.
-var transitions = map[Action]transition{
-	ActionApprove: {from: db.ClaimStatusSUBMITTED, to: db.ClaimStatusAPPROVED, history: db.ClaimActionAPPROVE},
-	ActionReject:  {from: db.ClaimStatusSUBMITTED, to: db.ClaimStatusREJECTED, history: db.ClaimActionREJECT},
+// transitions lists the status changes by action and source status (F-04 §1.3, F-05 §1.10).
+var transitions = map[Action]map[db.ClaimStatus]transition{
+	ActionApprove: {db.ClaimStatusSUBMITTED: {to: db.ClaimStatusAPPROVED, history: db.ClaimActionAPPROVE}},
+	ActionReject:  {db.ClaimStatusSUBMITTED: {to: db.ClaimStatusREJECTED, history: db.ClaimActionREJECT}},
+	ActionReturn:  {db.ClaimStatusSUBMITTED: {to: db.ClaimStatusRETURNED, history: db.ClaimActionRETURN}},
+	ActionWithdraw: {
+		db.ClaimStatusSUBMITTED: {to: db.ClaimStatusWITHDRAWN, history: db.ClaimActionWITHDRAW},
+		db.ClaimStatusRETURNED:  {to: db.ClaimStatusWITHDRAWN, history: db.ClaimActionWITHDRAW},
+	},
+	ActionSubmit: {
+		db.ClaimStatusDRAFT:    {to: db.ClaimStatusSUBMITTED, history: db.ClaimActionSUBMIT},
+		db.ClaimStatusRETURNED: {to: db.ClaimStatusSUBMITTED, history: db.ClaimActionRESUBMIT},
+	},
 }

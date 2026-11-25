@@ -206,8 +206,8 @@ func TestF04TEST02ReviewScopeIsForReviewersAndFinance(t *testing.T) {
 	}
 }
 
-// F04-TEST-03 (F04-AC-03): the assigned reviewer opens a SUBMITTED claim and gets the full history and both actions.
-func TestF04TEST03AssignedReviewerGetsApproveAndReject(t *testing.T) {
+// F04-TEST-03 (F04-AC-03): the assigned reviewer opens a SUBMITTED claim and gets the full history and the review actions (F06-AC-05 adds return).
+func TestF04TEST03AssignedReviewerGetsTheReviewActions(t *testing.T) {
 	pool := pgtest.New(t)
 	router := seededClaimRouter(t, pool)
 	id := submittedBy(t, router, "req.anan")
@@ -215,13 +215,13 @@ func TestF04TEST03AssignedReviewerGetsApproveAndReject(t *testing.T) {
 	claim := openClaim(t, router, loginAs(t, router, "rev.malee"), id).Data
 
 	if claim.Status != "SUBMITTED" || len(claim.History) != 1 || claim.History[0].Action != "SUBMIT" ||
-		!slices.Equal(claim.AllowedActions, []string{"approve", "reject"}) {
-		t.Fatalf("claim = %+v, want SUBMITTED, one SUBMIT entry, actions [approve reject]", claim)
+		!slices.Equal(claim.AllowedActions, []string{"approve", "reject", "return"}) {
+		t.Fatalf("claim = %+v, want SUBMITTED, one SUBMIT entry, actions [approve reject return]", claim)
 	}
 
-	// The requester sees the same claim and has no action on it.
-	if own := openClaim(t, router, loginAs(t, router, "req.anan"), id).Data; len(own.AllowedActions) != 0 {
-		t.Fatalf("requester allowedActions = %v, want none", own.AllowedActions)
+	// The requester sees the same claim and may only withdraw it (F-07).
+	if own := openClaim(t, router, loginAs(t, router, "req.anan"), id).Data; len(own.AllowedActions) != 1 || own.AllowedActions[0] != "withdraw" {
+		t.Fatalf("requester allowedActions = %v, want only withdraw", own.AllowedActions)
 	}
 }
 

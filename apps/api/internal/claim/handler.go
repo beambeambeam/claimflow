@@ -49,7 +49,7 @@ func NewHandler(service Service) Handler {
 	return Handler{service: service}
 }
 
-// CreateClaim submits the claim of the request body for the session user. The route permission claim:create has
+// CreateClaim submits or saves the claim of the request body for the session user. The route permission claim:create has
 // already been checked. ErrForbidden, which is BR-15 here, becomes 403. The identity comes from the session only.
 func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequestObject) (api.CreateClaimResponseObject, error) {
 	user, ok := auth.UserFrom(ctx)
@@ -57,7 +57,7 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 		return nil, errUnauthenticated
 	}
 
-	created, err := h.service.Create(ctx, Actor{ID: user.ID}, input(request.Body))
+	created, err := h.service.Create(ctx, Actor{ID: user.ID}, input(request.Body), request.Params.Draft == nil || !*request.Params.Draft)
 	if err != nil {
 		return nil, problem(err)
 	}
@@ -166,23 +166,38 @@ func (h Handler) RejectClaim(ctx context.Context, request api.RejectClaimRequest
 	return api.RejectClaim200JSONResponse{DecidedJSONResponse: decidedBody(&decided)}, nil
 }
 
+// ReturnClaim returns the claim to its requester for the session user. The checks run in the order of F-04 §1.4.
+func (h Handler) ReturnClaim(ctx context.Context, request api.ReturnClaimRequestObject) (api.ReturnClaimResponseObject, error) {
+	returned, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionReturn, request.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.ReturnClaim200JSONResponse{DecidedJSONResponse: decidedBody(&returned)}, nil
+}
+
+// WithdrawClaim withdraws the claim of the session user, with an optional comment. The checks run in the order of F-05 §1.4.
+func (h Handler) WithdrawClaim(ctx context.Context, request api.WithdrawClaimRequestObject) (api.WithdrawClaimResponseObject, error) {
+	var comment *string
+	if request.Body != nil {
+		comment = request.Body.Comment
+	}
+
+	withdrawn, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionWithdraw, &api.ClaimDecision{Comment: comment})
+	if err != nil {
+		return nil, err
+	}
+
+	return api.WithdrawClaim200JSONResponse{DecidedJSONResponse: decidedBody(&withdrawn)}, nil
+}
+
 // decide reads If-Match, the claim id, and the comment of a decision request, takes the decision, and maps the
 // module's errors to problems. A missing If-Match is 428 and a malformed one 400, both before the claim is read
 // (F-04 §1.4, step 1).
 func (h Handler) decide(ctx context.Context, rawID string, ifMatch *string, action Action, body *api.ClaimDecision) (Claim, error) {
-	version, err := parseVersion(ifMatch)
+	actor, id, version, err := mutationTarget(ctx, rawID, ifMatch)
 	if err != nil {
 		return Claim{}, err
-	}
-
-	user, ok := auth.UserFrom(ctx)
-	if !ok {
-		return Claim{}, errUnauthenticated
-	}
-
-	id, err := uuid.Parse(rawID)
-	if err != nil {
-		return Claim{}, httperr.ErrValidation
 	}
 
 	var comment string
@@ -190,12 +205,103 @@ func (h Handler) decide(ctx context.Context, rawID string, ifMatch *string, acti
 		comment = *body.Comment
 	}
 
-	decided, err := h.service.Act(ctx, Actor{ID: user.ID}, id, version, action, comment)
+	decided, err := h.service.Act(ctx, actor, id, version, action, comment)
 	if err != nil {
-		return Claim{}, problem(err)
+		return Claim{}, actionProblem(err, action)
 	}
 
 	return decided, nil
+}
+
+// UpdateClaim replaces a draft or returned claim's content.
+func (h Handler) UpdateClaim(ctx context.Context, request api.UpdateClaimRequestObject) (api.UpdateClaimResponseObject, error) {
+	actor, id, version, err := mutationTarget(ctx, request.Id, request.Params.IfMatch)
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := h.service.Edit(ctx, actor, id, version, input(request.Body))
+	if err != nil {
+		return nil, actionProblem(err, ActionEdit)
+	}
+
+	return api.UpdateClaim200JSONResponse{ClaimChangedJSONResponse: changedBody(&updated)}, nil
+}
+
+// DeleteClaim removes a draft and its line items.
+func (h Handler) DeleteClaim(ctx context.Context, request api.DeleteClaimRequestObject) (api.DeleteClaimResponseObject, error) {
+	actor, id, version, err := mutationTarget(ctx, request.Id, request.Params.IfMatch)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.service.Delete(ctx, actor, id, version); err != nil {
+		return nil, actionProblem(err, ActionDelete)
+	}
+
+	return api.DeleteClaim204Response{}, nil
+}
+
+// SubmitClaim submits the claim for review.
+func (h Handler) SubmitClaim(ctx context.Context, request api.SubmitClaimRequestObject) (api.SubmitClaimResponseObject, error) {
+	submitted, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionSubmit, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.SubmitClaim200JSONResponse{ClaimChangedJSONResponse: changedBody(&submitted)}, nil
+}
+
+// mutationTarget reads If-Match before looking up the claim.
+func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, uuid.UUID, int, error) {
+	version, invalid := parseVersion(ifMatch)
+	if invalid != nil {
+		return Actor{}, uuid.Nil, 0, invalid
+	}
+
+	user, ok := auth.UserFrom(ctx)
+	if !ok {
+		return Actor{}, uuid.Nil, 0, errUnauthenticated
+	}
+
+	id, err := uuid.Parse(rawID)
+	if err != nil {
+		return Actor{}, uuid.Nil, 0, httperr.ErrValidation
+	}
+
+	return Actor{ID: user.ID}, id, version, nil
+}
+
+var transitionErrors = map[Action]FieldError{
+	ActionApprove:  transitionError,
+	ActionReject:   transitionError,
+	ActionReturn:   {Field: "status", Rule: ruleTransition, Message: "Only a submitted claim can be returned."},
+	ActionEdit:     {Field: "status", Rule: "BR-10", Message: "Only a draft or a returned claim can be edited."},
+	ActionDelete:   {Field: "status", Rule: "BR-10", Message: "Only a draft can be deleted."},
+	ActionSubmit:   {Field: "status", Rule: ruleTransition, Message: "Only a draft or a returned claim can be submitted."},
+	ActionWithdraw: {Field: "status", Rule: "BR-16", Message: "Only a submitted or returned claim can be withdrawn."},
+}
+
+// returnLimitError is the field error of ErrReturnLimit: the claim was already returned MaxReturns times (BR-14).
+var returnLimitError = FieldError{Field: "returnCount", Rule: "BR-14", Message: fmt.Sprintf("This claim has already been returned %d times.", MaxReturns)}
+
+func actionProblem(err error, action Action) error {
+	if errors.Is(err, ErrReturnLimit) {
+		return fmt.Errorf("claim action: %w", httperr.InvalidTransition(apiFieldError(returnLimitError)))
+	}
+
+	if errors.Is(err, ErrInvalidTransition) {
+		return fmt.Errorf("claim action: %w", httperr.InvalidTransition(apiFieldError(transitionErrors[action])))
+	}
+
+	return problem(err)
+}
+
+func changedBody(claim *Claim) api.ClaimChangedJSONResponse {
+	return api.ClaimChangedJSONResponse{
+		Body:    api.ClaimEnvelope{Data: claimBody(claim)},
+		Headers: api.ClaimChangedResponseHeaders{ETag: etag(claim.Version)},
+	}
 }
 
 // moduleProblems maps each error of the module to its problem response (SDS §4.2).
@@ -206,7 +312,6 @@ var moduleProblems = []struct {
 	{ErrNotFound, errClaimNotFound},
 	{ErrForbidden, httperr.ErrForbidden},
 	{ErrConflict, httperr.ErrConflict},
-	{ErrInvalidTransition, httperr.InvalidTransition(apiFieldError(transitionError))},
 }
 
 // problem maps a module error to its problem response. ErrForbidden is also BR-15 on Create. A ValidationError
@@ -231,9 +336,22 @@ func etag(version int) string {
 	return strconv.Quote(strconv.Itoa(version))
 }
 
+// ValidateIfMatch checks the version header ahead of request body validation.
+func ValidateIfMatch(values []string) *httperr.Error {
+	switch len(values) {
+	case 0:
+		return httperr.ErrPreconditionRequired
+	case 1:
+		_, invalid := parseVersion(&values[0])
+		return invalid
+	default:
+		return httperr.ErrValidation
+	}
+}
+
 // parseVersion reads the claim version from an If-Match value such as "3". A missing header is 428. A value that is not
 // a quoted version number is 400: no quotes, a weak validator, a sign or a fraction, or more than 31 bits.
-func parseVersion(ifMatch *string) (int, error) {
+func parseVersion(ifMatch *string) (int, *httperr.Error) {
 	if ifMatch == nil {
 		return 0, httperr.ErrPreconditionRequired
 	}
@@ -275,7 +393,7 @@ func apiFieldError(field FieldError) api.FieldError {
 }
 
 // input maps the request body to the module's input. The body has no total, and any total in the JSON is ignored.
-func input(body *api.CreateClaimJSONRequestBody) Input {
+func input(body *api.ClaimInput) Input {
 	items := make([]LineItemInput, 0, len(body.Items))
 	for _, item := range body.Items {
 		items = append(items, LineItemInput{

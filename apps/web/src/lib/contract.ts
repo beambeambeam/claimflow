@@ -39,3 +39,10 @@ export const contractField = <T extends z.ZodType<unknown, string>>(
       message: contractMessage(schema),
     })
     .pipe(schema);
+
+// How many times a claim can be returned (BR-14). The API gives the count, and `return` in allowedActions says whether one is left.
+export const maxReturns = 3;
+
+// "Returned n / 3", as Claim Detail and the Decision Panel show it (SDS §7.2).
+export const returnsUsedLabel = (count: number): string =>
+  `Returned ${count} / ${maxReturns}`;

@@ -113,17 +113,27 @@ export type Claim = {
   items: Array<LineItem>;
   history: Array<HistoryEntry>;
   /**
-   * The actions this actor may take on this claim now, from the claim policy (SDS §5.2). Empty for the requester in Sprint 1.
+   * The actions this actor may take on this claim now, from the claim policy (SDS §5.2).
    */
   allowedActions: Array<string>;
 };
 
 /**
- * The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+ * The body of approve, reject, and return. The comment's length is checked by BR-04, not by this schema.
  */
 export type ClaimDecision = {
   /**
-   * Optional for approve (at most 500 characters). Required for reject (10–500 characters after trimming). The web uses `x-min-length` for the reject minimum and `x-max-length` for the comment counter.
+   * Optional for approve (at most 500 characters). Required for reject and return (10–500 characters after trimming). The web uses `x-min-length` for the reason minimum and `x-max-length` for the comment counter.
+   */
+  comment?: string;
+};
+
+/**
+ * The optional body of withdraw (F-07).
+ */
+export type ClaimWithdrawal = {
+  /**
+   * Optional note on why the claim is withdrawn, at most 500 characters. `x-max-length` repeats the limit for the web counter.
    */
   comment?: string;
 };
@@ -405,7 +415,12 @@ export type ListClaimsResponse = ListClaimsResponses[keyof ListClaimsResponses];
 export type CreateClaimData = {
   body: ClaimInput;
   path?: never;
-  query?: never;
+  query?: {
+    /**
+     * Save as a draft when true. Omit it or send false to submit immediately.
+     */
+    draft?: boolean;
+  };
   url: '/claims';
 };
 
@@ -436,12 +451,72 @@ export type CreateClaimError = CreateClaimErrors[keyof CreateClaimErrors];
 
 export type CreateClaimResponses = {
   /**
-   * The claim is stored with status `SUBMITTED`.
+   * The claim is stored with status `SUBMITTED` or `DRAFT`.
    */
   201: ClaimEnvelope;
 };
 
 export type CreateClaimResponse = CreateClaimResponses[keyof CreateClaimResponses];
+
+export type DeleteClaimData = {
+  body?: never;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}';
+};
+
+export type DeleteClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type DeleteClaimError = DeleteClaimErrors[keyof DeleteClaimErrors];
+
+export type DeleteClaimResponses = {
+  /**
+   * The draft and its line items were deleted.
+   */
+  204: void;
+};
+
+export type DeleteClaimResponse = DeleteClaimResponses[keyof DeleteClaimResponses];
 
 export type GetClaimData = {
   body?: never;
@@ -488,6 +563,70 @@ export type GetClaimResponses = {
 };
 
 export type GetClaimResponse = GetClaimResponses[keyof GetClaimResponses];
+
+export type UpdateClaimData = {
+  body: ClaimInput;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}';
+};
+
+export type UpdateClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  422: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type UpdateClaimError = UpdateClaimErrors[keyof UpdateClaimErrors];
+
+export type UpdateClaimResponses = {
+  /**
+   * The changed claim, with its new `ETag`.
+   */
+  200: ClaimEnvelope;
+};
+
+export type UpdateClaimResponse = UpdateClaimResponses[keyof UpdateClaimResponses];
 
 export type ApproveClaimData = {
   body?: ClaimDecision;
@@ -553,6 +692,70 @@ export type ApproveClaimResponses = {
 
 export type ApproveClaimResponse = ApproveClaimResponses[keyof ApproveClaimResponses];
 
+export type SubmitClaimData = {
+  body?: never;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}/submit';
+};
+
+export type SubmitClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  422: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type SubmitClaimError = SubmitClaimErrors[keyof SubmitClaimErrors];
+
+export type SubmitClaimResponses = {
+  /**
+   * The changed claim, with its new `ETag`.
+   */
+  200: ClaimEnvelope;
+};
+
+export type SubmitClaimResponse = SubmitClaimResponses[keyof SubmitClaimResponses];
+
 export type RejectClaimData = {
   body?: ClaimDecision;
   headers?: {
@@ -616,3 +819,127 @@ export type RejectClaimResponses = {
 };
 
 export type RejectClaimResponse = RejectClaimResponses[keyof RejectClaimResponses];
+
+export type ReturnClaimData = {
+  body?: ClaimDecision;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}/return';
+};
+
+export type ReturnClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  422: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type ReturnClaimError = ReturnClaimErrors[keyof ReturnClaimErrors];
+
+export type ReturnClaimResponses = {
+  /**
+   * The decided claim, with its new `ETag`.
+   */
+  200: ClaimEnvelope;
+};
+
+export type ReturnClaimResponse = ReturnClaimResponses[keyof ReturnClaimResponses];
+
+export type WithdrawClaimData = {
+  body?: ClaimWithdrawal;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}/withdraw';
+};
+
+export type WithdrawClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type WithdrawClaimError = WithdrawClaimErrors[keyof WithdrawClaimErrors];
+
+export type WithdrawClaimResponses = {
+  /**
+   * The decided claim, with its new `ETag`.
+   */
+  200: ClaimEnvelope;
+};
+
+export type WithdrawClaimResponse = WithdrawClaimResponses[keyof WithdrawClaimResponses];

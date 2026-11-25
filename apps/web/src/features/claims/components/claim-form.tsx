@@ -2,21 +2,18 @@ import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Grid } from "@astryxdesign/core/Grid";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Link } from "@astryxdesign/core/Link";
 import { Heading, Text } from "@astryxdesign/core/Text";
-import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { z } from "zod";
 
 import { categoryLabels } from "#/features/claims/labels";
-import { createClaimMutation } from "#/lib/api/@tanstack/react-query.gen";
-import type { Claim } from "#/lib/api/types.gen";
+import type { ClaimInput } from "#/lib/api/types.gen";
 import { zClaimInput, zLineItemInput } from "#/lib/api/zod.gen";
 import { contractField } from "#/lib/contract";
 import { useAppForm } from "#/lib/form";
 import { formatBaht, parseSatang } from "#/lib/format";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
-
-import { ClaimConfirmation } from "./claim-confirmation";
 
 // BR-05: a claim has 1 to 20 line items (F-02 §2.1).
 const maxLineItems = 20;
@@ -53,63 +50,63 @@ const claimSchema = z.object({
 const runningTotal = (items: { amount: string }[]) =>
   items.reduce((sum, { amount }) => sum + (parseSatang(amount) ?? 0), 0);
 
-export const ClaimForm = () => {
-  const [submitted, setSubmitted] = useState<Claim | null>(null);
+type SubmitIntent = "primary" | "draft";
 
-  const create = useMutation({
-    ...createClaimMutation(),
-    onSuccess: (envelope) => {
-      setSubmitted(envelope.data);
-    },
-  });
+interface ClaimFormProps {
+  initialValues?: ClaimInput;
+  cancelHref?: string;
+  error: unknown;
+  onSave: (body: ClaimInput, intent: SubmitIntent) => Promise<void>;
+}
+
+export const ClaimForm = ({
+  initialValues,
+  cancelHref,
+  error,
+  onSave,
+}: ClaimFormProps) => {
+  const [intent, setIntent] = useState<SubmitIntent>("primary");
+  const editing = cancelHref !== undefined;
 
   const form = useAppForm({
-    defaultValues: { title: "", purpose: "", items: [emptyItem] },
+    defaultValues: initialValues ?? {
+      title: "",
+      purpose: "",
+      items: [emptyItem],
+    },
     validators: { onSubmit: claimSchema },
+    onSubmitMeta: { intent },
     // Awaiting the request keeps `isSubmitting` true until it settles, so `submit` ignores clicks in the meantime.
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ value, meta }) => {
       try {
         // The submit validator has checked the values, so this parse returns them in the API's types.
-        await create.mutateAsync({ body: claimSchema.parse(value) });
-      } catch (error) {
-        if (!isProblem(error)) {
-          return;
+        await onSave(claimSchema.parse(value), meta.intent);
+      } catch (error_) {
+        if (isProblem(error_)) {
+          // Each server error goes under its input, as `items[1].expenseDate`; the values stay as typed.
+          form.setErrorMap({
+            onSubmit: { fields: problemFieldErrors(error_) },
+          });
         }
-
-        // Each server error goes under its input, as `items[1].expenseDate`; the values stay as typed.
-        form.setErrorMap({
-          onSubmit: { fields: problemFieldErrors(error) },
-        });
       }
     },
   });
 
-  const submit = () => {
+  const submit = (nextIntent: SubmitIntent) => {
     // F02-AC-13: a second click lands before the busy Submit renders. `handleSubmit` sets `isSubmitting` before it
     // awaits anything, so this check stops a double-click from sending the claim twice.
     if (form.state.isSubmitting) {
       return;
     }
 
+    setIntent(nextIntent);
+
     // Earlier server errors would keep the form from submitting; the server answers again for these values.
     form.setErrorMap({ onSubmit: { fields: {} } });
-    void form.handleSubmit();
+    void form.handleSubmit({ intent: nextIntent });
   };
 
-  if (submitted !== null) {
-    return (
-      <ClaimConfirmation
-        claim={submitted}
-        onNewClaim={() => {
-          form.reset();
-          create.reset();
-          setSubmitted(null);
-        }}
-      />
-    );
-  }
-
-  const problem = isProblem(create.error) ? create.error : null;
+  const problem = isProblem(error) ? error : null;
   const fieldErrors = problem === null ? {} : problemFieldErrors(problem);
 
   // `items` (the count) and `total` have no input of their own, so their messages show above Submit.
@@ -126,10 +123,10 @@ export const ClaimForm = () => {
       hAlign="stretch"
       onSubmit={(event) => {
         event.preventDefault();
-        submit();
+        submit("primary");
       }}
     >
-      <Heading level={1}>New Claim</Heading>
+      <Heading level={1}>{editing ? "Edit Claim" : "New Claim"}</Heading>
 
       <form.AppField name="title">
         {(field) => <field.TextField label="Title" />}
@@ -216,12 +213,20 @@ export const ClaimForm = () => {
         <Banner key={message} status="error" title={message} />
       ))}
 
-      {create.isError && !hasFieldErrors ? (
+      {error !== null && !hasFieldErrors ? (
         <Banner
           description={
             problem === null ? undefined : `Request ID: ${problem.requestId}`
           }
-          endContent={<Button label="Try again" onClick={submit} size="sm" />}
+          endContent={
+            <Button
+              label="Try again"
+              onClick={() => {
+                submit(intent);
+              }}
+              size="sm"
+            />
+          }
           status="error"
           title="Something went wrong."
         />
@@ -231,11 +236,25 @@ export const ClaimForm = () => {
         {(isSubmitting) => (
           <HStack>
             <Button
-              isLoading={isSubmitting}
-              label="Submit"
+              isDisabled={isSubmitting}
+              isLoading={isSubmitting && intent === "primary"}
+              label={editing ? "Save changes" : "Submit"}
               type="submit"
               variant="primary"
             />
+            {editing ? (
+              <Link href={cancelHref}>Cancel</Link>
+            ) : (
+              <Button
+                isDisabled={isSubmitting}
+                isLoading={isSubmitting && intent === "draft"}
+                label="Save as draft"
+                onClick={() => {
+                  submit("draft");
+                }}
+                variant="secondary"
+              />
+            )}
           </HStack>
         )}
       </form.Subscribe>

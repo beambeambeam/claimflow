@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses } from './types.gen';
-import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse } from './zod.gen';
+import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, DeleteClaimData, DeleteClaimErrors, DeleteClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses, ReturnClaimData, ReturnClaimErrors, ReturnClaimResponses, SubmitClaimData, SubmitClaimErrors, SubmitClaimResponses, UpdateClaimData, UpdateClaimErrors, UpdateClaimResponses, WithdrawClaimData, WithdrawClaimErrors, WithdrawClaimResponses } from './types.gen';
+import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zDeleteClaimHeaders, zDeleteClaimPath, zDeleteClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse, zReturnClaimBody, zReturnClaimHeaders, zReturnClaimPath, zReturnClaimResponse, zSubmitClaimHeaders, zSubmitClaimPath, zSubmitClaimResponse, zUpdateClaimBody, zUpdateClaimHeaders, zUpdateClaimPath, zUpdateClaimResponse, zWithdrawClaimBody, zWithdrawClaimHeaders, zWithdrawClaimPath, zWithdrawClaimResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -112,7 +112,7 @@ export const listClaims = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * Create a claim and submit it for review (F-02). Sprint 1 always submits.
+ * Create a claim and submit it for review, or save it as a draft (F-02, F-05).
  *
  * Needs the `claim:create` route permission, and an assigned reviewer (BR-15). The server calculates the total and ignores any `total` in the request (BR-08).
  */
@@ -120,7 +120,7 @@ export const createClaim = <ThrowOnError extends boolean = false>(options: Optio
   requestValidator: async (data) => await z.object({
     body: zCreateClaimBody,
     path: z.never().optional(),
-    query: z.never().optional()
+    query: zCreateClaimQuery.optional()
   }).parseAsync(data),
   responseValidator: async (data) => await zCreateClaimResponse.parseAsync(data),
   url: '/claims',
@@ -129,6 +129,23 @@ export const createClaim = <ThrowOnError extends boolean = false>(options: Optio
     'Content-Type': 'application/json',
     ...options.headers
   }
+});
+
+/**
+ * Delete a draft and its line items (F-05).
+ *
+ * Only the requester can delete a draft.
+ */
+export const deleteClaim = <ThrowOnError extends boolean = false>(options: Options<DeleteClaimData, ThrowOnError>): RequestResult<DeleteClaimResponses, DeleteClaimErrors, ThrowOnError> => (options.client ?? client).delete<DeleteClaimResponses, DeleteClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    headers: zDeleteClaimHeaders.optional(),
+    path: zDeleteClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zDeleteClaimResponse.parseAsync(data),
+  url: '/claims/{id}',
+  ...options
 });
 
 /**
@@ -145,6 +162,27 @@ export const getClaim = <ThrowOnError extends boolean = false>(options: Options<
   responseValidator: async (data) => await zGetClaimResponse.parseAsync(data),
   url: '/claims/{id}',
   ...options
+});
+
+/**
+ * Edit a draft or returned claim (F-05).
+ *
+ * Only the requester can edit. The server recalculates the total (BR-08).
+ */
+export const updateClaim = <ThrowOnError extends boolean = false>(options: Options<UpdateClaimData, ThrowOnError>): RequestResult<UpdateClaimResponses, UpdateClaimErrors, ThrowOnError> => (options.client ?? client).put<UpdateClaimResponses, UpdateClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zUpdateClaimBody,
+    headers: zUpdateClaimHeaders.optional(),
+    path: zUpdateClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zUpdateClaimResponse.parseAsync(data),
+  url: '/claims/{id}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
 });
 
 /**
@@ -169,6 +207,23 @@ export const approveClaim = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 /**
+ * Submit a draft for review (F-05).
+ *
+ * Only the requester can submit. On first submission, the reviewer and submission times are recorded with the transition.
+ */
+export const submitClaim = <ThrowOnError extends boolean = false>(options: Options<SubmitClaimData, ThrowOnError>): RequestResult<SubmitClaimResponses, SubmitClaimErrors, ThrowOnError> => (options.client ?? client).post<SubmitClaimResponses, SubmitClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    headers: zSubmitClaimHeaders.optional(),
+    path: zSubmitClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zSubmitClaimResponse.parseAsync(data),
+  url: '/claims/{id}/submit',
+  ...options
+});
+
+/**
  * Reject a submitted claim with a reason (F-04).
  *
  * Same checks and order as approve. The `comment` is required and must be 10–500 characters after trimming (BR-04). The service returns 422 with `field = "comment"` for a missing, blank, short, or long reason.
@@ -182,6 +237,48 @@ export const rejectClaim = <ThrowOnError extends boolean = false>(options: Optio
   }).parseAsync(data),
   responseValidator: async (data) => await zRejectClaimResponse.parseAsync(data),
   url: '/claims/{id}/reject',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Return a submitted claim to its requester with a reason (F-06).
+ *
+ * Same checks and order as approve, and the reason rule of reject (BR-04): the `comment` is required, and a missing, blank, short, or long one is a 422 with `field = "comment"`. The claim becomes `RETURNED` and its `returnCount` goes up by one; it has no decision time. A claim that was already returned 3 times is a 409 `INVALID_TRANSITION` (BR-14).
+ */
+export const returnClaim = <ThrowOnError extends boolean = false>(options: Options<ReturnClaimData, ThrowOnError>): RequestResult<ReturnClaimResponses, ReturnClaimErrors, ThrowOnError> => (options.client ?? client).post<ReturnClaimResponses, ReturnClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zReturnClaimBody.optional(),
+    headers: zReturnClaimHeaders.optional(),
+    path: zReturnClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zReturnClaimResponse.parseAsync(data),
+  url: '/claims/{id}/return',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Withdraw a submitted or returned claim (F-07).
+ *
+ * The owner withdraws their own claim while it is `SUBMITTED` or `RETURNED`, with an optional comment. The claim becomes `WITHDRAWN`, which is final; it has no decision time and leaves the reviewer's queue. Any other status is a 409 `INVALID_TRANSITION` (BR-16). Only the owner can withdraw: the assigned reviewer and other members get 403. The body is optional; an empty body equals `{}`.
+ */
+export const withdrawClaim = <ThrowOnError extends boolean = false>(options: Options<WithdrawClaimData, ThrowOnError>): RequestResult<WithdrawClaimResponses, WithdrawClaimErrors, ThrowOnError> => (options.client ?? client).post<WithdrawClaimResponses, WithdrawClaimErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: zWithdrawClaimBody.optional(),
+    headers: zWithdrawClaimHeaders.optional(),
+    path: zWithdrawClaimPath,
+    query: z.never().optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zWithdrawClaimResponse.parseAsync(data),
+  url: '/claims/{id}/withdraw',
   ...options,
   headers: {
     'Content-Type': 'application/json',

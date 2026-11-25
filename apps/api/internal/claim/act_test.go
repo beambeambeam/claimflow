@@ -20,7 +20,7 @@ func submittedClaim(t *testing.T, pool *pgxpool.Pool) (Claim, Actor) {
 	malee := member(t, pool, "rev.malee", "reviewer", uuid.Nil)
 	anan := member(t, pool, "req.anan", "requester", malee)
 
-	created, err := newService(pool).Create(t.Context(), Actor{ID: anan}, validInput())
+	created, err := newService(pool).Create(t.Context(), Actor{ID: anan}, validInput(), true)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

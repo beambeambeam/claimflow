@@ -131,10 +131,17 @@ export const zClaim = z.object({
 });
 
 /**
- * The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+ * The body of approve, reject, and return. The comment's length is checked by BR-04, not by this schema.
  */
 export const zClaimDecision = z.object({
   comment: z.string().register(z.globalRegistry, { minLength: 10, maxLength: 500 }).optional()
+});
+
+/**
+ * The optional body of withdraw (F-07).
+ */
+export const zClaimWithdrawal = z.object({
+  comment: z.string().max(500).register(z.globalRegistry, { maxLength: 500 }).optional()
 });
 
 export const zClaimEnvelope = z.object({
@@ -247,10 +254,27 @@ export const zListClaimsResponse = zClaimPage;
 
 export const zCreateClaimBody = zClaimInput;
 
+export const zCreateClaimQuery = z.object({
+  draft: z.boolean().optional()
+});
+
 /**
- * The claim is stored with status `SUBMITTED`.
+ * The claim is stored with status `SUBMITTED` or `DRAFT`.
  */
 export const zCreateClaimResponse = zClaimEnvelope;
+
+export const zDeleteClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zDeleteClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The draft and its line items were deleted.
+ */
+export const zDeleteClaimResponse = z.void();
 
 export const zGetClaimPath = z.object({
   id: z.string()
@@ -260,6 +284,21 @@ export const zGetClaimPath = z.object({
  * The claim.
  */
 export const zGetClaimResponse = zClaimEnvelope;
+
+export const zUpdateClaimBody = zClaimInput;
+
+export const zUpdateClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zUpdateClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The changed claim, with its new `ETag`.
+ */
+export const zUpdateClaimResponse = zClaimEnvelope;
 
 export const zApproveClaimBody = zClaimDecision;
 
@@ -276,6 +315,19 @@ export const zApproveClaimPath = z.object({
  */
 export const zApproveClaimResponse = zClaimEnvelope;
 
+export const zSubmitClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zSubmitClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The changed claim, with its new `ETag`.
+ */
+export const zSubmitClaimResponse = zClaimEnvelope;
+
 export const zRejectClaimBody = zClaimDecision;
 
 export const zRejectClaimHeaders = z.object({
@@ -290,3 +342,33 @@ export const zRejectClaimPath = z.object({
  * The decided claim, with its new `ETag`.
  */
 export const zRejectClaimResponse = zClaimEnvelope;
+
+export const zReturnClaimBody = zClaimDecision;
+
+export const zReturnClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zReturnClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The decided claim, with its new `ETag`.
+ */
+export const zReturnClaimResponse = zClaimEnvelope;
+
+export const zWithdrawClaimBody = zClaimWithdrawal;
+
+export const zWithdrawClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zWithdrawClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The decided claim, with its new `ETag`.
+ */
+export const zWithdrawClaimResponse = zClaimEnvelope;

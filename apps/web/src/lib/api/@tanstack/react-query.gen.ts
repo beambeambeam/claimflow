@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveClaim, createClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim } from '../sdk.gen';
-import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse } from '../types.gen';
+import { approveClaim, createClaim, deleteClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, returnClaim, submitClaim, updateClaim, withdrawClaim } from '../sdk.gen';
+import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, ReturnClaimData, ReturnClaimError, ReturnClaimResponse, SubmitClaimData, SubmitClaimError, SubmitClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse, WithdrawClaimData, WithdrawClaimError, WithdrawClaimResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -209,7 +209,7 @@ export const listClaimsInfiniteOptions = (options: Options<ListClaimsData>) => {
 };
 
 /**
- * Create a claim and submit it for review (F-02). Sprint 1 always submits.
+ * Create a claim and submit it for review, or save it as a draft (F-02, F-05).
  *
  * Needs the `claim:create` route permission, and an assigned reviewer (BR-15). The server calculates the total and ignores any `total` in the request (BR-08).
  */
@@ -217,6 +217,25 @@ export const createClaimMutation = (options?: Partial<Options<CreateClaimData>>)
   const mutationOptions: UseMutationOptions<CreateClaimResponse, CreateClaimError, Options<CreateClaimData>> = {
     mutationFn: async (fnOptions) => {
       const { data } = await createClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Delete a draft and its line items (F-05).
+ *
+ * Only the requester can delete a draft.
+ */
+export const deleteClaimMutation = (options?: Partial<Options<DeleteClaimData>>): UseMutationOptions<DeleteClaimResponse, DeleteClaimError, Options<DeleteClaimData>> => {
+  const mutationOptions: UseMutationOptions<DeleteClaimResponse, DeleteClaimError, Options<DeleteClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await deleteClaim({
         ...options,
         ...fnOptions,
         throwOnError: true
@@ -248,6 +267,25 @@ export const getClaimOptions = (options: Options<GetClaimData>) => queryOptions<
 });
 
 /**
+ * Edit a draft or returned claim (F-05).
+ *
+ * Only the requester can edit. The server recalculates the total (BR-08).
+ */
+export const updateClaimMutation = (options?: Partial<Options<UpdateClaimData>>): UseMutationOptions<UpdateClaimResponse, UpdateClaimError, Options<UpdateClaimData>> => {
+  const mutationOptions: UseMutationOptions<UpdateClaimResponse, UpdateClaimError, Options<UpdateClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await updateClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
  * Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
  *
  * Needs a session; the claim policy decides the rest. The checks run in this order (F-04 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it or is not its assigned reviewer, or is its requester (403); the claim is not `SUBMITTED` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional.
@@ -267,6 +305,25 @@ export const approveClaimMutation = (options?: Partial<Options<ApproveClaimData>
 };
 
 /**
+ * Submit a draft for review (F-05).
+ *
+ * Only the requester can submit. On first submission, the reviewer and submission times are recorded with the transition.
+ */
+export const submitClaimMutation = (options?: Partial<Options<SubmitClaimData>>): UseMutationOptions<SubmitClaimResponse, SubmitClaimError, Options<SubmitClaimData>> => {
+  const mutationOptions: UseMutationOptions<SubmitClaimResponse, SubmitClaimError, Options<SubmitClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await submitClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
  * Reject a submitted claim with a reason (F-04).
  *
  * Same checks and order as approve. The `comment` is required and must be 10–500 characters after trimming (BR-04). The service returns 422 with `field = "comment"` for a missing, blank, short, or long reason.
@@ -275,6 +332,44 @@ export const rejectClaimMutation = (options?: Partial<Options<RejectClaimData>>)
   const mutationOptions: UseMutationOptions<RejectClaimResponse, RejectClaimError, Options<RejectClaimData>> = {
     mutationFn: async (fnOptions) => {
       const { data } = await rejectClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Return a submitted claim to its requester with a reason (F-06).
+ *
+ * Same checks and order as approve, and the reason rule of reject (BR-04): the `comment` is required, and a missing, blank, short, or long one is a 422 with `field = "comment"`. The claim becomes `RETURNED` and its `returnCount` goes up by one; it has no decision time. A claim that was already returned 3 times is a 409 `INVALID_TRANSITION` (BR-14).
+ */
+export const returnClaimMutation = (options?: Partial<Options<ReturnClaimData>>): UseMutationOptions<ReturnClaimResponse, ReturnClaimError, Options<ReturnClaimData>> => {
+  const mutationOptions: UseMutationOptions<ReturnClaimResponse, ReturnClaimError, Options<ReturnClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await returnClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Withdraw a submitted or returned claim (F-07).
+ *
+ * The owner withdraws their own claim while it is `SUBMITTED` or `RETURNED`, with an optional comment. The claim becomes `WITHDRAWN`, which is final; it has no decision time and leaves the reviewer's queue. Any other status is a 409 `INVALID_TRANSITION` (BR-16). Only the owner can withdraw: the assigned reviewer and other members get 403. The body is optional; an empty body equals `{}`.
+ */
+export const withdrawClaimMutation = (options?: Partial<Options<WithdrawClaimData>>): UseMutationOptions<WithdrawClaimResponse, WithdrawClaimError, Options<WithdrawClaimData>> => {
+  const mutationOptions: UseMutationOptions<WithdrawClaimResponse, WithdrawClaimError, Options<WithdrawClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await withdrawClaim({
         ...options,
         ...fnOptions,
         throwOnError: true
