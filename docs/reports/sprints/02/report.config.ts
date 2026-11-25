@@ -91,13 +91,6 @@ const config: SprintConfig = {
     },
     { anchor: null, group: "pr109", name: "pr109-header", pr: 109 },
   ],
-  // The Sprint 3 contracts at ef38550 hold one Mermaid sequence diagram each
-  // that GitHub does not draw (a semicolon inside a message ends the line).
-  knownFaults: {
-    f08: String.raw`GitHub does not draw the workflow diagram of this contract at \texttt{ef38550}: it shows \textquotedblleft{}Unable to render rich display\textquotedblright{} (parse error on diagram line 11, the semicolon in the message of that line). The diagram source is printed under the error and the contract text is unaffected. A fix is a revision of the contract on \texttt{sprint-3}, not part of this report.`,
-    f09: String.raw`GitHub does not draw the workflow diagram of this contract at \texttt{ef38550}: it shows \textquotedblleft{}Unable to render rich display\textquotedblright{} (parse error on diagram line 7). The diagram source is printed under the error and the contract text is unaffected. A fix is a revision of the contract on \texttt{sprint-3}, not part of this report.`,
-    f10: String.raw`GitHub does not draw the workflow diagram of this contract at \texttt{ef38550}: it shows \textquotedblleft{}Unable to render rich display\textquotedblright{} (parse error on diagram line 9). The diagram source is printed under the error and the contract text is unaffected. A fix is a revision of the contract on \texttt{sprint-3}, not part of this report.`,
-  },
   release: "v0.1.1.0",
   implementation: {
     "F05-AC-01":

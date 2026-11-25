@@ -1,14 +1,12 @@
 {
-  "commit": "ef38550",
+  "commit": "21a317c",
   "file": "docs/sprints/sprint-3/F-09-filter-and-search.md",
-  "height": 17544,
-  "mermaid_drawn": 0,
+  "height": 16732,
+  "mermaid_drawn": 1,
   "mermaid_expected": 1,
   "name": "f09",
-  "problems": [
-    "MERMAID source does not render on GitHub: parse error on diagram line 7"
-  ],
-  "ref": "sprint-3",
-  "url": "https://github.com/beambeambeam/claimflow/blob/ef38550/docs/sprints/sprint-3/F-09-filter-and-search.md",
+  "problems": [],
+  "ref": "docs/sprint-3-mermaid-semicolons",
+  "url": "https://github.com/beambeambeam/claimflow/blob/21a317c/docs/sprints/sprint-3/F-09-filter-and-search.md",
   "width": 2000
 }
