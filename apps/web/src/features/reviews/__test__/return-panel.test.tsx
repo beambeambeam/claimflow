@@ -37,7 +37,6 @@ interface Sent {
 
 const sent: Sent[] = [];
 let claimReads = 0;
-let queueReads = 0;
 
 const server = setupServer(
   http.get(`${apiUrl}/auth/me`, () => HttpResponse.json({ data: reviewer })),
@@ -46,11 +45,9 @@ const server = setupServer(
 
     return HttpResponse.json({ data: current });
   }),
-  http.get(`${apiUrl}/claims`, () => {
-    queueReads += 1;
-
-    return HttpResponse.json({ data: [], page: 1, pageSize: 20, total: 0 });
-  }),
+  http.get(`${apiUrl}/claims`, () =>
+    HttpResponse.json({ data: [], page: 1, pageSize: 20, total: 0 })
+  ),
   http.post(`${apiUrl}/claims/${claimId}/return`, async ({ request }) => {
     sent.push({
       ifMatch: request.headers.get("If-Match"),
@@ -102,9 +99,10 @@ const open = async (detail: Claim) => {
 
 const dialog = () => screen.getByRole("dialog");
 
+// A page of the queue that no screen shows here, so nothing reads it again and only an invalidation can mark it stale.
 // Built when used: the client's base URL is set before the tests, not before this module loads.
-const queueQuery = () =>
-  listClaimsOptions({ query: { scope: "review", page: 1, pageSize: 20 } });
+const unshownQueuePage = () =>
+  listClaimsOptions({ query: { scope: "review", page: 2, pageSize: 20 } });
 
 const unprocessable = () =>
   HttpResponse.json(
@@ -123,7 +121,6 @@ beforeEach(() => {
   stalled = false;
   sent.length = 0;
   claimReads = 0;
-  queueReads = 0;
   returnResponse = () => HttpResponse.json({ data: current });
 });
 
@@ -198,7 +195,8 @@ describe("Decision panel: return", () => {
 
   it("F06-TEST-13: a return shows the toast and goes back to the review queue", async () => {
     const { router, user } = await open(returnable());
-    await router.options.context.queryClient.query(queueQuery());
+    const { queryClient } = router.options.context;
+    await queryClient.query(unshownQueuePage());
 
     await user.click(screen.getByRole("button", { name: "Return" }));
     await user.type(
@@ -216,10 +214,10 @@ describe("Decision panel: return", () => {
         body: { comment: "Please attach the receipt." },
       },
     ]);
-    // The claim left the queue, so the queue is read again after the first read above.
-    await waitFor(() => {
-      expect(queueReads).toBeGreaterThanOrEqual(2);
-    });
+    // The claim left the queue, so every cached page of the queue is stale.
+    expect(
+      queryClient.getQueryState(unshownQueuePage().queryKey)?.isInvalidated
+    ).toBe(true);
   }, 30_000);
 
   it("F06-TEST-13: a 409 shows the changed toast, closes the dialog, and reads the claim again", async () => {
