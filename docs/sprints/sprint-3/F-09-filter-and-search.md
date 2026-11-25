@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-01 (new scope; the list and the policy agree on visibility), SR-05 (filter indexes)
 - **Depends on:** F-03 (list and pagination), F-04 (review scope), F-08 (Finance visibility)
 - **Design baseline:** `docs/system-sds.md` v0.18 §4.3 `GET /claims` filters; §5.2 visibility; §5.3 `scope=all`; §7.2 shared UI behaviour
-- **Version:** 0.2 · **Last updated:** 2026-11-25
+- **Version:** 0.3 · **Last updated:** 2026-11-26
 
 ---
 
@@ -33,10 +33,10 @@ sequenceDiagram
     participant H as Handler
     participant C as claim.Service.List
     participant D as PostgreSQL
-    U->>W: choose status, category, dates; type a title
+    U->>W: choose status, category, dates, type a title
     W->>W: update URL search params (search debounced 300 ms)
     W->>H: GET /claims?scope=all&status=&category=&from=&to=&q=&page=
-    H->>H: session; contract validation; filter rules (400)
+    H->>H: session, contract validation, filter rules (400)
     H->>C: List(actor, Query{ScopeAll, Filters, Page, PageSize})
     C->>D: SELECT … WHERE visible(actor) AND filters ORDER BY created_at DESC, id DESC LIMIT/OFFSET
     C->>D: SELECT count(*) with the same WHERE
@@ -203,3 +203,4 @@ The Sprint 3 Product DoD applies. For F-09 the evidence is:
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-25 | Initial contract, from the F-09 feature spec and ticket #48 | beambeambeam |
 | 0.2 | 2026-11-25 | Review on #111: the handler validates the query parameters (§3); F09-TEST-09 checks that `q` is a SQL parameter | beambeambeam |
+| 0.3 | 2026-11-26 | Mermaid: commas replace the semicolons in the sequence diagram messages, which ended the statement and stopped GitHub drawing the diagram; no rule changes | Kiatisakk |
