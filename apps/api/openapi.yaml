@@ -399,6 +399,74 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /claims/{id}/return:
+    post:
+      operationId: returnClaim
+      summary: Return a submitted claim to its requester with a reason (F-06).
+      description: >-
+        Same checks and order as approve, and the reason rule of reject (BR-04): the `comment` is required, and a missing, blank, short, or long one is a 422 with `field = "comment"`. The claim becomes `RETURNED` and its `returnCount` goes up by one; it has no decision time. A claim that was already returned 3 times is a 409 `INVALID_TRANSITION` (BR-14).
+      tags: [claims]
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimDecision"
+      responses:
+        "200":
+          $ref: "#/components/responses/Decided"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "428":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /claims/{id}/withdraw:
+    post:
+      operationId: withdrawClaim
+      summary: Withdraw a submitted or returned claim (F-07).
+      description: >-
+        The owner withdraws their own claim while it is `SUBMITTED` or `RETURNED`, with an optional comment. The claim becomes `WITHDRAWN`, which is final; it has no decision time and leaves the reviewer's queue. Any other status is a 409 `INVALID_TRANSITION` (BR-16). Only the owner can withdraw: the assigned reviewer and other members get 403. The body is optional; an empty body equals `{}`.
+      tags: [claims]
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimWithdrawal"
+      responses:
+        "200":
+          $ref: "#/components/responses/Decided"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "428":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   parameters:
     ClaimId:
@@ -760,11 +828,20 @@ components:
             type: string
     ClaimDecision:
       type: object
-      description: The body of approve and reject. The comment's length is checked by BR-04, not by this schema.
+      description: The body of approve, reject, and return. The comment's length is checked by BR-04, not by this schema.
       properties:
         comment:
           type: string
-          description: Optional for approve (at most 500 characters). The reason for reject (5–500 characters). `x-max-length` is the BR-04 upper bound, which the web counter shows.
+          description: Optional for approve (at most 500 characters). The reason for reject and return (5–500 characters). `x-max-length` is the BR-04 upper bound, which the web counter shows.
+          x-max-length: 500
+    ClaimWithdrawal:
+      type: object
+      description: The optional body of withdraw (F-07).
+      properties:
+        comment:
+          type: string
+          description: Optional note on why the claim is withdrawn, at most 500 characters. `x-max-length` repeats the limit for the web counter.
+          maxLength: 500
           x-max-length: 500
     ClaimEnvelope:
       type: object

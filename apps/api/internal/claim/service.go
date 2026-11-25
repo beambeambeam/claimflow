@@ -22,6 +22,8 @@ var (
 	ErrNotFound = errors.New("claim: not found")
 	// ErrInvalidTransition means the claim's status does not allow the action (BR-03).
 	ErrInvalidTransition = errors.New("claim: invalid transition")
+	// ErrReturnLimit is an invalid transition for a return of a claim that was already returned MaxReturns times (BR-14).
+	ErrReturnLimit = fmt.Errorf("%w: the return limit is reached", ErrInvalidTransition)
 	// ErrConflict means the claim changed since the caller read it: the version is not the current one (BR-13).
 	ErrConflict = errors.New("claim: changed since it was read")
 )
@@ -258,10 +260,7 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetCl
 		if int(row.Version) != version {
 			return ErrConflict
 		}
-		changed, err = queries.DecideClaim(ctx, db.DecideClaimParams{
-			Status: step.to, Now: timestamptz(now), ID: row.ID,
-			Version: row.Version,
-		})
+		changed, err = reviewStep(ctx, queries, row, action, step, now)
 	}
 	if err != nil {
 		return fmt.Errorf("update claim status: %w", err)
@@ -284,6 +283,35 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetCl
 	}
 
 	return nil
+}
+
+// reviewStep applies the step at the version that was read: a return keeps the claim open for its requester, a
+// withdrawal ends it without a decision, and a decision stamps the decision time.
+func reviewStep(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, action Action, step transition, now time.Time) (int64, error) {
+	if action == ActionWithdraw {
+		changed, err := queries.WithdrawClaim(ctx, db.WithdrawClaimParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
+		if err != nil { // coverage-ignore
+			return 0, fmt.Errorf("withdraw claim: %w", err)
+		}
+
+		return changed, nil
+	}
+
+	if action == ActionReturn {
+		changed, err := queries.ReturnClaim(ctx, db.ReturnClaimParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
+		if err != nil { // coverage-ignore
+			return 0, fmt.Errorf("return claim: %w", err)
+		}
+
+		return changed, nil
+	}
+
+	changed, err := queries.DecideClaim(ctx, db.DecideClaimParams{Status: step.to, Now: timestamptz(now), ID: row.ID, Version: row.Version})
+	if err != nil { // coverage-ignore
+		return 0, fmt.Errorf("decide claim: %w", err)
+	}
+
+	return changed, nil
 }
 
 func submitClaim(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, version int, now time.Time) (int64, error) {

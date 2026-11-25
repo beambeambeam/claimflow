@@ -12,12 +12,17 @@ type Action string
 
 // The actions of the claim policy.
 const (
-	ActionApprove Action = "approve"
-	ActionReject  Action = "reject"
-	ActionEdit    Action = "edit"
-	ActionDelete  Action = "delete"
-	ActionSubmit  Action = "submit"
+	ActionApprove  Action = "approve"
+	ActionReject   Action = "reject"
+	ActionReturn   Action = "return"
+	ActionEdit     Action = "edit"
+	ActionDelete   Action = "delete"
+	ActionSubmit   Action = "submit"
+	ActionWithdraw Action = "withdraw"
 )
+
+// MaxReturns is how many times a claim can be returned to its requester (BR-14).
+const MaxReturns = 3
 
 // Subject is what the claim policy reads about a claim. A claim with no assigned reviewer has the nil UUID there.
 type Subject struct {
@@ -29,7 +34,7 @@ type Subject struct {
 }
 
 // allActions lists every action in the order that Allowed returns them.
-var allActions = []Action{ActionApprove, ActionReject, ActionEdit, ActionDelete, ActionSubmit}
+var allActions = []Action{ActionApprove, ActionReject, ActionReturn, ActionEdit, ActionDelete, ActionSubmit, ActionWithdraw}
 
 // isVisible reports whether actor may see the claim: it is own, or it is assigned and not a DRAFT.
 func isVisible(actor uuid.UUID, claim Subject) bool {
@@ -55,13 +60,21 @@ func check(actor uuid.UUID, claim Subject, action Action) error {
 		if claim.RequesterID != actor || (claim.Status == db.ClaimStatusDRAFT && !claim.OwnerHasReviewer) {
 			return ErrForbidden
 		}
-	case ActionApprove, ActionReject:
+	case ActionWithdraw:
+		if claim.RequesterID != actor {
+			return ErrForbidden
+		}
+	case ActionApprove, ActionReject, ActionReturn:
 		if claim.RequesterID == actor || claim.AssignedReviewerID != actor {
 			return ErrForbidden
 		}
 	}
 
 	if _, ok := transitions[action][claim.Status]; ok {
+		if action == ActionReturn && claim.ReturnCount >= MaxReturns {
+			return ErrReturnLimit
+		}
+
 		return nil
 	}
 	return ErrInvalidTransition

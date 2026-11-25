@@ -166,6 +166,31 @@ func (h Handler) RejectClaim(ctx context.Context, request api.RejectClaimRequest
 	return api.RejectClaim200JSONResponse{DecidedJSONResponse: decidedBody(&decided)}, nil
 }
 
+// ReturnClaim returns the claim to its requester for the session user. The checks run in the order of F-04 §1.4.
+func (h Handler) ReturnClaim(ctx context.Context, request api.ReturnClaimRequestObject) (api.ReturnClaimResponseObject, error) {
+	returned, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionReturn, request.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.ReturnClaim200JSONResponse{DecidedJSONResponse: decidedBody(&returned)}, nil
+}
+
+// WithdrawClaim withdraws the claim of the session user, with an optional comment. The checks run in the order of F-05 §1.4.
+func (h Handler) WithdrawClaim(ctx context.Context, request api.WithdrawClaimRequestObject) (api.WithdrawClaimResponseObject, error) {
+	var comment *string
+	if request.Body != nil {
+		comment = request.Body.Comment
+	}
+
+	withdrawn, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionWithdraw, &api.ClaimDecision{Comment: comment})
+	if err != nil {
+		return nil, err
+	}
+
+	return api.WithdrawClaim200JSONResponse{DecidedJSONResponse: decidedBody(&withdrawn)}, nil
+}
+
 // decide reads If-Match, the claim id, and the comment of a decision request, takes the decision, and maps the
 // module's errors to problems. A missing If-Match is 428 and a malformed one 400, both before the claim is read
 // (F-04 §1.4, step 1).
@@ -248,14 +273,23 @@ func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, 
 }
 
 var transitionErrors = map[Action]FieldError{
-	ActionApprove: transitionError,
-	ActionReject:  transitionError,
-	ActionEdit:    {Field: "status", Rule: "BR-10", Message: "Only a draft or a returned claim can be edited."},
-	ActionDelete:  {Field: "status", Rule: "BR-10", Message: "Only a draft can be deleted."},
-	ActionSubmit:  {Field: "status", Rule: ruleTransition, Message: "Only a draft or a returned claim can be submitted."},
+	ActionApprove:  transitionError,
+	ActionReject:   transitionError,
+	ActionReturn:   {Field: "status", Rule: ruleTransition, Message: "Only a submitted claim can be returned."},
+	ActionEdit:     {Field: "status", Rule: "BR-10", Message: "Only a draft or a returned claim can be edited."},
+	ActionDelete:   {Field: "status", Rule: "BR-10", Message: "Only a draft can be deleted."},
+	ActionSubmit:   {Field: "status", Rule: ruleTransition, Message: "Only a draft or a returned claim can be submitted."},
+	ActionWithdraw: {Field: "status", Rule: "BR-16", Message: "Only a submitted or returned claim can be withdrawn."},
 }
 
+// returnLimitError is the field error of ErrReturnLimit: the claim was already returned MaxReturns times (BR-14).
+var returnLimitError = FieldError{Field: "returnCount", Rule: "BR-14", Message: fmt.Sprintf("This claim has already been returned %d times.", MaxReturns)}
+
 func actionProblem(err error, action Action) error {
+	if errors.Is(err, ErrReturnLimit) {
+		return fmt.Errorf("claim action: %w", httperr.InvalidTransition(apiFieldError(returnLimitError)))
+	}
+
 	if errors.Is(err, ErrInvalidTransition) {
 		return fmt.Errorf("claim action: %w", httperr.InvalidTransition(apiFieldError(transitionErrors[action])))
 	}

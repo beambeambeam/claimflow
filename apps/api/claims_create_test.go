@@ -181,8 +181,8 @@ func TestF02TEST01SubmitValidClaim(t *testing.T) {
 		t.Fatalf("history = %+v, want one SUBMIT entry from null to SUBMITTED by req.anan", claim.History)
 	}
 
-	if claim.AllowedActions == nil || len(claim.AllowedActions) != 0 {
-		t.Fatalf("allowedActions = %v, want an empty list", claim.AllowedActions)
+	if !slices.Equal(claim.AllowedActions, []string{"withdraw"}) {
+		t.Fatalf("allowedActions = %v, want only withdraw for the owner of a submitted claim", claim.AllowedActions)
 	}
 
 	for query, want := range map[string]int{

@@ -12,6 +12,11 @@ type transition struct {
 var transitions = map[Action]map[db.ClaimStatus]transition{
 	ActionApprove: {db.ClaimStatusSUBMITTED: {to: db.ClaimStatusAPPROVED, history: db.ClaimActionAPPROVE}},
 	ActionReject:  {db.ClaimStatusSUBMITTED: {to: db.ClaimStatusREJECTED, history: db.ClaimActionREJECT}},
+	ActionReturn:  {db.ClaimStatusSUBMITTED: {to: db.ClaimStatusRETURNED, history: db.ClaimActionRETURN}},
+	ActionWithdraw: {
+		db.ClaimStatusSUBMITTED: {to: db.ClaimStatusWITHDRAWN, history: db.ClaimActionWITHDRAW},
+		db.ClaimStatusRETURNED:  {to: db.ClaimStatusWITHDRAWN, history: db.ClaimActionWITHDRAW},
+	},
 	ActionSubmit: {
 		db.ClaimStatusDRAFT:    {to: db.ClaimStatusSUBMITTED, history: db.ClaimActionSUBMIT},
 		db.ClaimStatusRETURNED: {to: db.ClaimStatusSUBMITTED, history: db.ClaimActionRESUBMIT},

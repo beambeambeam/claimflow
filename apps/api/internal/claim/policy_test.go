@@ -1,6 +1,7 @@
 package claim
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -29,6 +30,9 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 		if status == db.ClaimStatusDRAFT {
 			return []Action{ActionEdit, ActionDelete}
 		}
+		if status == db.ClaimStatusSUBMITTED {
+			return []Action{ActionWithdraw}
+		}
 		return []Action{}
 	}
 
@@ -52,7 +56,7 @@ func TestF03TEST09PolicyMatrix(t *testing.T) {
 			visible: func(status db.ClaimStatus) bool { return status != db.ClaimStatusDRAFT },
 			actions: func(status db.ClaimStatus) []Action {
 				if status == db.ClaimStatusSUBMITTED {
-					return []Action{ActionApprove, ActionReject}
+					return []Action{ActionApprove, ActionReject, ActionReturn}
 				}
 
 				return []Action{}
@@ -113,7 +117,7 @@ func TestF04TEST09PolicyGivesNoDecisionOnOwnClaim(t *testing.T) {
 		t.Fatal("visible = false, want true: the requester sees their own claim")
 	}
 
-	for _, action := range []Action{ActionApprove, ActionReject} {
+	for _, action := range []Action{ActionApprove, ActionReject, ActionReturn} {
 		if slices.Contains(actions, action) {
 			t.Fatalf("actions = %v, want no %s (BR-01)", actions, action)
 		}
@@ -133,8 +137,8 @@ func TestF05TEST06DraftAndReturnedPolicy(t *testing.T) {
 	}{
 		{"draft with reviewer", owner, db.ClaimStatusDRAFT, true, true, []Action{ActionEdit, ActionDelete, ActionSubmit}},
 		{"draft without reviewer", owner, db.ClaimStatusDRAFT, false, true, []Action{ActionEdit, ActionDelete}},
-		{"submitted", owner, db.ClaimStatusSUBMITTED, true, true, nil},
-		{"returned", owner, db.ClaimStatusRETURNED, false, true, []Action{ActionEdit, ActionSubmit}},
+		{"submitted", owner, db.ClaimStatusSUBMITTED, true, true, []Action{ActionWithdraw}},
+		{"returned", owner, db.ClaimStatusRETURNED, false, true, []Action{ActionEdit, ActionSubmit, ActionWithdraw}},
 		{"draft owned by someone else", other, db.ClaimStatusDRAFT, true, false, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -144,5 +148,67 @@ func TestF05TEST06DraftAndReturnedPolicy(t *testing.T) {
 				t.Fatalf("visible = %t, actions = %v; want %t, %v", visible, actions, test.visible, test.actions)
 			}
 		})
+	}
+}
+
+// F06-TEST-06 (F06-AC-05, BR-14): the assigned reviewer of a SUBMITTED claim may return it until it has been returned
+// MaxReturns times; after that approve and reject are what is left.
+func TestF06TEST06ReturnIsAllowedBelowTheReturnLimit(t *testing.T) {
+	reviewer := uuid.New()
+
+	for _, test := range []struct {
+		returnCount int
+		actions     []Action
+	}{
+		{0, []Action{ActionApprove, ActionReject, ActionReturn}},
+		{MaxReturns - 1, []Action{ActionApprove, ActionReject, ActionReturn}},
+		{MaxReturns, []Action{ActionApprove, ActionReject}},
+	} {
+		subject := Subject{RequesterID: uuid.New(), AssignedReviewerID: reviewer, Status: db.ClaimStatusSUBMITTED, ReturnCount: test.returnCount}
+
+		if _, actions := Allowed(reviewer, subject); !slices.Equal(actions, test.actions) {
+			t.Fatalf("return count %d: actions = %v, want %v", test.returnCount, actions, test.actions)
+		}
+	}
+}
+
+// F07-TEST-05 (F07-AC-04, F07-AC-06): the owner may withdraw a SUBMITTED or RETURNED claim; a WITHDRAWN claim gives
+// nobody an action; the assigned reviewer never gets withdraw.
+func TestF07TEST05WithdrawIsTheOwnersOnSubmittedOrReturned(t *testing.T) {
+	owner, reviewer := uuid.New(), uuid.New()
+
+	for _, test := range []struct {
+		name    string
+		actor   uuid.UUID
+		status  db.ClaimStatus
+		actions []Action
+	}{
+		{"owner, submitted", owner, db.ClaimStatusSUBMITTED, []Action{ActionWithdraw}},
+		{"owner, returned", owner, db.ClaimStatusRETURNED, []Action{ActionEdit, ActionSubmit, ActionWithdraw}},
+		{"owner, withdrawn", owner, db.ClaimStatusWITHDRAWN, []Action{}},
+		{"reviewer, withdrawn", reviewer, db.ClaimStatusWITHDRAWN, []Action{}},
+		{"reviewer, returned", reviewer, db.ClaimStatusRETURNED, []Action{}},
+		{"owner, draft", owner, db.ClaimStatusDRAFT, []Action{ActionEdit, ActionDelete, ActionSubmit}},
+		{"owner, approved", owner, db.ClaimStatusAPPROVED, []Action{}},
+		{"owner, rejected", owner, db.ClaimStatusREJECTED, []Action{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			subject := Subject{RequesterID: owner, AssignedReviewerID: reviewer, Status: test.status, OwnerHasReviewer: true}
+
+			if _, actions := Allowed(test.actor, subject); !slices.Equal(actions, test.actions) {
+				t.Fatalf("actions = %v, want %v", actions, test.actions)
+			}
+		})
+	}
+
+	// The reviewer of a SUBMITTED claim has the decisions and no withdraw.
+	subject := Subject{RequesterID: owner, AssignedReviewerID: reviewer, Status: db.ClaimStatusSUBMITTED}
+	if _, actions := Allowed(reviewer, subject); slices.Contains(actions, ActionWithdraw) {
+		t.Fatalf("actions = %v, want no withdraw for the reviewer", actions)
+	}
+
+	// An unrelated member cannot see the claim, so the check refuses before the status.
+	if err := check(uuid.New(), subject, ActionWithdraw); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("check error = %v, want ErrForbidden", err)
 	}
 }
