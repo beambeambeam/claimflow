@@ -67,15 +67,11 @@ After F-02/01, the work splits into three paths (rules, My Claims, detail → de
   - **By 30 Nov:** F-09 and F-10 implemented and tested, so no main workflow is left for the exam period.
   - **1–11 Dec:** defect fixes, UAT re-tests, NFR-07 timed run on the deployed release, final regression, and the demo video only.
   - **By 13 Dec (Final):** final release on `main`, deployed on GCP.
-- **Work order (critical path):** the Sprint 3 contracts are one `docs:` PR into `sprint-3` (25–26 Nov), merged before any implementation. Rounded boxes with dashed arrows are Sprint 1 and 2 tickets already on `main`, and the Lab 5 deployment.
+- **Work order (critical path):** the Sprint 3 contracts are one `docs:` PR into `sprint-3` (25–26 Nov), merged before any implementation.
 
 ```mermaid
 flowchart LR
     C[Sprint 3 contracts] --> A
-    X1([F-04/02 reject, transitions]) -.-> A
-    X2([F-07/01 withdraw]) -.-> A
-    X3([F-03/01 My Claims]) -.-> D
-    X4([GCP deployment, Lab 5]) -.-> F
     A[F-08/01 Pending finance] --> B[F-08/02 Finance Queue and final decisions]
     B --> D[F-09/01 filters and search]
     B --> E[F-10/01 decision summary]
