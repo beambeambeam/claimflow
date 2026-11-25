@@ -10,7 +10,7 @@
       "@playwright/test": "^1.65.1",
       "@testing-library/dom": "^10.4.2",
       "@testing-library/react": "^16.3.3",
-      "@testing-library/user-event": "^14.6.12",
+      "@testing-library/user-event": "^14.6.13",
       "@types/node": "^26.6.6",
       "jsdom": "^31.0.1",
       "typescript": "^7.0.2",
@@ -44,7 +44,7 @@
     "@types/node": "catalog:",
     "semantic-release": "26.0.1",
     "typescript": "catalog:",
-    "ultracite": "^8.2.1",
+    "ultracite": "^8.3.1",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
