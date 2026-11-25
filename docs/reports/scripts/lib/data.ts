@@ -11,6 +11,7 @@ export const Sidecar = z.object({
   file: z.string(),
   mermaid_drawn: z.number(),
   mermaid_expected: z.number(),
+  name: z.string().optional(),
   problems: z.array(z.string()),
   ref: z.string(),
 });
