@@ -1,0 +1,6 @@
+$ go test ./internal/claim/ -run 'F06TEST07' -v -count=1
+# commit 71a8e43
+=== RUN   TestF06TEST07FourthReturnIsRefusedAndApproveStillWorks
+--- PASS: TestF06TEST07FourthReturnIsRefusedAndApproveStillWorks (2.05s)
+PASS
+ok  	github.com/beambeambeam/claimflow/apps/api/internal/claim	70.222s

@@ -1,0 +1,56 @@
+\partsection{C.1}{Sprint 3 contracts}\label{C:1}
+
+The contracts of the three remaining baseline features and the Sprint 3 Definition of Done are merged into \texttt{sprint-3} at \texttt{ef38550} (PR \#111, 2026-11-25). \studentTwoName{} (\texttt{@beambeambeam}) wrote them; \texttt{@Kiatisakk} reviewed: changes requested 2026-11-25 13:42 UTC, the contracts revised in \texttt{e91efe0} at 14:36, approved 16:32 and squash-merged at 16:32 UTC. Each one has the linked FR/BR/NFR, workflow, API, data and UI definitions, validation and permissions, numbered acceptance criteria, the Software Test Specification and its revision history. At \texttt{ef38550} GitHub did not draw the sequence diagram of F-08, F-09 and F-10: a semicolon inside a Mermaid message ends the statement. PR \#114 (opened by \texttt{@Kiatisakk} on 2026-11-25 20:44 UTC, approved by \texttt{@beambeambeam} and squash-merged into \texttt{sprint-3} as \texttt{5bba94a} on 2026-11-26 02:47 UTC) replaces those semicolons with commas in five message lines and adds one revision row to each of the three contracts; no rule, AC or test changes. All four documents below are captured from \texttt{5bba94a}, so the diagrams are drawn; the Definition of Done is the same there as at \texttt{ef38550}. Sprint 3 starts from this baseline; a later revision is added to a contract's revision history and does not rewrite it.
+
+\begin{center}\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{5.8cm}p{1.6cm}p{2.6cm}p{2.2cm}p{2.4cm}@{}}
+\toprule \textbf{Feature} & \textbf{Contract} & \textbf{AC, tests} & \textbf{Tickets} & \textbf{Merged} \\ \midrule
+F-08 Finance Queue and final decisions (two-stage approval) & 0.2 & 14 AC, 19 tests & \#46, \#47 & PR \#111, \#114 \\
+F-09 All-claims view with filters and search & 0.3 & 11 AC, 13 tests & \#48 & PR \#111, \#114 \\
+F-10 Decision summary and load dataset (NFR-07) & 0.3 & 12 AC, 13 tests & \#49, \#50 & PR \#111, \#114 \\
+Sprint 3 Definition of Done & 0.2 & & & PR \#111 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The counts are the distinct \texttt{F0N-AC-nn} and \texttt{F0N-TEST-nn} identifiers in each file; they are the same at \texttt{ef38550} and \texttt{5bba94a}. The F-09 and F-10 versions 0.2 record the review of \#111; the last version of each feature contract (F-08 0.2, F-09 0.3, F-10 0.3) is the diagram fix of \#114.
+
+\input{content/part-c-1-contracts}
+
+\partsection{C.2}{Implemented progress with tests}\label{C:2}
+
+\textbf{Nothing of F-08, F-09 or F-10 is implemented in the submitted candidate, and no Sprint 3 test is claimed.} The candidate \texttt{v0.1.1.0} (\texttt{3a91ea4}) contains no Sprint 3 code, and \texttt{sprint-3} at \texttt{ef38550} changes only documents (the Sprint 3 contracts, the plan, the glossary and traceability rows). The implementation of F-08 has started: PR \#113 (``feat: two-stage approval with the Finance Queue and final decisions'', branch \texttt{feat/implement-issues-46-47} into \texttt{sprint-3}) was opened by \texttt{beambeambeam} on 2026-11-25 at 17:15 UTC and is open and not merged. This report does not describe or rely on its code or tests.
+
+\textbf{Gap against the checkpoint.} Deliverable 2 (section 2) asks for at least one meaningful Sprint 3 workflow or rule, implemented and tested in the candidate on \texttt{main}. This candidate has none; the sprint plan (\path{docs/sprints/plan.md}, section 2.3) had set F-08 implemented and on \texttt{main} by 29 November, and that target is missed. So Part C offers evidence only for the contracts, the status table and the dated plan. The plan in C.4 puts F-08 first so that a tested Sprint 3 workflow reaches \texttt{main} before the regression run.
+
+\partsection{C.3}{Feature status}\label{C:3}
+
+\begin{center}\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule \textbf{Feature} & \textbf{Planned} & \textbf{In progress} & \textbf{Implemented} & \textbf{Tested} & \textbf{Accepted} \\ \midrule
+F-08 & & yes (PR \#113 open) & no & no & no \\
+F-09 & yes & no & no & no & no \\
+F-10 & yes & no & no & no & no \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent In every row the contract is accepted (merged, C.1). ``Tested'' means executed tests that passed on a commit; none exist for Sprint 3 at the submitted commit.
+
+\partsection{C.4}{Remaining work}\label{C:4}
+
+Dates are 2026. The final examination period is 1 to 11 December; the targets keep the final deadline of Deliverable 2 (13 December) but slip from \path{docs/sprints/plan.md} section 2.3, which puts F-08 on \texttt{main} by 29 November and F-09 and F-10 implemented and tested by 30 November, leaving 1 to 11 December for fixes, re-tests and the NFR-07 run only. The cause is the late start of Sprint 3: the Sprint 2 release, the Sprint 3 contracts and the start of F-08 all fell on 25 November, so F-09 and F-10 now fall inside the examination period. This is a slip against the plan, not an approved revision of it; the plan file is not changed by this report.
+
+\begin{center}\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{3.1cm}p{2.1cm}p{6.0cm}p{4.4cm}@{}}
+\toprule \textbf{Feature} & \textbf{Status} & \textbf{Remaining action} & \textbf{Owner and target date} \\ \midrule
+F-08 Finance Queue (\#46, \#47) & In progress & Finish and merge PR \#113 (F08-AC-01 to 14; F08-TEST-01 to 19 red, then green), review, CI green, update the traceability rows & \studentTwoName{} (\texttt{@beambeambeam}); 3 December \\
+F-09 All-claims view (\#48) & Planned & Implement F09-AC-01 to 11 with F09-TEST-01 to 13, review and merge into \texttt{sprint-3} & \studentTwoName{} (\texttt{@beambeambeam}); 6 December \\
+F-10 Decision summary, NFR-07 run (\#49, \#50) & Planned & Implement F10-AC-01 to 12 with F10-TEST-01 to 13 and the load dataset; the NFR-07 timed run itself follows on the deployed release & \studentOneName{} (\texttt{@Kiatisakk}); 8 December \\
+Regression, UAT re-tests, NFR-07 timed run & Planned & Run the full suite and the Sprint 1 and Sprint 2 journeys on the release with F-08 to F-10, re-test the register items, and the NFR-07 timed run on the deployed release & Both students; 10 December \\
+Final video and final release & Planned & Release \texttt{sprint-3} into \texttt{main}, deploy, match the deployed version to the tag, record the final video & Both students; 13 December \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Dependencies: F-09 and F-10 read \texttt{PENDING\_FINANCE} and the final decisions of F-08, so F-08 merges first; the NFR-07 run needs F-10's load dataset on the deployed instance. Known defects: none open (A.2). Dated plan with the same owners: E.3.

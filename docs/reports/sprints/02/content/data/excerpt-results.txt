@@ -1,0 +1,11 @@
+$ cd apps/api
+$ go test ./internal/claim -run 'F06TEST07FourthReturn' -v -count=1
+=== RUN   TestF06TEST07FourthReturnIsRefusedAndApproveStillWorks
+--- PASS: TestF06TEST07FourthReturnIsRefusedAndApproveStillWorks (0.39s)
+PASS
+ok  	github.com/beambeambeam/claimflow/apps/api/internal/claim	10.212s
+$ go test . -run 'F07TEST04' -v -count=1
+=== RUN   TestF07TEST04OnlyTheOwnerCanWithdraw
+--- PASS: TestF07TEST04OnlyTheOwnerCanWithdraw (0.48s)
+PASS
+ok  	github.com/beambeambeam/claimflow/apps/api	6.920s

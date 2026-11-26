@@ -1,0 +1,19 @@
+$ go test . -run 'F07TEST03' -v -count=1
+# commit 53e8827
+=== RUN   TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16
+=== RUN   TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/DRAFT
+    claims_withdraw_test.go:24: status = 404, want 409; body = {"code":"NOT_FOUND","instance":"/api/v1/claims/01a212d3-a322-79cb-aca3-56fa5cb89f31/withdraw","requestId":"01a212d3-a3a2-7cc1-947a-e14a5bb5dc54","status":404,"title":"Not found.","type":"about:blan
+=== RUN   TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/APPROVED
+    claims_withdraw_test.go:24: status = 404, want 409; body = {"code":"NOT_FOUND","instance":"/api/v1/claims/01a212d3-a3b0-7e8b-a181-297c9784fa27/withdraw","requestId":"01a212d3-a3cf-7f00-a764-bfee0bf31745","status":404,"title":"Not found.","type":"about:blan
+=== RUN   TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/REJECTED
+    claims_withdraw_test.go:24: status = 404, want 409; body = {"code":"NOT_FOUND","instance":"/api/v1/claims/01a212d3-a3d5-70ae-bc77-fdeda2785c22/withdraw","requestId":"01a212d3-a3f5-79be-8eba-01d2293da389","status":404,"title":"Not found.","type":"about:blan
+=== RUN   TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/WITHDRAWN
+    claims_withdraw_test.go:24: status = 404, want 409; body = {"code":"NOT_FOUND","instance":"/api/v1/claims/01a212d3-a404-7e73-bb85-e3d1eee7cbd7/withdraw","requestId":"01a212d3-a438-7cbe-8b33-c798986c96c2","status":404,"title":"Not found.","type":"about:blan
+--- FAIL: TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16 (2.08s)
+    --- FAIL: TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/DRAFT (0.14s)
+    --- FAIL: TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/APPROVED (0.04s)
+    --- FAIL: TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/REJECTED (0.05s)
+    --- FAIL: TestF07TEST03OnlyASubmittedOrReturnedClaimCanBeWithdrawnBR16/WITHDRAWN (0.07s)
+FAIL
+FAIL	github.com/beambeambeam/claimflow/apps/api	42.970s
+FAIL

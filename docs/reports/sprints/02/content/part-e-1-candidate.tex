@@ -1,0 +1,26 @@
+\partsection{E.1}{Release candidate: build, test, CI and deploy}\label{E:1}
+
+The candidate is the Sprint 2 release \texttt{v0.1.1.0}, commit \texttt{3a91ea4} on \texttt{main}. There is no second release, so this is the submitted candidate.
+
+\textbf{The live site runs a later commit, once stated.} The Deploy demo workflow runs for every merge to \texttt{main}. PR \#112 merged \texttt{1ee2563} after the release, and Deploy demo run 45656061391 (\texttt{success}, 2026-11-25 16:38 UTC) deployed it. \texttt{git show --stat 1ee2563} lists one file, \path{docs/reports/labs/07/content/00-front.tex}, the text of the Lab 7 report; \texttt{git diff --stat 3a91ea4 1ee2563} shows that file only (15 insertions). No application code, migration or configuration differs from \texttt{v0.1.1.0}. Later, on 2026-11-26, the Dependabot PRs \#116 (\texttt{b793f3d}, Go module \texttt{oapi-codegen/runtime} 1.9.0 to 1.9.1) and \#117 (\texttt{bccea9c}, 12 Bun dependency updates) merged into \texttt{main} and were deployed (Deploy demo runs 45748672455 and 45749588913, \texttt{success}). They change dependency versions only (\path{go.mod}, \path{go.sum}, \path{package.json} files and \path{bun.lock}), not the application source; they are not part of the candidate. The live checks below were rerun on \texttt{bccea9c} with the same results (last block of the output). Merging this report into \texttt{main} also redeploys, with no change to the application.
+
+\begin{center}\small
+\begin{tabular}{@{}>{\bfseries}p{3.6cm}p{12.7cm}@{}}
+\toprule
+Tag, commit & \texttt{v0.1.1.0}, \texttt{3a91ea4} (merge of release PR \#109), 2026-11-25 19:33 (UTC+7) \\
+CI & run 45614889848 on \texttt{3a91ea4}: \texttt{image}, \texttt{code\_quality}, \texttt{test}, \texttt{build}, \texttt{api}, \texttt{release} all \texttt{success} \\
+Deploy demo & run 45615736377: Cloud Run revision \texttt{claimflow-00018-kzz}, image digest \texttt{sha256:dd4d3477\ldots}; smoke test: \texttt{/api/v1/health} reports the SHA, \texttt{/api/v1/ready} 200, \texttt{/} serves the web build, an unknown \texttt{/api} route returns a JSON 404 \\
+Deployed URL & \url{https://claimflow-5bcxewbqkq-as.a.run.app} \\
+Live check & 2026-11-25 about 20:20 (UTC+7): \texttt{GET /api/v1/health} returned version \texttt{3a91ea458862a02fc88384f09ef74b7a502ce762}; \texttt{GET /api/v1/ready} returned 200 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Post-deployment check on the live site} (section 3.5 asks for a critical journey and persistence). The unauthenticated part was read on 2026-11-26 at 00:44 (UTC+7), which is 2026-11-25 17:44 UTC, with \texttt{curl} and a cookie jar. The authenticated part was run at 03:29 (UTC+7) with a small Bun script that keeps one session cookie per seed account and loads the seed password through varlock, so the password does not appear. The output is verbatim, except that the read-back of the claim is trimmed to the fields shown:
+
+\VerbatimInput[tabsize=4, fontsize=\scriptsize, frame=single, framesep=5pt, rulecolor=\color{black!25}, breaklines=true, breakanywhere=true]{content/data/live-check.txt}
+
+The health answer reports \texttt{1ee2563}, the later docs-only commit stated above; \texttt{/api/v1/ready} is 200 and the API refuses a request without a session with a 401. With a session, the critical journey and persistence hold on the live site: \texttt{req.anan} logs in (200), lists 10 own claims, and reads back \texttt{CLM-2026-000011}, a claim submitted on 2026-11-20 during UAT, with its status, total, line item and \texttt{SUBMIT} history row as stored in Cloud SQL across later deployments. The API enforces both access rules on the live site: \texttt{req.ploy} gets 403 \texttt{FORBIDDEN} with no claim data when reading \texttt{req.anan}'s claim (ownership, NFR-02), and the Finance Officer \texttt{fin.wanida} gets 403 when saving a draft (role, BR-15). The check wrote no claim.
+
+\textbf{Tests on the candidate.} Go: 178 top-level tests and 241 subtests, 0 failed, 0 skipped; race run with 100\% coverage (956 of 956). Web: 182 of 182 in CI with 100\% coverage. E2E: 8 of 8 on a local seeded stack (all in B.4).
+\textbf{Build.} \texttt{bun run build} and the container image build pass in CI (jobs \texttt{build} and \texttt{image}).
