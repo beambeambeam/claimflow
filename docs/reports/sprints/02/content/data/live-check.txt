@@ -50,3 +50,26 @@ HTTP 200
 [2026-11-26 03:29:52 UTC+0700] fin.wanida: POST /claims?draft=true {title, purpose, 1 line item}   (Finance Officer saves a draft)
 HTTP 403
 {"code":"FORBIDDEN","instance":"/api/v1/claims","requestId":"01a21466-839c-7cac-9ccc-9a6ea65658be","status":403,"title":"Forbidden.","type":"about:blank"}
+
+--- Rerun after the dependency merges #116 and #117 (live site at bccea9c; request and status lines only) ---
+
+[2026-11-26 18:39:18 UTC+0700] GET /health
+HTTP 200
+{"status":"ok","version":"bccea9c9c5e7579321ae96e88a66e190b651fdd1"}
+
+[2026-11-26 18:39:06 UTC+0700] req.anan: POST /auth/login {"username":"req.anan","password":"<seed password>"}
+HTTP 200
+[2026-11-26 18:39:06 UTC+0700] req.anan: GET /auth/me
+HTTP 200
+[2026-11-26 18:39:06 UTC+0700] req.anan: GET /claims?scope=mine
+HTTP 200
+[2026-11-26 18:39:06 UTC+0700] req.anan: GET /claims/01a1f7b6-32f0-7972-888e-a6c61dee2b51   (read back from PostgreSQL)
+HTTP 200
+[2026-11-26 18:39:07 UTC+0700] req.ploy: POST /auth/login {"username":"req.ploy","password":"<seed password>"}
+HTTP 200
+[2026-11-26 18:39:07 UTC+0700] req.ploy: GET /claims/01a1f7b6-32f0-7972-888e-a6c61dee2b51   (req.anan's claim)
+HTTP 403
+[2026-11-26 18:39:07 UTC+0700] fin.wanida: POST /auth/login {"username":"fin.wanida","password":"<seed password>"}
+HTTP 200
+[2026-11-26 18:39:07 UTC+0700] fin.wanida: POST /claims?draft=true {title, purpose, 1 line item}   (Finance Officer saves a draft)
+HTTP 403
