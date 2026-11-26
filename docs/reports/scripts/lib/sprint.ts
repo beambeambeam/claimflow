@@ -26,13 +26,9 @@ export interface SprintConfig {
   // collect-team counts only pull requests merged and issues closed on or
   // after this date (YYYY-MM-DD, UTC). Omitted: everything.
   since?: string;
-  // Status text of a CI-recorded check in the AC table. The default names the
-  // required checks on the commit and the Sprint 1 release PR.
+  // Status text of a CI-recorded check in the AC table (gen-ac-table). Needed
+  // when a planned test has no manual check text of its own.
   ciCheck?: (commit: string) => string;
-  // Documents whose source cannot be drawn on GitHub, by capture name. The
-  // report prints the text as a visible note instead of a todo, and
-  // check-report counts the undrawn diagram as disclosed, not as a problem.
-  knownFaults?: Record<string, string>;
   // Open issues whose bodies list planned tests not implemented yet.
   tickets?: number[];
   // Status text of manual checks in the AC table, by TEST id. Others get the

@@ -56,7 +56,7 @@ Every script takes the sprint number first (`01` is `sprints/01`), reads the res
 | Project board | `capture-board sprint-1` | `figures/github/board.png` | Chrome or Edge, network |
 | Contribution table (F.5) | `collect-team sprint-1`, then `gen-team-table sprint-1` | `content/data/team.json`, `team.tex` | `gh auth login` |
 | Go test results | `go-test sprint-1` | `build/go.json` | Go, Docker running |
-| AC-to-test table (F.3) | `gen-ac-table sprint-1 --commit <sha> --e2e-passed --web-passed [--web-fail <title>]` | `content/data/ac-table.tex` | `build/go.json`, `gh` |
+| AC-to-test table (F.3) | `gen-ac-table sprint-1 --commit <sha> --e2e-passed --web-passed [--web-fail <title>]` | `content/data/ac-table.tex`; also `completion-table.tex` when the config sets `release` and `implementation` | `build/go.json`, `gh` |
 | App demos (F.2) | `capture-demo sprint-1` | `figures/demo/` | local stack up and seeded, `SEED_USER_PASSWORD` |
 
 Run each as `bun run <command>` from `docs/reports`.
@@ -94,7 +94,11 @@ Mark it in LaTeX as `\todo{<who or what>: ...}`, for example `\todo{release: ...
 
 1. Copy `sprints/01/` to `sprints/NN/` (two digits, so folders sort) and empty `content/` and `figures/`.
 2. In `main.tex`, set `\sprintname` and `\deliverable`.
-3. Rewrite `report.config.ts` for the sprint's documents, reviews, contracts, and tickets, and `demo.ts` for its demos.
+3. Rewrite `report.config.ts` for the sprint's documents, reviews, contracts, and tickets, and `demo.ts` for its demos. The optional keys are documented in `scripts/lib/sprint.ts`:
+   - `contracts`: one contract folder, or a list of them when a report covers more than one sprint's contracts.
+   - `ciCheck`: the status text of a planned test recorded by CI; `gen-ac-table` stops when such a test has neither this nor a `manualChecks` entry.
+   - `release` and `implementation` (AC id to the code that implements it): with both, `gen-ac-table` also writes the AC completion table.
+   - `since` (YYYY-MM-DD): `collect-team` counts only pull requests merged and issues closed on or after it.
 4. Run the release-day steps with `NN`.
 
 ## Lab reports

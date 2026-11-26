@@ -1,19 +1,19 @@
 \partsection{C.1}{Sprint 3 contracts}\label{C:1}
 
-The contracts of the three remaining baseline features and the Sprint 3 Definition of Done are merged into \texttt{sprint-3} at \texttt{ef38550} (PR \#111, 2026-11-25). \studentTwoName{} (\texttt{@beambeambeam}) wrote them; \texttt{@Kiatisakk} reviewed: changes requested 2026-11-25 13:42 UTC, the contracts revised in \texttt{e91efe0} at 14:36, approved 16:32 and squash-merged at 16:32 UTC. Each one has the linked FR/BR/NFR, workflow, API, data and UI definitions, validation and permissions, numbered acceptance criteria, the Software Test Specification and its revision history. At \texttt{ef38550} GitHub did not draw the sequence diagram of F-08, F-09 and F-10: a semicolon inside a Mermaid message ends the statement. PR \#114 (\texttt{docs/sprint-3-mermaid-semicolons} into \texttt{sprint-3}, opened by \texttt{@Kiatisakk} on 2026-11-25 20:44 UTC, open and waiting for review at the time of writing) replaces those semicolons with commas in five message lines and adds one revision row to each of the three contracts; no rule, AC or test changes. The three feature contracts below are captured from its head \texttt{21a317c}, so their diagrams are drawn; the Definition of Done is captured from \texttt{ef38550}. Sprint 3 starts from this baseline; a later revision is added to a contract's revision history and does not rewrite it.
+The contracts of the three remaining baseline features and the Sprint 3 Definition of Done are merged into \texttt{sprint-3} at \texttt{ef38550} (PR \#111, 2026-11-25). \studentTwoName{} (\texttt{@beambeambeam}) wrote them; \texttt{@Kiatisakk} reviewed: changes requested 2026-11-25 13:42 UTC, the contracts revised in \texttt{e91efe0} at 14:36, approved 16:32 and squash-merged at 16:32 UTC. Each one has the linked FR/BR/NFR, workflow, API, data and UI definitions, validation and permissions, numbered acceptance criteria, the Software Test Specification and its revision history. At \texttt{ef38550} GitHub did not draw the sequence diagram of F-08, F-09 and F-10: a semicolon inside a Mermaid message ends the statement. PR \#114 (opened by \texttt{@Kiatisakk} on 2026-11-25 20:44 UTC, approved by \texttt{@beambeambeam} and squash-merged into \texttt{sprint-3} as \texttt{5bba94a} on 2026-11-26 02:47 UTC) replaces those semicolons with commas in five message lines and adds one revision row to each of the three contracts; no rule, AC or test changes. All four documents below are captured from \texttt{5bba94a}, so the diagrams are drawn; the Definition of Done is the same there as at \texttt{ef38550}. Sprint 3 starts from this baseline; a later revision is added to a contract's revision history and does not rewrite it.
 
 \begin{center}\small\setlength{\tabcolsep}{4pt}
 \begin{tabular}{@{}p{5.8cm}p{1.6cm}p{2.6cm}p{2.2cm}p{2.4cm}@{}}
 \toprule \textbf{Feature} & \textbf{Contract} & \textbf{AC, tests} & \textbf{Tickets} & \textbf{Merged} \\ \midrule
-F-08 Finance Queue and final decisions (two-stage approval) & 0.2 & 14 AC, 19 tests & \#46, \#47 & PR \#111; 0.2 in PR \#114 \\
-F-09 All-claims view with filters and search & 0.3 & 11 AC, 13 tests & \#48 & PR \#111; 0.3 in PR \#114 \\
-F-10 Decision summary and load dataset (NFR-07) & 0.3 & 12 AC, 13 tests & \#49, \#50 & PR \#111; 0.3 in PR \#114 \\
+F-08 Finance Queue and final decisions (two-stage approval) & 0.2 & 14 AC, 19 tests & \#46, \#47 & PR \#111, \#114 \\
+F-09 All-claims view with filters and search & 0.3 & 11 AC, 13 tests & \#48 & PR \#111, \#114 \\
+F-10 Decision summary and load dataset (NFR-07) & 0.3 & 12 AC, 13 tests & \#49, \#50 & PR \#111, \#114 \\
 Sprint 3 Definition of Done & 0.2 & & & PR \#111 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The counts are the distinct \texttt{F0N-AC-nn} and \texttt{F0N-TEST-nn} identifiers in each file; they are the same at \texttt{ef38550} and \texttt{21a317c}. The F-09 and F-10 versions 0.2 record the review of \#111; the last version of each feature contract (F-08 0.2, F-09 0.3, F-10 0.3) is the diagram fix of \#114.
+The counts are the distinct \texttt{F0N-AC-nn} and \texttt{F0N-TEST-nn} identifiers in each file; they are the same at \texttt{ef38550} and \texttt{5bba94a}. The F-09 and F-10 versions 0.2 record the review of \#111; the last version of each feature contract (F-08 0.2, F-09 0.3, F-10 0.3) is the diagram fix of \#114.
 
 \input{content/part-c-1-contracts}
 
@@ -39,7 +39,7 @@ F-10 & yes & no & no & no & no \\
 
 \partsection{C.4}{Remaining work}\label{C:4}
 
-Dates are 2026. The final examination period is 1 to 11 December; the targets follow the plan and Deliverable 2, with all features finished by 13 December.
+Dates are 2026. The final examination period is 1 to 11 December; the targets keep the final deadline of Deliverable 2 (13 December) but slip from \path{docs/sprints/plan.md} section 2.3, which puts F-08 on \texttt{main} by 29 November and F-09 and F-10 implemented and tested by 30 November, leaving 1 to 11 December for fixes, re-tests and the NFR-07 run only. The cause is the late start of Sprint 3: the Sprint 2 release, the Sprint 3 contracts and the start of F-08 all fell on 25 November, so F-09 and F-10 now fall inside the examination period. This is a slip against the plan, not an approved revision of it; the plan file is not changed by this report.
 
 \begin{center}\small\setlength{\tabcolsep}{4pt}
 \begin{tabular}{@{}p{3.1cm}p{2.1cm}p{6.0cm}p{4.4cm}@{}}

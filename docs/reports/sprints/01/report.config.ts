@@ -17,6 +17,8 @@ const config: SprintConfig = {
     "system-sds": "docs/system-sds.md",
     traceability: "docs/traceability.md",
   },
+  ciCheck: (commit) =>
+    String.raw`CI check: the required checks (\texttt{code\_quality}, \texttt{test}, \texttt{api}, \texttt{build}) passed on ${commit} (push to \texttt{main}) and on release PR \#69; the \texttt{api} job runs the generate check and the 100\% coverage gate. pass`,
   manualChecks: {
     "F01-TEST-18": () =>
       String.raw`Manual check on 29fd6fb (code identical to the release): no tracked \texttt{.env} file; gitleaks over the commits of \texttt{sprint-1} reports 11 hits, all Go module checksums in \path{apps/api/*.sum}; every \texttt{.env.schema} variable is in \texttt{.env.example}. pass`,

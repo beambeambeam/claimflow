@@ -147,14 +147,11 @@ const metas = list(path.join(sprint.figures, "docs"), ".json").map((f) =>
   readJson(f, Sidecar)
 );
 
-const known = sprint.config.knownFaults ?? {};
-const allUndrawn = metas.filter((m) => m.mermaid_drawn < m.mermaid_expected);
-const undrawn = allUndrawn.filter((m) => !((m.name ?? "") in known));
-const disclosed = allUndrawn.length - undrawn.length;
+const undrawn = metas.filter((m) => m.mermaid_drawn < m.mermaid_expected);
 const expected = metas.reduce((n, m) => n + m.mermaid_expected, 0);
 
 console.log(
-  `5. Mermaid diagrams not drawn: ${undrawn.length} (of ${expected} expected in captured documents; ${disclosed} disclosed in the report as a known fault of the source)`
+  `5. Mermaid diagrams not drawn: ${undrawn.length} (of ${expected} expected in captured documents)`
 );
 
 for (const m of undrawn) {

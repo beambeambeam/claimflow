@@ -84,13 +84,7 @@ for (const [part, docs] of Object.entries(sprint.config.parts)) {
       String.raw`\docsource{${meta.file}}{${meta.ref}}{${meta.commit}}`
     );
 
-    const known = sprint.config.knownFaults?.[name];
-
-    if (meta.problems.length > 0 && known !== undefined) {
-      lines.push(
-        String.raw`\noindent\textbf{Known fault of the source:} ${known}`
-      );
-    } else if (meta.problems.length > 0) {
+    if (meta.problems.length > 0) {
       lines.push(
         String.raw`\todo{capture: problems for ${name}: ${meta.problems.join("; ")}}`
       );
