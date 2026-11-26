@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-01 (new endpoint), SR-05 (performance, NFR-07)
 - **Depends on:** F-08 (`PENDING_FINANCE`, final decisions, Finance visibility), F-09 (filter queries for the timed run)
 - **Design baseline:** `docs/system-sds.md` v0.18 §1 `internal/report`; §2.5 `seed:load`; §4.3 `GET /reports/summary`; §4.4; §5.1 `report:read`; §5.3; §7.1 Summary
-- **Version:** 0.2 · **Last updated:** 2026-11-25
+- **Version:** 0.3 · **Last updated:** 2026-11-26
 
 ---
 
@@ -34,7 +34,7 @@ sequenceDiagram
     participant D as PostgreSQL
     U->>W: open /reports?from=2026-10-01&to=2026-10-31
     W->>H: GET /reports/summary?from=2026-10-01&to=2026-10-31
-    H->>H: session; report:read (403); dates (400)
+    H->>H: session, report:read (403), dates (400)
     H->>R: Summary(actor, from, to)
     R->>D: counts by status (scope, no date range)
     R->>D: approved totals by Bangkok month × category (scope, decided in range)
@@ -211,3 +211,4 @@ The Sprint 3 Product DoD applies. For F-10 the evidence is:
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-25 | Initial contract, from the F-10 feature spec and tickets #49 and #50 | beambeambeam |
 | 0.2 | 2026-11-25 | Review on #111: at least 60 load claims to approve; the timed run stops when too few are left and starts with an untimed warm-up round | beambeambeam |
+| 0.3 | 2026-11-26 | Mermaid: commas replace the semicolons in the sequence diagram messages, which ended the statement and stopped GitHub drawing the diagram; no rule changes | Kiatisakk |

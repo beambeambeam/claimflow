@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-01 (new endpoints, Finance visibility), SR-04 (`APPROVE` target, `FINAL_APPROVE`, `FINAL_REJECT` with the version check)
 - **Depends on:** F-04 (decision flow), F-07 (`withdraw` rule), ADR-0001
 - **Design baseline:** `docs/system-sds.md` v0.18 §2.3 high-value threshold; §3.2 `APPROVE`, `FINAL_APPROVE`, `FINAL_REJECT`; §4.3 `final-approve`, `final-reject`; §5.1 `finance:list`; §5.2; §5.3 `scope=finance`; §7.1 Finance Queue; §7.2 Pending finance badge
-- **Version:** 0.1 · **Last updated:** 2026-11-25
+- **Version:** 0.2 · **Last updated:** 2026-11-26
 
 ---
 
@@ -35,8 +35,8 @@ sequenceDiagram
     V->>W: Approve (total 15,000.00)
     W->>H: POST /claims/{id}/approve, If-Match: "1"
     H->>C: Act(actor{id, role reviewer}, id, 1, APPROVE, comment)
-    C->>C: checks (F-05 §1.4); target = PENDING_FINANCE (total > threshold, role ≠ finance)
-    C->>D: UPDATE … status = PENDING_FINANCE, version + 1 (decided_at stays NULL); INSERT history APPROVE; COMMIT
+    C->>C: checks (F-05 §1.4), target = PENDING_FINANCE (total > threshold, role ≠ finance)
+    C->>D: UPDATE … status = PENDING_FINANCE, version + 1 (decided_at stays NULL), INSERT history APPROVE, COMMIT
     H-->>W: 200 Claim (PENDING_FINANCE) + ETag "2"
     F->>W: Finance Queue → open claim → Final approve
     W->>H: POST /claims/{id}/final-approve, If-Match: "2"
@@ -258,3 +258,4 @@ The Sprint 3 Product DoD applies. For F-08 the evidence is:
 | Version | Date | Change | Author |
 | --- | --- | --- | --- |
 | 0.1 | 2026-11-25 | Initial contract, from the F-08 feature spec and tickets #46 and #47 | beambeambeam |
+| 0.2 | 2026-11-26 | Mermaid: commas replace the semicolons in the sequence diagram messages, which ended the statement and stopped GitHub drawing the diagram; no rule changes | Kiatisakk |
