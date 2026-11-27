@@ -340,7 +340,7 @@ func loadComment(n int, action db.ClaimAction) string {
 	case db.ClaimActionSUBMIT, db.ClaimActionRESUBMIT:
 		return ""
 	case db.ClaimActionAPPROVE, db.ClaimActionFINALAPPROVE:
-		if n%3 == 0 {
+		if n%2 == 0 {
 			return "Approved."
 		}
 	}
