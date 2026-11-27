@@ -22,10 +22,10 @@ import type {
   AllClaimsFilters,
   AllClaimsSearch,
 } from "#/features/claims/all-claims-search";
-import { categoryLabels } from "#/features/claims/labels";
 import { listClaimsOptions } from "#/lib/api/@tanstack/react-query.gen";
 import type { ClaimSummary } from "#/lib/api/types.gen";
 import { zClaimStatus, zExpenseCategory } from "#/lib/api/zod.gen";
+import { categoryLabels } from "#/lib/labels";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 // The page size of the list (F-03 §1.4 default).
