@@ -369,7 +369,27 @@ export type ListClaimsData = {
     /**
      * The list to read.
      */
-    scope: 'mine' | 'review' | 'finance';
+    scope: 'mine' | 'review' | 'finance' | 'all';
+    /**
+     * Only claims in this status (`scope=all` only).
+     */
+    status?: ClaimStatus;
+    /**
+     * Only claims with a line item in this category (`scope=all` only).
+     */
+    category?: ExpenseCategory;
+    /**
+     * The first Asia/Bangkok date of the range, inclusive (`scope=all` only).
+     */
+    from?: string;
+    /**
+     * The last Asia/Bangkok date of the range, inclusive (`scope=all` only).
+     */
+    to?: string;
+    /**
+     * Text to find in the title, case-insensitive (`scope=all` only).
+     */
+    q?: string;
     /**
      * The 1-based page number. A page past the last one returns an empty `data`.
      */
@@ -405,7 +425,7 @@ export type ListClaimsError = ListClaimsErrors[keyof ListClaimsErrors];
 
 export type ListClaimsResponses = {
   /**
-   * One page of the scope's claims. `mine`: newest first (`createdAt`, then `id`, descending). `review`: oldest first (`submittedAt`, then `id`, ascending).
+   * One page of the scope's claims. `mine` and `all`: newest first (`createdAt`, then `id`, descending). `review` and `finance`: oldest first (`submittedAt`, then `id`, ascending). `total` counts the filtered claims on every page.
    */
   200: ClaimPage;
 };

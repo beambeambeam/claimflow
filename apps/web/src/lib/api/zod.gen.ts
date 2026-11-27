@@ -245,14 +245,20 @@ export const zListClaimsQuery = z.object({
   scope: z.enum([
     'mine',
     'review',
-    'finance'
+    'finance',
+    'all'
   ]),
+  status: zClaimStatus.optional(),
+  category: zExpenseCategory.optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  q: z.string().max(120).optional(),
   page: z.int().gte(1).optional().default(1),
   pageSize: z.int().gte(1).lte(100).optional().default(20)
 });
 
 /**
- * One page of the scope's claims. `mine`: newest first (`createdAt`, then `id`, descending). `review`: oldest first (`submittedAt`, then `id`, ascending).
+ * One page of the scope's claims. `mine` and `all`: newest first (`createdAt`, then `id`, descending). `review` and `finance`: oldest first (`submittedAt`, then `id`, ascending). `total` counts the filtered claims on every page.
  */
 export const zListClaimsResponse = zClaimPage;
 
