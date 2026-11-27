@@ -208,3 +208,114 @@ func TestF09TEST08ListAgreesWithPolicyVisibility(t *testing.T) {
 		}
 	}
 }
+
+// F09-TEST-02 (F09-AC-02): status matches exactly, and category matches a claim with any line item in it, once.
+func TestF09TEST02StatusAndCategoryFilters(t *testing.T) {
+	pool := pgtest.New(t)
+	reviewer := member(t, pool, "rev.malee", "reviewer", uuid.Nil)
+	anan := member(t, pool, "req.anan", "requester", reviewer)
+	service := newService(pool)
+
+	// Every claim but the mixed one has only a SUPPLIES item.
+	supplies := func(status db.ClaimStatus, at time.Time) *listed {
+		claim := submittedListed(anan, status, at)
+		claim.categories = []db.ExpenseCategory{db.ExpenseCategorySUPPLIES}
+		return claim
+	}
+	at := time.Date(2026, time.November, 2, 9, 0, 0, 0, bangkok)
+	approved := storeListed(t, pool, supplies(db.ClaimStatusAPPROVED, at))
+	mixed := submittedListed(anan, db.ClaimStatusSUBMITTED, at.Add(time.Hour))
+	mixed.categories = []db.ExpenseCategory{db.ExpenseCategoryMEALS, db.ExpenseCategoryTRAVEL, db.ExpenseCategoryMEALS}
+	mixedID := storeListed(t, pool, mixed)
+	storeListed(t, pool, supplies(db.ClaimStatusREJECTED, at.Add(2*time.Hour)))
+	storeListed(t, pool, supplies(db.ClaimStatusRETURNED, at.Add(3*time.Hour)))
+
+	status, meals, travel := db.ClaimStatusAPPROVED, db.ExpenseCategoryMEALS, db.ExpenseCategoryTRAVEL
+	cases := []struct {
+		name    string
+		filters Filters
+		want    []uuid.UUID
+	}{
+		{"status APPROVED", Filters{Status: &status}, []uuid.UUID{approved}},
+		{"category MEALS", Filters{Category: &meals}, []uuid.UUID{mixedID}},
+		{"category TRAVEL", Filters{Category: &travel}, []uuid.UUID{mixedID}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, total := listAll(t, service, Actor{ID: anan, Role: "requester"}, tc.filters)
+			if !sameIDs(got, tc.want) || total != len(tc.want) {
+				t.Fatalf("List = %v (total %d), want %v", got, total, tc.want)
+			}
+		})
+	}
+}
+
+// F09-TEST-04 (F09-AC-04): q is a trimmed, case-insensitive title substring, and %, _, and \ match literally.
+func TestF09TEST04TitleSearchIsLiteral(t *testing.T) {
+	pool := pgtest.New(t)
+	reviewer := member(t, pool, "rev.malee", "reviewer", uuid.Nil)
+	anan := member(t, pool, "req.anan", "requester", reviewer)
+	service := newService(pool)
+
+	ids := map[string]uuid.UUID{}
+	at := time.Date(2026, time.November, 2, 9, 0, 0, 0, bangkok)
+	for i, title := range []string{"Taxi to client site", "100% refund", "Hotel_A", `Path C:\temp`} {
+		claim := submittedListed(anan, db.ClaimStatusSUBMITTED, at.Add(time.Duration(i)*time.Hour))
+		claim.title = title
+		ids[title] = storeListed(t, pool, claim)
+	}
+
+	for _, tc := range []struct{ q, title string }{
+		{" TAXI ", "Taxi to client site"}, {"100%", "100% refund"}, {"%", "100% refund"}, {"_", "Hotel_A"}, {`\`, `Path C:\temp`},
+	} {
+		got, total := listAll(t, service, Actor{ID: anan, Role: "requester"}, Filters{Q: tc.q})
+		if total != 1 || len(got) != 1 || got[0] != ids[tc.title] {
+			t.Fatalf("q %q: List = %v (total %d), want only %q", tc.q, got, total, tc.title)
+		}
+	}
+
+	if got, total := listAll(t, service, Actor{ID: anan, Role: "requester"}, Filters{Q: "   "}); total != 4 || len(got) != 4 {
+		t.Fatalf("blank q: List = %v (total %d), want all 4 claims", got, total)
+	}
+}
+
+// F09-TEST-05 (F09-AC-05): filters combine with AND, and total counts the filtered set on every page.
+func TestF09TEST05FiltersCombineAndTotalIsFiltered(t *testing.T) {
+	pool := pgtest.New(t)
+	reviewer := member(t, pool, "rev.malee", "reviewer", uuid.Nil)
+	anan := member(t, pool, "req.anan", "requester", reviewer)
+	service := newService(pool)
+
+	inRange := time.Date(2026, time.November, 5, 9, 0, 0, 0, bangkok)
+	match := func(at time.Time) *listed {
+		claim := submittedListed(anan, db.ClaimStatusAPPROVED, at)
+		claim.title = "Taxi to client site"
+		claim.categories = []db.ExpenseCategory{db.ExpenseCategoryTRAVEL}
+		return claim
+	}
+	older := storeListed(t, pool, match(inRange))
+	newer := storeListed(t, pool, match(inRange.Add(time.Hour)))
+
+	wrongStatus := match(inRange)
+	wrongStatus.status = db.ClaimStatusREJECTED
+	wrongCategory := match(inRange)
+	wrongCategory.categories = []db.ExpenseCategory{db.ExpenseCategoryMEALS}
+	wrongDate := match(inRange.AddDate(0, 0, 3))
+	wrongTitle := match(inRange)
+	wrongTitle.title = "Hotel"
+	for _, claim := range []*listed{wrongStatus, wrongCategory, wrongDate, wrongTitle} {
+		storeListed(t, pool, claim)
+	}
+
+	status, category := db.ClaimStatusAPPROVED, db.ExpenseCategoryTRAVEL
+	filters := Filters{Status: &status, Category: &category, From: day(4), To: day(6), Q: "taxi"}
+	for page, want := range []uuid.UUID{newer, older} {
+		got, err := service.List(t.Context(), Actor{ID: anan, Role: "requester"}, &Query{Scope: ScopeAll, Filters: filters, Page: page + 1, PageSize: 1})
+		if err != nil {
+			t.Fatalf("List page %d: %v", page+1, err)
+		}
+		if got.Total != 2 || len(got.Claims) != 1 || got.Claims[0].ID != want {
+			t.Fatalf("page %d = %+v, want only %s of total 2", page+1, got, want)
+		}
+	}
+}

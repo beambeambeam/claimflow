@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -73,7 +75,8 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 
 // listScopes maps each scope of the contract to the module's scope and the resource of its route permission:
 // claim:list for mine, which a Finance Officer lacks (F03-AC-04), review:list for review, which a requester lacks
-// (F04-AC-02), and finance:list for finance, which only a Finance Officer has (F-08 §1.8).
+// (F04-AC-02), and finance:list for finance, which only a Finance Officer has (F-08 §1.8). all has no resource: it needs
+// only a session (F-09 §1.7).
 var listScopes = map[api.ListClaimsParamsScope]struct {
 	scope    Scope
 	resource string
@@ -81,11 +84,14 @@ var listScopes = map[api.ListClaimsParamsScope]struct {
 	api.ListScopeMine:    {scope: ScopeMine, resource: "claim"},
 	api.ListScopeReview:  {scope: ScopeReview, resource: "review"},
 	api.ListScopeFinance: {scope: ScopeFinance, resource: "finance"},
+	api.ListScopeAll:     {scope: ScopeAll},
 }
 
 // ListClaims returns one page of claims in the scope: the session user's own (mine), the SUBMITTED claims assigned to
-// them (review), or every PENDING_FINANCE claim (finance). A missing or unknown scope, a page below 1, and a page size outside 1–100 are 400. The route
-// permission depends on the scope, so the handler checks it after it reads the scope.
+// them (review), every PENDING_FINANCE claim (finance), or every claim they can see, narrowed by the filters (all). A
+// missing or unknown scope, a page below 1, and a page size outside 1–100 are 400. A bad filter is a 400 that names
+// each bad parameter (F-09 §1.3). The route permission depends on the scope, so the handler checks it after it reads
+// the scope.
 func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestObject) (api.ListClaimsResponseObject, error) {
 	params := request.Params
 	q := Query{Page: defaultPage, PageSize: defaultPageSize}
@@ -103,11 +109,22 @@ func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestOb
 		return nil, httperr.ErrValidation
 	}
 
-	q.Scope = scope.scope
+	filters, invalid := listFilters(&params)
+	if len(invalid) > 0 {
+		return nil, fmt.Errorf("list filters: %w", httperr.InvalidFields(invalid))
+	}
 
-	user, err := auth.Authorize(ctx, scope.resource, "list")
-	if err != nil {
-		return nil, fmt.Errorf("authorize: %w", err)
+	q.Scope, q.Filters = scope.scope, filters
+
+	user, ok := auth.UserFrom(ctx)
+	if !ok {
+		return nil, errUnauthenticated
+	}
+
+	if scope.resource != "" {
+		if _, err := auth.Authorize(ctx, scope.resource, "list"); err != nil {
+			return nil, fmt.Errorf("authorize: %w", err)
+		}
 	}
 
 	result, err := h.service.List(ctx, Actor{ID: user.ID, Role: user.Role}, &q)
@@ -121,6 +138,99 @@ func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestOb
 	}
 
 	return api.ListClaims200JSONResponse(body), nil
+}
+
+// The messages of the filter checks (F-09 §1.3).
+const (
+	scopeOnlyMessage = "Filters are only available for scope=all."
+	dateMessage      = "Use a date in the form YYYY-MM-DD."
+	maxQueryLength   = 120
+)
+
+// listFilters checks the filter parameters of a list request and returns them as Filters, or one field error per bad
+// parameter, in parameter order (F-09 §1.3). A filter with a scope other than all is an error, so a client never gets
+// an unfiltered list it thinks is filtered. A from later than to is an error on to.
+func listFilters(params *api.ListClaimsParams) (Filters, []api.FieldError) {
+	invalid := []api.FieldError{}
+
+	if params.Scope != api.ListScopeAll {
+		for _, set := range []struct {
+			field string
+			isSet bool
+		}{
+			{"status", params.Status != nil},
+			{"category", params.Category != nil},
+			{"from", params.From != nil},
+			{"to", params.To != nil},
+			{"q", params.Q != nil},
+		} {
+			if set.isSet {
+				invalid = append(invalid, api.FieldError{Field: set.field, Rule: "scope", Message: scopeOnlyMessage})
+			}
+		}
+
+		return Filters{}, invalid
+	}
+
+	var filters Filters
+
+	if params.Status != nil {
+		if params.Status.Valid() {
+			status := db.ClaimStatus(*params.Status)
+			filters.Status = &status
+		} else {
+			invalid = append(invalid, api.FieldError{Field: "status", Rule: "enum", Message: "Unknown status."})
+		}
+	}
+
+	if params.Category != nil {
+		if params.Category.Valid() {
+			category := db.ExpenseCategory(*params.Category)
+			filters.Category = &category
+		} else {
+			invalid = append(invalid, api.FieldError{Field: "category", Rule: "enum", Message: "Unknown category."})
+		}
+	}
+
+	var badDate bool
+	filters.From, badDate = parseDate(params.From)
+	if badDate {
+		invalid = append(invalid, api.FieldError{Field: "from", Rule: "format", Message: dateMessage})
+	}
+
+	filters.To, badDate = parseDate(params.To)
+	if badDate {
+		invalid = append(invalid, api.FieldError{Field: "to", Rule: "format", Message: dateMessage})
+	} else if filters.From != nil && filters.To != nil && filters.From.After(*filters.To) {
+		invalid = append(invalid, api.FieldError{Field: "to", Rule: "range", Message: "The end date must be on or after the start date."})
+	}
+
+	if params.Q != nil {
+		filters.Q = strings.TrimSpace(*params.Q)
+		if utf8.RuneCountInString(filters.Q) > maxQueryLength {
+			invalid = append(invalid, api.FieldError{Field: "q", Rule: "maxLength", Message: "Search text must be at most 120 characters."})
+		}
+	}
+
+	if len(invalid) > 0 {
+		return Filters{}, invalid
+	}
+
+	return filters, nil
+}
+
+// parseDate reads a YYYY-MM-DD date. It returns nil for a missing value, and bad for a value that is not a date.
+func parseDate(value *string) (date *time.Time, bad bool) {
+	if value == nil {
+		return nil, false
+	}
+
+	parsed, err := time.Parse(time.DateOnly, *value)
+	if err != nil {
+		return nil, true
+	}
+
+	return &parsed, false
 }
 
 // GetClaim returns a claim that the session user may see, with the actions the claim policy allows. A malformed id is
