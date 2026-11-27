@@ -1,0 +1,4 @@
+$ bun run seed:load
+added 240 new load claims
+$ bun run seed:load
+added 0 new load claims
