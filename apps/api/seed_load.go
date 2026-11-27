@@ -165,7 +165,7 @@ func loadPlans() []loadPlan {
 
 		round := other / 10
 		requester := loadRequesters[(other+round)%len(loadRequesters)]
-		financeApproves := users[users[requester].reviewer].role == "finance"
+		financeApproves := users[users[requester].reviewer].role == claim.RoleFinance
 		path, total := loadSlot(other%10, round, financeApproves)
 
 		month := time.July + time.Month(round%5)
