@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { z } from "zod";
 
 // The same value `api seed` hashes. Set it in the environment for the test run. It is never committed.
 export const password = process.env.SEED_USER_PASSWORD ?? "";
@@ -91,39 +92,56 @@ export const submitClaim = async (
   return claimNo;
 };
 
-// The Review Queue pages the spec looks through before it gives up: 20 claims each, more than the load data holds.
-const maxQueuePages = 10;
+// The page size of the Review Queue (`claim-queue.tsx`).
+const queuePageSize = 20;
 
-// Finds the claim's row in the Review Queue of the logged-in reviewer and leaves that page open. The queue lists the
-// oldest submission first, so with the F-10/02 load data a claim the spec just submitted is on a later page: each page
-// is checked in turn.
-export const findInReviewQueue = async (
-  page: Page,
-  claimNo: string,
-  queuePage = 1
-): Promise<Locator> => {
-  if (queuePage > 1) {
-    await page.goto(`/reviews?page=${queuePage}`);
-  }
+// The part of a `ClaimPage` that gives the page count.
+const queueTotal = z.object({ total: z.number().int().min(0) });
 
-  // Wait for the rows, not the skeleton, before looking for the claim.
+// The claim's row on the Review Queue page that is open, once the rows (not the skeleton) are there.
+const queueRow = async (page: Page, claimNo: string) => {
   await expect(
     page.getByRole("table").getByRole("link", { name: /^CLM-/u }).first()
   ).toBeVisible();
 
-  const row = page.getByRole("row", { name: new RegExp(claimNo, "u") });
+  return page.getByRole("row", { name: new RegExp(claimNo, "u") });
+};
 
-  if ((await row.count()) > 0) {
-    return row;
+// Finds the claim's row in the Review Queue of the logged-in reviewer and leaves that page open. The queue lists the
+// oldest submission first, so with the F-10/02 load data a claim the spec just submitted is on the last page, or the
+// one before it when the page fills up meanwhile. The page count comes from the queue's own `total`.
+export const findInReviewQueue = async (
+  page: Page,
+  claimNo: string
+): Promise<Locator> => {
+  const first = await queueRow(page, claimNo);
+
+  if ((await first.count()) > 0) {
+    return first;
   }
 
-  if (queuePage >= maxQueuePages) {
-    throw new Error(
-      `${claimNo} is not in the first ${maxQueuePages} pages of the Review Queue`
-    );
+  const response = await page.request.get(
+    "/api/v1/claims?scope=review&page=1&pageSize=1"
+  );
+
+  const { total } = queueTotal.parse(await response.json());
+  const lastPage = Math.max(1, Math.ceil(total / queuePageSize));
+
+  await page.goto(`/reviews?page=${lastPage}`);
+  const last = await queueRow(page, claimNo);
+
+  if ((await last.count()) > 0) {
+    return last;
   }
 
-  return await findInReviewQueue(page, claimNo, queuePage + 1);
+  await page.goto(`/reviews?page=${Math.max(1, lastPage - 1)}`);
+  const before = await queueRow(page, claimNo);
+
+  if ((await before.count()) === 0) {
+    throw new Error(`${claimNo} is not on the last pages of the Review Queue`);
+  }
+
+  return before;
 };
 
 // Opens the claim from the Review Queue of the logged-in reviewer.
