@@ -226,6 +226,87 @@ describe("All Claims", () => {
     expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
   }, 20_000);
 
+  it("F09-TEST-10: status and date changes keep the search text and go back to page 1", async () => {
+    const { router, user } = renderAt("/all-claims?q=taxi&page=2");
+
+    await screen.findByText("CLM-2026-000123", {}, slow);
+    await user.click(screen.getByRole("combobox", { name: "Status" }));
+    await user.click(await screen.findByRole("option", { name: "Approved" }));
+    await user.type(screen.getByLabelText("From"), "2026-11-01");
+    await user.type(screen.getByLabelText("To"), "2026-11-30");
+
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({
+        q: "taxi",
+        status: "APPROVED",
+        from: "2026-11-01",
+        to: "2026-11-30",
+        page: 1,
+      });
+    });
+  }, 20_000);
+
+  it("F09-TEST-10: search text over 120 characters shows the limit and is not sent", async () => {
+    const { router, user } = renderAt("/all-claims");
+
+    await screen.findByText("CLM-2026-000123", {}, slow);
+    await user.click(screen.getByLabelText("Search title"));
+    await user.paste("a".repeat(121));
+
+    await screen.findByText(
+      "Search text must be at most 120 characters.",
+      {},
+      slow
+    );
+    // Wait past the search delay, so a send would have happened.
+    await delay(500);
+    expect(router.state.location.search).toEqual({});
+    expect(
+      requestedUrls.flatMap((url) => url.searchParams.getAll("q"))
+    ).toEqual([]);
+  }, 20_000);
+
+  it("F09-TEST-10: a page past the last one is replaced by the last page", async () => {
+    const { router } = renderAt("/all-claims?status=APPROVED&page=9");
+
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({
+        status: "APPROVED",
+        page: 3,
+      });
+    }, slow);
+    await screen.findByText("CLM-2026-000123");
+  }, 20_000);
+
+  it("F09-TEST-10: the next page keeps the filters", async () => {
+    const { router, user } = renderAt("/all-claims?category=MEALS");
+
+    await screen.findByText("CLM-2026-000123", {}, slow);
+    await user.click(screen.getByRole("button", { name: /next/iu }));
+
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({
+        category: "MEALS",
+        page: 2,
+      });
+    });
+  }, 20_000);
+
+  it("F09-TEST-10: a server error shows Something went wrong, and Try again loads the list", async () => {
+    listResponse = () =>
+      HttpResponse.json(problem(500, "INTERNAL", "req-list-500"), {
+        status: 500,
+      });
+
+    const { user } = renderAt("/all-claims");
+
+    await screen.findByText("Something went wrong.", {}, slow);
+    listResponse = () => HttpResponse.json(page(60));
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    await screen.findByText("CLM-2026-000123");
+  }, 20_000);
+
   it("F09-TEST-10: a row shows the requester and opens Claim Detail", async () => {
     const { router, user } = renderAt("/all-claims");
 
