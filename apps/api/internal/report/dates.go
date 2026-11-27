@@ -8,7 +8,7 @@ import (
 
 // bangkok is the calendar of every date in the API (SDS §2.3). Asia/Bangkok has no daylight saving, so a fixed offset
 // is the same as the zone and needs no tz database.
-var bangkok = time.UTC
+var bangkok = time.FixedZone("Asia/Bangkok", 7*60*60)
 
 // The 400 messages of a date range are the F-09 §1.3 messages, so the Summary and the All Claims filters read alike.
 const (
