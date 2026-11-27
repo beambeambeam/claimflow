@@ -1,6 +1,6 @@
 > **LOCAL run, not the F10-TEST-12 evidence.** F10-AC-12 needs a run against the deployed release with its tag. This one is a dry run of the script on a developer machine: a throwaway `postgres:17` container, the API started with `go run .` (not a release build, `APP_VERSION=dev`), the Bun script on the same host, so no network between them, and `BCRYPT_COST=10`. The numbers show that the script and the load data work. They do not show NFR-07 on the deployed instance.
 
-- **Commit:** `39f8ca9` on `feat/load-dataset`
+- **Commit:** `28074eb` on `feat/load-dataset` (run as `39f8ca9`, the same code before the branch was rebased onto the F10-TEST-13 fix)
 - **Data:** the base seed and `seed-load` (240 load claims), freshly loaded; 86 `SUBMITTED` load claims assigned to `rev.malee` before the run, 20 approved by it
 - **Command:** `bun run perf -- --base-url http://127.0.0.1:8080 --rounds 20`, with `SEED_USER_PASSWORD` set in the environment
 
