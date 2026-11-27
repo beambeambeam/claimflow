@@ -29,13 +29,13 @@ test("F10-TEST-13: rev.malee opens Summary, picks October 2026, and sees the til
   ];
 
   await Promise.all(
-    statuses.map(async (status) =>
-      expect(
+    statuses.map(async (status) => {
+      await expect(
         page.getByRole("heading", {
           name: new RegExp(`^${status}: \\d+$`, "u"),
         })
-      ).toBeVisible()
-    )
+      ).toBeVisible();
+    })
   );
 
   await expect(
