@@ -116,8 +116,9 @@ func (s Service) Get(ctx context.Context, actor Actor, id uuid.UUID) (Claim, err
 // List returns one page of the claims in q's scope (SDS §3.1). ScopeMine is the actor's own claims in every status,
 // newest first: created time descending, then id descending (F-03 §1.4). ScopeReview is the SUBMITTED claims assigned
 // to the actor, oldest submission first: submitted time ascending, then id ascending (F-04 §3); decided claims leave
-// it. ScopeFinance is every PENDING_FINANCE claim in the same order (F-08 §1.9). A page past the last one has no claims
-// and the correct total.
+// it. ScopeFinance is every PENDING_FINANCE claim in the same order (F-08 §1.9). ScopeAll is every claim the actor can
+// see, newest first as ScopeMine, narrowed by q.Filters (F-09 §1.3); the other scopes ignore the filters. A page past
+// the last one has no claims and the correct total.
 func (s Service) List(ctx context.Context, actor Actor, q *Query) (Page, error) {
 	switch q.Scope {
 	case ScopeMine:
@@ -127,7 +128,7 @@ func (s Service) List(ctx context.Context, actor Actor, q *Query) (Page, error) 
 	case ScopeFinance:
 		return s.listFinance(ctx, q)
 	case ScopeAll:
-		return Page{}, errors.New("claim: scope all is not implemented")
+		return s.listAll(ctx, actor, q)
 	default:
 		return Page{}, fmt.Errorf("claim: unknown scope %q", q.Scope)
 	}
@@ -207,6 +208,71 @@ func (s Service) listFinance(ctx context.Context, q *Query) (Page, error) {
 
 		return summaries, nil
 	})
+}
+
+// listAll is List for ScopeAll. The visibility clause of the query is the SQL form of isVisible, so the list and
+// the claim policy agree (F-09 §1.4).
+func (s Service) listAll(ctx context.Context, actor Actor, q *Query) (Page, error) {
+	queries := db.New(s.pool)
+	params := allClaimsParams(actor, &q.Filters)
+
+	total, err := queries.CountAllClaims(ctx, params)
+	if err != nil { // coverage-ignore
+		return Page{}, fmt.Errorf("count all claims: %w", err)
+	}
+
+	return listPage(int(total), q, func(offset, limit int32) ([]Summary, error) {
+		rows, err := queries.ListAllClaims(ctx, db.ListAllClaimsParams{
+			ActorID: params.ActorID, ActorRole: params.ActorRole, Status: params.Status, Category: params.Category,
+			FromAt: params.FromAt, BeforeAt: params.BeforeAt, Title: params.Title, PageOffset: offset, PageLimit: limit,
+		})
+		if err != nil { // coverage-ignore
+			return nil, fmt.Errorf("list all claims: %w", err)
+		}
+
+		summaries := make([]Summary, 0, len(rows))
+		for i := range rows {
+			// The same columns as ListRequesterClaims; see listReview.
+			summaries = append(summaries, summarize((*db.ListRequesterClaimsRow)(&rows[i])))
+		}
+
+		return summaries, nil
+	})
+}
+
+// likeEscaper escapes the LIKE wildcards and the escape character, so a title search matches them literally.
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+// allClaimsParams maps the actor and filters to the query parameters. From becomes Bangkok midnight at its start and
+// To Bangkok midnight at the start of the next day, a half-open range that holds both dates whole (F-09 §1.8). Q is
+// trimmed and becomes a case-insensitive substring pattern; an empty Q sets no title filter.
+func allClaimsParams(actor Actor, filters *Filters) db.CountAllClaimsParams {
+	params := db.CountAllClaimsParams{ActorID: actor.ID, ActorRole: actor.Role}
+
+	if filters.Status != nil {
+		params.Status = db.NullClaimStatus{ClaimStatus: *filters.Status, Valid: true}
+	}
+	if filters.Category != nil {
+		params.Category = db.NullExpenseCategory{ExpenseCategory: *filters.Category, Valid: true}
+	}
+	if filters.From != nil {
+		params.FromAt = timestamptz(bangkokMidnight(*filters.From, 0))
+	}
+	if filters.To != nil {
+		params.BeforeAt = timestamptz(bangkokMidnight(*filters.To, 1))
+	}
+	if q := strings.TrimSpace(filters.Q); q != "" {
+		params.Title = pgtype.Text{String: "%" + likeEscaper.Replace(q) + "%", Valid: true}
+	}
+
+	return params
+}
+
+// bangkokMidnight returns the start, in Asia/Bangkok, of the calendar date of date plus days.
+func bangkokMidnight(date time.Time, days int) time.Time {
+	year, month, d := date.Date()
+
+	return time.Date(year, month, d+days, 0, 0, 0, 0, bangkok)
 }
 
 // listPage builds the page of q from total, the number of claims on every page, and fetch, which reads a window of them.

@@ -25,6 +25,45 @@ func (q *Queries) CheckReady(ctx context.Context) (int32, error) {
 	return ok, err
 }
 
+const countAllClaims = `-- name: CountAllClaims :one
+SELECT count(*)::int AS total
+FROM claims c
+WHERE (c.requester_id = $1
+       OR (c.status <> 'DRAFT' AND (c.assigned_reviewer_id = $1 OR $2::text = 'finance')))
+  AND ($3::claim_status IS NULL OR c.status = $3::claim_status)
+  AND ($4::expense_category IS NULL OR EXISTS (
+        SELECT 1 FROM line_items li WHERE li.claim_id = c.id AND li.category = $4::expense_category))
+  AND ($5::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) >= $5::timestamptz)
+  AND ($6::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) < $6::timestamptz)
+  AND ($7::text IS NULL OR c.title ILIKE $7::text ESCAPE '\')
+`
+
+type CountAllClaimsParams struct {
+	ActorID   uuid.UUID
+	ActorRole string
+	Status    NullClaimStatus
+	Category  NullExpenseCategory
+	FromAt    pgtype.Timestamptz
+	BeforeAt  pgtype.Timestamptz
+	Title     pgtype.Text
+}
+
+// CountAllClaims counts the claims of ListAllClaims on every page, with the same WHERE clause.
+func (q *Queries) CountAllClaims(ctx context.Context, arg CountAllClaimsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countAllClaims,
+		arg.ActorID,
+		arg.ActorRole,
+		arg.Status,
+		arg.Category,
+		arg.FromAt,
+		arg.BeforeAt,
+		arg.Title,
+	)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
 const countFinanceClaims = `-- name: CountFinanceClaims :one
 SELECT count(*)::int AS total
 FROM claims
@@ -499,6 +538,94 @@ func (q *Queries) InsertSeedClaim(ctx context.Context, arg InsertSeedClaimParams
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const listAllClaims = `-- name: ListAllClaims :many
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE (c.requester_id = $1
+       OR (c.status <> 'DRAFT' AND (c.assigned_reviewer_id = $1 OR $2::text = 'finance')))
+  AND ($3::claim_status IS NULL OR c.status = $3::claim_status)
+  AND ($4::expense_category IS NULL OR EXISTS (
+        SELECT 1 FROM line_items li WHERE li.claim_id = c.id AND li.category = $4::expense_category))
+  AND ($5::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) >= $5::timestamptz)
+  AND ($6::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) < $6::timestamptz)
+  AND ($7::text IS NULL OR c.title ILIKE $7::text ESCAPE '\')
+ORDER BY c.created_at DESC, c.id DESC
+LIMIT $9 OFFSET $8
+`
+
+type ListAllClaimsParams struct {
+	ActorID    uuid.UUID
+	ActorRole  string
+	Status     NullClaimStatus
+	Category   NullExpenseCategory
+	FromAt     pgtype.Timestamptz
+	BeforeAt   pgtype.Timestamptz
+	Title      pgtype.Text
+	PageOffset int32
+	PageLimit  int32
+}
+
+type ListAllClaimsRow struct {
+	ID                uuid.UUID
+	ClaimNo           string
+	Status            ClaimStatus
+	Title             string
+	TotalSatang       money.Satang
+	SubmittedAt       pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	RequesterID       uuid.UUID
+	RequesterName     string
+	RequesterPosition string
+}
+
+// ListAllClaims returns one page of the claims the actor can see, newest first (F-09 §1.4, §1.5). The visibility
+// clause is the SQL form of isVisible in policy.go: own claims, and claims that are not DRAFT and either assigned to
+// the actor or seen by a Finance Officer. Each filter is a parameter that is NULL when not set (F-09 §1.3). The date
+// bounds are half-open timestamps on first_submitted_at, or created_at for a claim that was never submitted. title is a
+// LIKE pattern with %, _, and \ already escaped.
+func (q *Queries) ListAllClaims(ctx context.Context, arg ListAllClaimsParams) ([]ListAllClaimsRow, error) {
+	rows, err := q.db.Query(ctx, listAllClaims,
+		arg.ActorID,
+		arg.ActorRole,
+		arg.Status,
+		arg.Category,
+		arg.FromAt,
+		arg.BeforeAt,
+		arg.Title,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllClaimsRow
+	for rows.Next() {
+		var i ListAllClaimsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClaimNo,
+			&i.Status,
+			&i.Title,
+			&i.TotalSatang,
+			&i.SubmittedAt,
+			&i.CreatedAt,
+			&i.RequesterID,
+			&i.RequesterName,
+			&i.RequesterPosition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listClaimHistory = `-- name: ListClaimHistory :many
