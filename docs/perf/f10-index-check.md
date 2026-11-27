@@ -2,7 +2,7 @@
 
 `EXPLAIN (ANALYZE, BUFFERS)` of the list queries of `GET /claims` (`mine`, `review`, `finance`, `all`, with and without filters) and of the three summary queries of `GET /reports/summary`, on the load data.
 
-- **Commit:** `1ae9425` (`feat: add the NFR-07 timed-run script`), the head of `feat/load-dataset` when the plans were taken (taken as `3c2416e`, the same code before the branch was rebased onto the F10-TEST-13 fix). The migrations are `00001` to `00003`, so the indexes are those of `00001_auth.sql`, `00002_claims.sql`, and `00003_claim_filters.sql`.
+- **Commit:** `69bfa7c` (`feat: add the NFR-07 timed-run script`), the head of `feat/load-dataset` when the plans were taken (taken as `3c2416e`, the same code before the branch was rebased onto `sprint-3`). The migrations are `00001` to `00003`, so the indexes are those of `00001_auth.sql`, `00002_claims.sql`, and `00003_claim_filters.sql`.
 - **Database:** PostgreSQL 17.12 (`postgres:17` container) on a local stack: `migrate up`, `seed`, `seed-load`, then `ANALYZE`. Not the deployed database.
 - **Data:** 250 claims (10 base and 240 `CLM-LOAD-0001` to `CLM-LOAD-0240`), 736 line items, 520 history rows, 7 users.
 - **How:** each query of `internal/claim/queries.sql` and `internal/report/queries.sql` is written out with literal values for its parameters (the actors `req.anan`, `rev.malee`, and `fin.wanida`, page 1 of size 20, the range 2026-07-01 to 2026-11-30 as Bangkok-midnight bounds). Each ran twice; the plans below are from the second run, so the cache is warm. The plans use literal values (custom plans). The API sends parameters, and a prepared statement may switch to a generic plan after five runs; that plan was not measured here.
