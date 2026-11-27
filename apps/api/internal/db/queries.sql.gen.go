@@ -623,6 +623,60 @@ func (q *Queries) InsertLineItem(ctx context.Context, arg InsertLineItemParams) 
 	return err
 }
 
+const insertLoadClaim = `-- name: InsertLoadClaim :execrows
+INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
+                    return_count, first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+SELECT $1, $2, u.id, u.reviewer_id, $3, $4,
+       $5::claim_status, $6, $7, $8,
+       $9::timestamptz, $10::timestamptz, $11::timestamptz,
+       $12::timestamptz, $13::timestamptz
+FROM "user" u
+WHERE u.username = $14
+ON CONFLICT (claim_no) DO NOTHING
+`
+
+type InsertLoadClaimParams struct {
+	ID               uuid.UUID
+	ClaimNo          string
+	Title            string
+	Purpose          string
+	Status           ClaimStatus
+	TotalSatang      money.Satang
+	Version          int32
+	ReturnCount      int16
+	FirstSubmittedAt pgtype.Timestamptz
+	SubmittedAt      pgtype.Timestamptz
+	DecidedAt        pgtype.Timestamptz
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
+	Requester        string
+}
+
+// InsertLoadClaim adds a load-test claim (F-10 §1.8) unless its claim number exists. Unlike InsertSeedClaim it takes every
+// time of the claim, so they match its history. The reviewer is the requester's own, as in the base seed.
+func (q *Queries) InsertLoadClaim(ctx context.Context, arg InsertLoadClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertLoadClaim,
+		arg.ID,
+		arg.ClaimNo,
+		arg.Title,
+		arg.Purpose,
+		arg.Status,
+		arg.TotalSatang,
+		arg.Version,
+		arg.ReturnCount,
+		arg.FirstSubmittedAt,
+		arg.SubmittedAt,
+		arg.DecidedAt,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.Requester,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const insertSeedClaim = `-- name: InsertSeedClaim :execrows
 INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
                     return_count, first_submitted_at, submitted_at, decided_at, created_at, updated_at)
@@ -1028,6 +1082,36 @@ func (q *Queries) ListReviewClaims(ctx context.Context, arg ListReviewClaimsPara
 			&i.RequesterName,
 			&i.RequesterPosition,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserIDsByUsername = `-- name: ListUserIDsByUsername :many
+SELECT username, id FROM "user" WHERE username = ANY($1::text[])
+`
+
+type ListUserIDsByUsernameRow struct {
+	Username string
+	ID       uuid.UUID
+}
+
+// ListUserIDsByUsername returns the id of each existing user among usernames. The load dataset reads the base seed users with it.
+func (q *Queries) ListUserIDsByUsername(ctx context.Context, usernames []string) ([]ListUserIDsByUsernameRow, error) {
+	rows, err := q.db.Query(ctx, listUserIDsByUsername, usernames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserIDsByUsernameRow
+	for rows.Next() {
+		var i ListUserIDsByUsernameRow
+		if err := rows.Scan(&i.Username, &i.ID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

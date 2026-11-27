@@ -1,6 +1,11 @@
 package claim
 
-import "github.com/beambeambeam/claimflow/apps/api/internal/db"
+import (
+	"time"
+
+	"github.com/beambeambeam/claimflow/apps/api/internal/db"
+	"github.com/beambeambeam/claimflow/apps/api/internal/money"
+)
 
 // transition is the destination and history action for an allowed status change.
 type transition struct {
@@ -28,4 +33,26 @@ var transitions = map[Action]map[db.ClaimStatus]transition{
 		db.ClaimStatusDRAFT:    {to: db.ClaimStatusSUBMITTED, history: db.ClaimActionSUBMIT},
 		db.ClaimStatusRETURNED: {to: db.ClaimStatusSUBMITTED, history: db.ClaimActionRESUBMIT},
 	},
+}
+
+// NextStatus returns the status and the history action that action leads to from the status from, for a claim with
+// total and an actor with role, as Act applies it. ok is false when the lifecycle does not allow action from there.
+// The load dataset builds and checks its histories with it (F-10 §1.8).
+func NextStatus(action Action, from db.ClaimStatus, total money.Satang, role string) (to db.ClaimStatus, history db.ClaimAction, ok bool) {
+	step, ok := transitions[action][from]
+	if !ok {
+		return "", "", false
+	}
+
+	if action == ActionApprove {
+		step.to = approveTarget(total, role)
+	}
+
+	return step.to, step.history, true
+}
+
+// CheckLineItems runs the line item rules of a claim (BR-05, BR-06, BR-12) and, with firstSubmittedAt set, the expense
+// date window of BR-07 as of now. It returns a ValidationError, or nil.
+func CheckLineItems(items []LineItemInput, now, firstSubmittedAt time.Time) error {
+	return checkRules(Input{Items: items}, now, firstSubmittedAt)
 }
