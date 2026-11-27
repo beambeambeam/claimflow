@@ -170,6 +170,34 @@ export const zClaimPage = z.object({
 });
 
 /**
+ * The claims in scope by current status. Every key is present, `0` for an empty status.
+ */
+export const zStatusCounts = z.object({
+  SUBMITTED: z.int(),
+  RETURNED: z.int(),
+  PENDING_FINANCE: z.int(),
+  APPROVED: z.int(),
+  REJECTED: z.int(),
+  WITHDRAWN: z.int()
+});
+
+export const zApprovedTotal = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  category: zExpenseCategory,
+  total: zMoney
+});
+
+export const zSummary = z.object({
+  countsByStatus: zStatusCounts,
+  approvedTotals: z.array(zApprovedTotal),
+  averageDecisionHours: z.number().nullable()
+});
+
+export const zSummaryEnvelope = z.object({
+  data: zSummary
+});
+
+/**
  * A stable error code for the client (SDS §4.2).
  */
 export const zProblemCode = z.enum([
@@ -412,3 +440,13 @@ export const zWithdrawClaimPath = z.object({
  * The decided claim, with its new `ETag`.
  */
 export const zWithdrawClaimResponse = zClaimEnvelope;
+
+export const zGetDecisionSummaryQuery = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional()
+});
+
+/**
+ * The decision summary.
+ */
+export const zGetDecisionSummaryResponse = zSummaryEnvelope;

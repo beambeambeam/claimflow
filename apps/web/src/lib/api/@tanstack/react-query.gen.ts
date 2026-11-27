@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveClaim, createClaim, deleteClaim, finalApproveClaim, finalRejectClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, returnClaim, submitClaim, updateClaim, withdrawClaim } from '../sdk.gen';
-import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, FinalApproveClaimData, FinalApproveClaimError, FinalApproveClaimResponse, FinalRejectClaimData, FinalRejectClaimError, FinalRejectClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, ReturnClaimData, ReturnClaimError, ReturnClaimResponse, SubmitClaimData, SubmitClaimError, SubmitClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse, WithdrawClaimData, WithdrawClaimError, WithdrawClaimResponse } from '../types.gen';
+import { approveClaim, createClaim, deleteClaim, finalApproveClaim, finalRejectClaim, getClaim, getDecisionSummary, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, returnClaim, submitClaim, updateClaim, withdrawClaim } from '../sdk.gen';
+import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, FinalApproveClaimData, FinalApproveClaimError, FinalApproveClaimResponse, FinalRejectClaimData, FinalRejectClaimError, FinalRejectClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetDecisionSummaryData, GetDecisionSummaryError, GetDecisionSummaryResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, ReturnClaimData, ReturnClaimError, ReturnClaimResponse, SubmitClaimData, SubmitClaimError, SubmitClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse, WithdrawClaimData, WithdrawClaimError, WithdrawClaimResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -421,3 +421,23 @@ export const withdrawClaimMutation = (options?: Partial<Options<WithdrawClaimDat
   };
   return mutationOptions;
 };
+
+export const getDecisionSummaryQueryKey = (options?: Options<GetDecisionSummaryData>) => createQueryKey('getDecisionSummary', options);
+
+/**
+ * The decision summary of the session user's scope (F-10).
+ *
+ * Needs the `report:read` route permission, so a requester gets 403. A reviewer's summary covers the claims assigned to them. A Finance Officer's covers every claim that is not a draft. `countsByStatus` always shows the current status of every claim in scope and ignores the range. `approvedTotals` and `averageDecisionHours` cover the claims whose decision (`decidedAt`, Asia/Bangkok date) is in the inclusive range. `from` and `to` are optional. A date that is not `YYYY-MM-DD`, or `from` later than `to`, is a 400 with the F-09 §1.3 messages.
+ */
+export const getDecisionSummaryOptions = (options?: Options<GetDecisionSummaryData>) => queryOptions<GetDecisionSummaryResponse, GetDecisionSummaryError, GetDecisionSummaryResponse, ReturnType<typeof getDecisionSummaryQueryKey>>({
+  queryFn: async ({ queryKey, signal }) => {
+    const { data } = await getDecisionSummary({
+      ...options,
+      ...queryKey[0],
+      signal,
+      throwOnError: true
+    });
+    return data;
+  },
+  queryKey: getDecisionSummaryQueryKey(options)
+});

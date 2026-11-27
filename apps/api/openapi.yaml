@@ -13,6 +13,8 @@ tags:
     description: Sign-in and the current user
   - name: claims
     description: Submit and read claims
+  - name: reports
+    description: Decision summaries
 paths:
   /health:
     get:
@@ -572,6 +574,43 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /reports/summary:
+    get:
+      operationId: getDecisionSummary
+      summary: The decision summary of the session user's scope (F-10).
+      description: >-
+        Needs the `report:read` route permission, so a requester gets 403. A reviewer's summary covers the claims assigned to them. A Finance Officer's covers every claim that is not a draft. `countsByStatus` always shows the current status of every claim in scope and ignores the range. `approvedTotals` and `averageDecisionHours` cover the claims whose decision (`decidedAt`, Asia/Bangkok date) is in the inclusive range. `from` and `to` are optional. A date that is not `YYYY-MM-DD`, or `from` later than `to`, is a 400 with the F-09 §1.3 messages.
+      tags: [reports]
+      parameters:
+        - name: from
+          in: query
+          description: The first decision date, inclusive, in Asia/Bangkok. No lower bound when missing.
+          schema:
+            type: string
+            format: date
+            x-go-type: string
+        - name: to
+          in: query
+          description: The last decision date, inclusive, in Asia/Bangkok. No upper bound when missing.
+          schema:
+            type: string
+            format: date
+            x-go-type: string
+      responses:
+        "200":
+          description: The decision summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummaryEnvelope"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   parameters:
     ClaimId:
@@ -999,6 +1038,60 @@ components:
           type: integer
           description: The number of claims in the scope, on every page.
           example: 57
+    SummaryEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Summary"
+    Summary:
+      type: object
+      required: [countsByStatus, approvedTotals, averageDecisionHours]
+      properties:
+        countsByStatus:
+          $ref: "#/components/schemas/StatusCounts"
+        approvedTotals:
+          type: array
+          description: The approved line-item totals by Bangkok month of the decision and category, ordered by month, then category. Only non-zero groups are listed.
+          items:
+            $ref: "#/components/schemas/ApprovedTotal"
+        averageDecisionHours:
+          type: number
+          format: double
+          nullable: true
+          description: The mean hours from first submission to decision, rounded to one decimal place. Null when no claim was decided in the range.
+          example: 26.4
+    StatusCounts:
+      type: object
+      description: The claims in scope by current status. Every key is present, `0` for an empty status.
+      required:
+        [SUBMITTED, RETURNED, PENDING_FINANCE, APPROVED, REJECTED, WITHDRAWN]
+      properties:
+        SUBMITTED:
+          type: integer
+        RETURNED:
+          type: integer
+        PENDING_FINANCE:
+          type: integer
+        APPROVED:
+          type: integer
+        REJECTED:
+          type: integer
+        WITHDRAWN:
+          type: integer
+    ApprovedTotal:
+      type: object
+      required: [month, category, total]
+      properties:
+        month:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: The Asia/Bangkok month of the decision.
+          example: "2026-10"
+        category:
+          $ref: "#/components/schemas/ExpenseCategory"
+        total:
+          $ref: "#/components/schemas/Money"
     ProblemCode:
       type: string
       description: A stable error code for the client (SDS §4.2).

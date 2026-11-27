@@ -15,7 +15,8 @@ import (
 // letter in upper case. The check runs after the request is validated (F-01 §3.4, step 5). An operation not
 // listed needs only a session.
 var operationPermissions = map[string]auth.Permission{
-	"CreateClaim": {Resource: "claim", Action: "create"},
+	"CreateClaim":        {Resource: "claim", Action: "create"},
+	"GetDecisionSummary": {Resource: "report", Action: "read"},
 }
 
 // pathParam matches a path parameter in a contract path, such as {id}.
