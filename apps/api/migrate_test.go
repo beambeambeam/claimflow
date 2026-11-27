@@ -12,6 +12,7 @@ import (
 const (
 	authMigration   = "00001_auth.sql"
 	claimsMigration = "00002_claims.sql"
+	filterMigration = "00003_claim_filters.sql"
 )
 
 func runMigrate(t *testing.T, databaseURL, command string) string {
@@ -25,27 +26,28 @@ func runMigrate(t *testing.T, databaseURL, command string) string {
 	return out.String()
 }
 
-// Every migration rolls back to an empty database and applies again (F-02 DoD: 00002_claims.sql runs down and up).
+// Every migration rolls back to an empty database and applies again (F-02 DoD: 00002_claims.sql runs down and up;
+// F-09 DoD: 00003_claim_filters.sql runs down and up).
 func TestMigrateDownStatusUp(t *testing.T) {
 	databaseURL := pgtest.New(t).Config().ConnString()
 
-	if out := runMigrate(t, databaseURL, "status"); !strings.Contains(out, "applied "+claimsMigration) {
-		t.Fatalf("status = %q, want %s applied", out, claimsMigration)
+	if out := runMigrate(t, databaseURL, "status"); !strings.Contains(out, "applied "+filterMigration) {
+		t.Fatalf("status = %q, want %s applied", out, filterMigration)
 	}
 
-	for _, migration := range []string{claimsMigration, authMigration} {
+	for _, migration := range []string{filterMigration, claimsMigration, authMigration} {
 		if out := runMigrate(t, databaseURL, "down"); out != "rolled back "+migration+"\n" {
 			t.Fatalf("down = %q, want %s rolled back", out, migration)
 		}
 	}
 
 	if out := runMigrate(t, databaseURL, "status"); !strings.Contains(out, "pending "+authMigration) ||
-		!strings.Contains(out, "pending "+claimsMigration) {
+		!strings.Contains(out, "pending "+claimsMigration) || !strings.Contains(out, "pending "+filterMigration) {
 		t.Fatalf("status = %q, want every migration pending", out)
 	}
 
-	if out := runMigrate(t, databaseURL, "up"); out != "applied "+authMigration+"\napplied "+claimsMigration+"\n" {
-		t.Fatalf("up = %q, want %s and %s applied", out, authMigration, claimsMigration)
+	if out := runMigrate(t, databaseURL, "up"); out != "applied "+authMigration+"\napplied "+claimsMigration+"\napplied "+filterMigration+"\n" {
+		t.Fatalf("up = %q, want %s, %s, and %s applied", out, authMigration, claimsMigration, filterMigration)
 	}
 }
 

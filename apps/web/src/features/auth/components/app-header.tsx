@@ -67,6 +67,11 @@ export const AppHeader = ({ user }: { user: CurrentUser }) => {
                 label="Finance Queue"
               />
             ) : null}
+            <TopNavItem
+              href="/all-claims"
+              isSelected={pathname === "/all-claims"}
+              label="All Claims"
+            />
           </>
         }
       />

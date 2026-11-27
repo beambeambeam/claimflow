@@ -170,3 +170,37 @@ WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
 UPDATE claims
 SET status = 'PENDING_FINANCE', version = version + 1, updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: ListAllClaims :many
+-- ListAllClaims returns one page of the claims the actor can see, newest first (F-09 §1.4, §1.5). The visibility
+-- clause is the SQL form of isVisible in policy.go: own claims, and claims that are not DRAFT and either assigned to
+-- the actor or seen by a Finance Officer. Each filter is a parameter that is NULL when not set (F-09 §1.3). The date
+-- bounds are half-open timestamps on first_submitted_at, or created_at for a claim that was never submitted. title is a
+-- LIKE pattern with %, _, and \ already escaped.
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE (c.requester_id = sqlc.arg(actor_id)
+       OR (c.status <> 'DRAFT' AND (c.assigned_reviewer_id = sqlc.arg(actor_id) OR sqlc.arg(actor_role)::text = 'finance')))
+  AND (sqlc.narg(status)::claim_status IS NULL OR c.status = sqlc.narg(status)::claim_status)
+  AND (sqlc.narg(category)::expense_category IS NULL OR EXISTS (
+        SELECT 1 FROM line_items li WHERE li.claim_id = c.id AND li.category = sqlc.narg(category)::expense_category))
+  AND (sqlc.narg(from_at)::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) >= sqlc.narg(from_at)::timestamptz)
+  AND (sqlc.narg(before_at)::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) < sqlc.narg(before_at)::timestamptz)
+  AND (sqlc.narg(title)::text IS NULL OR c.title ILIKE sqlc.narg(title)::text ESCAPE '\')
+ORDER BY c.created_at DESC, c.id DESC
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: CountAllClaims :one
+-- CountAllClaims counts the claims of ListAllClaims on every page, with the same WHERE clause.
+SELECT count(*)::int AS total
+FROM claims c
+WHERE (c.requester_id = sqlc.arg(actor_id)
+       OR (c.status <> 'DRAFT' AND (c.assigned_reviewer_id = sqlc.arg(actor_id) OR sqlc.arg(actor_role)::text = 'finance')))
+  AND (sqlc.narg(status)::claim_status IS NULL OR c.status = sqlc.narg(status)::claim_status)
+  AND (sqlc.narg(category)::expense_category IS NULL OR EXISTS (
+        SELECT 1 FROM line_items li WHERE li.claim_id = c.id AND li.category = sqlc.narg(category)::expense_category))
+  AND (sqlc.narg(from_at)::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) >= sqlc.narg(from_at)::timestamptz)
+  AND (sqlc.narg(before_at)::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) < sqlc.narg(before_at)::timestamptz)
+  AND (sqlc.narg(title)::text IS NULL OR c.title ILIKE sqlc.narg(title)::text ESCAPE '\');

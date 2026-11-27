@@ -196,7 +196,7 @@ func TestF03TEST03ListPaginationAndBounds(t *testing.T) {
 
 	for _, query := range []string{
 		"?scope=mine&pageSize=101", "?scope=mine&pageSize=0", "?scope=mine&page=0", "?scope=mine&page=-1",
-		"?scope=mine&page=abc", "?scope=mine&pageSize=abc", "", "?page=1", "?scope=bogus", "?scope=all",
+		"?scope=mine&page=abc", "?scope=mine&pageSize=abc", "", "?page=1", "?scope=bogus",
 	} {
 		decodeProblem(t, getWithSession(t, router, "/api/v1/claims"+query, token), http.StatusBadRequest, "BAD_REQUEST")
 	}

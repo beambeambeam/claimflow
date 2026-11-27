@@ -161,6 +161,7 @@ describe("auth routing", () => {
 describe("app header", () => {
   // F01-TEST-22 (F01-AC-20): role labels and header links follow F-01 §2.2. Links come from `permissions`: the
   // finance map's `finance` entry adds the Finance Queue (F-08), and its `report` entry adds no link until F-10.
+  // All Claims needs only a session, so every role has it (F-09).
   const roleLabels: Record<Role, string> = {
     requester: "Requester",
     reviewer: "Reviewer",
@@ -168,9 +169,9 @@ describe("app header", () => {
   };
 
   const expectedLinks: Record<Role, string[]> = {
-    requester: ["My Claims", "New Claim"],
-    reviewer: ["My Claims", "New Claim", "Review Queue"],
-    finance: ["Review Queue", "Finance Queue"],
+    requester: ["My Claims", "New Claim", "All Claims"],
+    reviewer: ["My Claims", "New Claim", "Review Queue", "All Claims"],
+    finance: ["Review Queue", "Finance Queue", "All Claims"],
   };
 
   it.each(roles)(
@@ -221,6 +222,22 @@ describe("app header", () => {
       within(header).queryByRole("link", { name: "New Claim" })
     ).toBeNull();
   });
+
+  it.each(roles)(
+    "F09-TEST-12: shows the %s role the All Claims link",
+    async (role) => {
+      sessionUser = users[role];
+      renderAt("/claims");
+
+      const header = await screen.findByRole("banner");
+
+      expect(
+        within(header)
+          .getByRole("link", { name: "All Claims" })
+          .getAttribute("href")
+      ).toBe("/all-claims");
+    }
+  );
 
   it("F08-TEST-17: shows the Finance Queue link only with finance:list", async () => {
     sessionUser = users.finance;

@@ -88,11 +88,25 @@ const (
 	ScopeReview Scope = "review"
 	// ScopeFinance is every PENDING_FINANCE claim, oldest submission first (F-08 §1.9).
 	ScopeFinance Scope = "finance"
+	// ScopeAll is every claim the actor can see, newest first, narrowed by Filters (F-09 §1.1).
+	ScopeAll Scope = "all"
 )
 
-// Query selects one page of a list: the scope, the page number, 1-based, and the page size. F-09 adds filters here.
+// Filters narrows ScopeAll (F-09 §1.3). A nil or empty field sets no filter, and the set filters combine with AND.
+// From and To are calendar dates: only their year, month, and day count, as Asia/Bangkok dates. Q is a title
+// substring; List trims it.
+type Filters struct {
+	Status   *db.ClaimStatus
+	Category *db.ExpenseCategory
+	From     *time.Time
+	To       *time.Time
+	Q        string
+}
+
+// Query selects one page of a list: the scope, the page number, 1-based, the page size, and for ScopeAll the filters.
 type Query struct {
 	Scope    Scope
+	Filters  Filters
 	Page     int
 	PageSize int
 }

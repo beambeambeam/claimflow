@@ -248,7 +248,7 @@ func TestGetReadsNullableClaimFields(t *testing.T) {
 
 // A scope outside the module's is a programming error, so List fails before it reads anything.
 func TestListUnknownScopeFails(t *testing.T) {
-	if _, err := NewService(nil, time.Now).List(t.Context(), Actor{}, Query{Scope: "everyone", Page: 1, PageSize: 20}); err == nil {
+	if _, err := NewService(nil, time.Now).List(t.Context(), Actor{}, &Query{Scope: "everyone", Page: 1, PageSize: 20}); err == nil {
 		t.Fatal("List error = nil, want an unknown scope error")
 	}
 }

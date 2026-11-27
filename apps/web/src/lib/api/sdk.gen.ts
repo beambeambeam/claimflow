@@ -96,9 +96,11 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
 });
 
 /**
- * List claims in a scope (F-03, F-04, F-08).
+ * List claims in a scope (F-03, F-04, F-08, F-09).
  *
- * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. `scope=finance` lists every `PENDING_FINANCE` claim, oldest `submittedAt` first, and needs `finance:list` (F-08). The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+ * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. `scope=finance` lists every `PENDING_FINANCE` claim, oldest `submittedAt` first, and needs `finance:list` (F-08). `scope=all` lists every claim the session user can see, newest first, and needs only a session (F-09): their own claims, drafts included, and the claims that are not `DRAFT` and either assigned to them or, for a Finance Officer, any claim. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+ *
+ * Only `scope=all` takes the filters `status`, `category`, `from`, `to`, and `q`, which combine with AND; a filter with another scope is a 400 (F-09 §1.3). `status` matches exactly. `category` matches a claim with any line item in it, once. `from` and `to` are inclusive Asia/Bangkok dates on the first submission time, or the creation time of a claim that was never submitted. `q` is trimmed and matches a case-insensitive substring of the title, with `%`, `_`, and `\` taken literally; an empty `q` sets no filter. An unknown `status` or `category`, a `from` or `to` that is not a `YYYY-MM-DD` date, a `from` later than `to`, or a `q` over 120 characters is a 400 with one `errors` entry per bad parameter. The request validator checks only JSON bodies, so the handler makes these checks.
  */
 export const listClaims = <ThrowOnError extends boolean = false>(options: Options<ListClaimsData, ThrowOnError>): RequestResult<ListClaimsResponses, ListClaimsErrors, ThrowOnError> => (options.client ?? client).get<ListClaimsResponses, ListClaimsErrors, ThrowOnError>({
   requestValidator: async (data) => await z.object({
