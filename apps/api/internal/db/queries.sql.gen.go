@@ -13,6 +13,99 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const approvedTotalsByMonthCategory = `-- name: ApprovedTotalsByMonthCategory :many
+SELECT to_char(c.decided_at AT TIME ZONE 'Asia/Bangkok', 'YYYY-MM')::text AS month,
+       li.category,
+       sum(li.amount_satang)::bigint AS total
+FROM claims c
+JOIN line_items li ON li.claim_id = c.id
+WHERE c.status = 'APPROVED'
+  AND ($1::bool OR c.assigned_reviewer_id = $2)
+  AND ($3::timestamptz IS NULL OR c.decided_at >= $3)
+  AND ($4::timestamptz IS NULL OR c.decided_at < $4)
+GROUP BY 1, li.category
+ORDER BY 1, li.category
+`
+
+type ApprovedTotalsByMonthCategoryParams struct {
+	AllClaims bool
+	ActorID   uuid.NullUUID
+	FromAt    pgtype.Timestamptz
+	ToAt      pgtype.Timestamptz
+}
+
+type ApprovedTotalsByMonthCategoryRow struct {
+	Month    string
+	Category ExpenseCategory
+	Total    int64
+}
+
+// ApprovedTotalsByMonthCategory sums the line items of the APPROVED claims in a summary scope by the Asia/Bangkok month
+// of the decision and by category, ordered by month and then by category in the order of the expense_category enum
+// (F-10 §1.4). from_at and to_at bound decided_at as a half-open range; a NULL bound is open.
+func (q *Queries) ApprovedTotalsByMonthCategory(ctx context.Context, arg ApprovedTotalsByMonthCategoryParams) ([]ApprovedTotalsByMonthCategoryRow, error) {
+	rows, err := q.db.Query(ctx, approvedTotalsByMonthCategory,
+		arg.AllClaims,
+		arg.ActorID,
+		arg.FromAt,
+		arg.ToAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApprovedTotalsByMonthCategoryRow
+	for rows.Next() {
+		var i ApprovedTotalsByMonthCategoryRow
+		if err := rows.Scan(&i.Month, &i.Category, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const averageDecisionHours = `-- name: AverageDecisionHours :one
+SELECT count(*)::int AS decided,
+       COALESCE(round(avg(extract(epoch FROM c.decided_at - c.first_submitted_at)) / 3600, 1), 0)::float8 AS hours
+FROM claims c
+WHERE c.status IN ('APPROVED', 'REJECTED')
+  AND ($1::bool OR c.assigned_reviewer_id = $2)
+  AND ($3::timestamptz IS NULL OR c.decided_at >= $3)
+  AND ($4::timestamptz IS NULL OR c.decided_at < $4)
+`
+
+type AverageDecisionHoursParams struct {
+	AllClaims bool
+	ActorID   uuid.NullUUID
+	FromAt    pgtype.Timestamptz
+	ToAt      pgtype.Timestamptz
+}
+
+type AverageDecisionHoursRow struct {
+	Decided int32
+	Hours   float64
+}
+
+// AverageDecisionHours returns how many APPROVED and REJECTED claims in a summary scope were decided in the range, and
+// the mean hours from first submission to decision, rounded to one decimal place with round(numeric), which rounds half
+// away from zero (F-10 §1.4). The mean is 0 when no claim was decided; the caller reads that as null by the count.
+// from_at and to_at bound decided_at as a half-open range; a NULL bound is open.
+func (q *Queries) AverageDecisionHours(ctx context.Context, arg AverageDecisionHoursParams) (AverageDecisionHoursRow, error) {
+	row := q.db.QueryRow(ctx, averageDecisionHours,
+		arg.AllClaims,
+		arg.ActorID,
+		arg.FromAt,
+		arg.ToAt,
+	)
+	var i AverageDecisionHoursRow
+	err := row.Scan(&i.Decided, &i.Hours)
+	return i, err
+}
+
 const checkReady = `-- name: CheckReady :one
 SELECT 1::integer AS ok
 `
@@ -62,6 +155,47 @@ func (q *Queries) CountAllClaims(ctx context.Context, arg CountAllClaimsParams) 
 	var total int32
 	err := row.Scan(&total)
 	return total, err
+}
+
+const countClaimsByStatus = `-- name: CountClaimsByStatus :many
+SELECT status, count(*)::int AS total
+FROM claims
+WHERE status <> 'DRAFT'
+  AND ($1::bool OR assigned_reviewer_id = $2)
+GROUP BY status
+`
+
+type CountClaimsByStatusParams struct {
+	AllClaims bool
+	ActorID   uuid.NullUUID
+}
+
+type CountClaimsByStatusRow struct {
+	Status ClaimStatus
+	Total  int32
+}
+
+// CountClaimsByStatus counts the claims in a summary scope by current status (F-10 §1.3, §1.4). A draft is never
+// counted. all_claims is the Finance Officer's scope, every claim that is not a draft. Otherwise the scope is the
+// claims assigned to actor_id.
+func (q *Queries) CountClaimsByStatus(ctx context.Context, arg CountClaimsByStatusParams) ([]CountClaimsByStatusRow, error) {
+	rows, err := q.db.Query(ctx, countClaimsByStatus, arg.AllClaims, arg.ActorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountClaimsByStatusRow
+	for rows.Next() {
+		var i CountClaimsByStatusRow
+		if err := rows.Scan(&i.Status, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const countFinanceClaims = `-- name: CountFinanceClaims :one

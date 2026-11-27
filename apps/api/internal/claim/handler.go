@@ -15,6 +15,7 @@ import (
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
 	"github.com/beambeambeam/claimflow/apps/api/internal/auth"
+	"github.com/beambeambeam/claimflow/apps/api/internal/daterange"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
@@ -27,12 +28,6 @@ const (
 	defaultPageSize = 20
 	maxPageSize     = 100
 )
-
-var errUnauthenticated = &httperr.Error{
-	Status: http.StatusUnauthorized,
-	Code:   api.ProblemCodeUnauthenticated,
-	Title:  "Authentication required.",
-}
 
 var errClaimNotFound = &httperr.Error{
 	Status: http.StatusNotFound,
@@ -56,7 +51,7 @@ func NewHandler(service Service) Handler {
 func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequestObject) (api.CreateClaimResponseObject, error) {
 	user, ok := auth.UserFrom(ctx)
 	if !ok {
-		return nil, errUnauthenticated
+		return nil, httperr.ErrUnauthenticated
 	}
 
 	created, err := h.service.Create(ctx, Actor{ID: user.ID, Role: user.Role}, input(request.Body), request.Params.Draft == nil || !*request.Params.Draft)
@@ -118,7 +113,7 @@ func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestOb
 
 	user, ok := auth.UserFrom(ctx)
 	if !ok {
-		return nil, errUnauthenticated
+		return nil, httperr.ErrUnauthenticated
 	}
 
 	if scope.resource != "" {
@@ -143,7 +138,6 @@ func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestOb
 // The messages of the filter checks (F-09 §1.3).
 const (
 	scopeOnlyMessage = "Filters are only available for scope=all."
-	dateMessage      = "Use a date in the form YYYY-MM-DD."
 	maxQueryLength   = 120
 )
 
@@ -192,18 +186,9 @@ func listFilters(params *api.ListClaimsParams) (Filters, []api.FieldError) {
 		}
 	}
 
-	var badDate bool
-	filters.From, badDate = parseDate(params.From)
-	if badDate {
-		invalid = append(invalid, api.FieldError{Field: "from", Rule: "format", Message: dateMessage})
-	}
-
-	filters.To, badDate = parseDate(params.To)
-	if badDate {
-		invalid = append(invalid, api.FieldError{Field: "to", Rule: "format", Message: dateMessage})
-	} else if filters.From != nil && filters.To != nil && filters.From.After(*filters.To) {
-		invalid = append(invalid, api.FieldError{Field: "to", Rule: "range", Message: "The end date must be on or after the start date."})
-	}
+	var dateProblems []api.FieldError
+	filters.From, filters.To, dateProblems = daterange.Parse(params.From, params.To)
+	invalid = append(invalid, dateProblems...)
 
 	if params.Q != nil {
 		filters.Q = strings.TrimSpace(*params.Q)
@@ -219,26 +204,12 @@ func listFilters(params *api.ListClaimsParams) (Filters, []api.FieldError) {
 	return filters, nil
 }
 
-// parseDate reads a YYYY-MM-DD date. It returns nil for a missing value, and bad for a value that is not a date.
-func parseDate(value *string) (date *time.Time, bad bool) {
-	if value == nil {
-		return nil, false
-	}
-
-	parsed, err := time.Parse(time.DateOnly, *value)
-	if err != nil {
-		return nil, true
-	}
-
-	return &parsed, false
-}
-
 // GetClaim returns a claim that the session user may see, with the actions the claim policy allows. A malformed id is
 // 400, a missing claim 404, and a claim the user may not see 403 with no claim data (F03-AC-06, F03-AC-08).
 func (h Handler) GetClaim(ctx context.Context, request api.GetClaimRequestObject) (api.GetClaimResponseObject, error) {
 	user, ok := auth.UserFrom(ctx)
 	if !ok {
-		return nil, errUnauthenticated
+		return nil, httperr.ErrUnauthenticated
 	}
 
 	id, err := uuid.Parse(request.Id)
@@ -394,7 +365,7 @@ func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, 
 
 	user, ok := auth.UserFrom(ctx)
 	if !ok {
-		return Actor{}, uuid.Nil, 0, errUnauthenticated
+		return Actor{}, uuid.Nil, 0, httperr.ErrUnauthenticated
 	}
 
 	id, err := uuid.Parse(rawID)

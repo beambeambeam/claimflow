@@ -15,18 +15,11 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
 
-var (
-	errInvalidCredentials = &httperr.Error{
-		Status: http.StatusUnauthorized,
-		Code:   api.ProblemCodeUnauthenticated,
-		Title:  "Invalid username or password.",
-	}
-	errUnauthenticated = &httperr.Error{
-		Status: http.StatusUnauthorized,
-		Code:   api.ProblemCodeUnauthenticated,
-		Title:  "Authentication required.",
-	}
-)
+var errInvalidCredentials = &httperr.Error{
+	Status: http.StatusUnauthorized,
+	Code:   api.ProblemCodeUnauthenticated,
+	Title:  "Invalid username or password.",
+}
 
 // Handler implements the auth operations of api.StrictServerInterface. It maps requests to Service calls and
 // Service errors to problem responses.
@@ -67,7 +60,7 @@ func (h Handler) Login(ctx context.Context, request api.LoginRequestObject) (api
 func (h Handler) GetMe(ctx context.Context, _ api.GetMeRequestObject) (api.GetMeResponseObject, error) {
 	user, ok := UserFrom(ctx)
 	if !ok {
-		return nil, errUnauthenticated
+		return nil, httperr.ErrUnauthenticated
 	}
 
 	return api.GetMe200JSONResponse{Data: currentUser(user)}, nil
@@ -77,7 +70,7 @@ func (h Handler) GetMe(ctx context.Context, _ api.GetMeRequestObject) (api.GetMe
 func (h Handler) Logout(ctx context.Context, _ api.LogoutRequestObject) (api.LogoutResponseObject, error) {
 	sessionID, ok := SessionIDFrom(ctx)
 	if !ok {
-		return nil, errUnauthenticated
+		return nil, httperr.ErrUnauthenticated
 	}
 
 	if err := h.service.Logout(ctx, sessionID); err != nil { // coverage-ignore

@@ -9,6 +9,7 @@ import (
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
+	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
 )
 
@@ -116,7 +117,7 @@ func TestListClaimsWithoutSessionUserIsUnauthenticated(t *testing.T) {
 	handler := NewHandler(newService(pgtest.New(t)))
 
 	_, err := handler.ListClaims(t.Context(), api.ListClaimsRequestObject{Params: api.ListClaimsParams{Scope: api.ListScopeAll}})
-	if !errors.Is(err, errUnauthenticated) {
+	if !errors.Is(err, httperr.ErrUnauthenticated) {
 		t.Fatalf("ListClaims error = %v, want the 401 problem", err)
 	}
 }

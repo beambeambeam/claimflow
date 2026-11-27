@@ -1,13 +1,4 @@
-import type { ClaimAction, ExpenseCategory } from "#/lib/api/types.gen";
-
-export const categoryLabels: Record<ExpenseCategory, string> = {
-  TRAVEL: "Travel",
-  ACCOMMODATION: "Accommodation",
-  MEALS: "Meals",
-  SUPPLIES: "Supplies",
-  TRAINING: "Training",
-  OTHER: "Other",
-};
+import type { ClaimAction } from "#/lib/api/types.gen";
 
 // How the history timeline names what an actor did.
 export const actionLabels: Record<ClaimAction, string> = {

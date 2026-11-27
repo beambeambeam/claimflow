@@ -166,6 +166,43 @@ export type ClaimPage = {
   total: number;
 };
 
+export type SummaryEnvelope = {
+  data: Summary;
+};
+
+export type Summary = {
+  countsByStatus: StatusCounts;
+  /**
+   * The approved line-item totals by Bangkok month of the decision and category, ordered by month, then category. Only non-zero groups are listed.
+   */
+  approvedTotals: Array<ApprovedTotal>;
+  /**
+   * The mean hours from first submission to decision, rounded to one decimal place. Null when no claim was decided in the range.
+   */
+  averageDecisionHours: number | null;
+};
+
+/**
+ * The claims in scope by current status. Every key is present, `0` for an empty status.
+ */
+export type StatusCounts = {
+  SUBMITTED: number;
+  RETURNED: number;
+  PENDING_FINANCE: number;
+  APPROVED: number;
+  REJECTED: number;
+  WITHDRAWN: number;
+};
+
+export type ApprovedTotal = {
+  /**
+   * The Asia/Bangkok month of the decision.
+   */
+  month: string;
+  category: ExpenseCategory;
+  total: Money;
+};
+
 /**
  * A stable error code for the client (SDS §4.2).
  */
@@ -1091,3 +1128,49 @@ export type WithdrawClaimResponses = {
 };
 
 export type WithdrawClaimResponse = WithdrawClaimResponses[keyof WithdrawClaimResponses];
+
+export type GetDecisionSummaryData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * The first decision date, inclusive, in Asia/Bangkok. No lower bound when missing.
+     */
+    from?: string;
+    /**
+     * The last decision date, inclusive, in Asia/Bangkok. No upper bound when missing.
+     */
+    to?: string;
+  };
+  url: '/reports/summary';
+};
+
+export type GetDecisionSummaryErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type GetDecisionSummaryError = GetDecisionSummaryErrors[keyof GetDecisionSummaryErrors];
+
+export type GetDecisionSummaryResponses = {
+  /**
+   * The decision summary.
+   */
+  200: SummaryEnvelope;
+};
+
+export type GetDecisionSummaryResponse = GetDecisionSummaryResponses[keyof GetDecisionSummaryResponses];

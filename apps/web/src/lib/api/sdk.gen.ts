@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, DeleteClaimData, DeleteClaimErrors, DeleteClaimResponses, FinalApproveClaimData, FinalApproveClaimErrors, FinalApproveClaimResponses, FinalRejectClaimData, FinalRejectClaimErrors, FinalRejectClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses, ReturnClaimData, ReturnClaimErrors, ReturnClaimResponses, SubmitClaimData, SubmitClaimErrors, SubmitClaimResponses, UpdateClaimData, UpdateClaimErrors, UpdateClaimResponses, WithdrawClaimData, WithdrawClaimErrors, WithdrawClaimResponses } from './types.gen';
-import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zDeleteClaimHeaders, zDeleteClaimPath, zDeleteClaimResponse, zFinalApproveClaimBody, zFinalApproveClaimHeaders, zFinalApproveClaimPath, zFinalApproveClaimResponse, zFinalRejectClaimBody, zFinalRejectClaimHeaders, zFinalRejectClaimPath, zFinalRejectClaimResponse, zGetClaimPath, zGetClaimResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse, zReturnClaimBody, zReturnClaimHeaders, zReturnClaimPath, zReturnClaimResponse, zSubmitClaimHeaders, zSubmitClaimPath, zSubmitClaimResponse, zUpdateClaimBody, zUpdateClaimHeaders, zUpdateClaimPath, zUpdateClaimResponse, zWithdrawClaimBody, zWithdrawClaimHeaders, zWithdrawClaimPath, zWithdrawClaimResponse } from './zod.gen';
+import type { ApproveClaimData, ApproveClaimErrors, ApproveClaimResponses, CreateClaimData, CreateClaimErrors, CreateClaimResponses, DeleteClaimData, DeleteClaimErrors, DeleteClaimResponses, FinalApproveClaimData, FinalApproveClaimErrors, FinalApproveClaimResponses, FinalRejectClaimData, FinalRejectClaimErrors, FinalRejectClaimResponses, GetClaimData, GetClaimErrors, GetClaimResponses, GetDecisionSummaryData, GetDecisionSummaryErrors, GetDecisionSummaryResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadyData, GetReadyErrors, GetReadyResponses, ListClaimsData, ListClaimsErrors, ListClaimsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RejectClaimData, RejectClaimErrors, RejectClaimResponses, ReturnClaimData, ReturnClaimErrors, ReturnClaimResponses, SubmitClaimData, SubmitClaimErrors, SubmitClaimResponses, UpdateClaimData, UpdateClaimErrors, UpdateClaimResponses, WithdrawClaimData, WithdrawClaimErrors, WithdrawClaimResponses } from './types.gen';
+import { zApproveClaimBody, zApproveClaimHeaders, zApproveClaimPath, zApproveClaimResponse, zCreateClaimBody, zCreateClaimQuery, zCreateClaimResponse, zDeleteClaimHeaders, zDeleteClaimPath, zDeleteClaimResponse, zFinalApproveClaimBody, zFinalApproveClaimHeaders, zFinalApproveClaimPath, zFinalApproveClaimResponse, zFinalRejectClaimBody, zFinalRejectClaimHeaders, zFinalRejectClaimPath, zFinalRejectClaimResponse, zGetClaimPath, zGetClaimResponse, zGetDecisionSummaryQuery, zGetDecisionSummaryResponse, zGetHealthResponse, zGetMeResponse, zGetReadyResponse, zListClaimsQuery, zListClaimsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zRejectClaimBody, zRejectClaimHeaders, zRejectClaimPath, zRejectClaimResponse, zReturnClaimBody, zReturnClaimHeaders, zReturnClaimPath, zReturnClaimResponse, zSubmitClaimHeaders, zSubmitClaimPath, zSubmitClaimResponse, zUpdateClaimBody, zUpdateClaimHeaders, zUpdateClaimPath, zUpdateClaimResponse, zWithdrawClaimBody, zWithdrawClaimHeaders, zWithdrawClaimPath, zWithdrawClaimResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -328,4 +328,20 @@ export const withdrawClaim = <ThrowOnError extends boolean = false>(options: Opt
     'Content-Type': 'application/json',
     ...options.headers
   }
+});
+
+/**
+ * The decision summary of the session user's scope (F-10).
+ *
+ * Needs the `report:read` route permission, so a requester gets 403. A reviewer's summary covers the claims assigned to them. A Finance Officer's covers every claim that is not a draft. `countsByStatus` always shows the current status of every claim in scope and ignores the range. `approvedTotals` and `averageDecisionHours` cover the claims whose decision (`decidedAt`, Asia/Bangkok date) is in the inclusive range. `from` and `to` are optional. A date that is not `YYYY-MM-DD`, or `from` later than `to`, is a 400 with the F-09 §1.3 messages.
+ */
+export const getDecisionSummary = <ThrowOnError extends boolean = false>(options?: Options<GetDecisionSummaryData, ThrowOnError>): RequestResult<GetDecisionSummaryResponses, GetDecisionSummaryErrors, ThrowOnError> => (options?.client ?? client).get<GetDecisionSummaryResponses, GetDecisionSummaryErrors, ThrowOnError>({
+  requestValidator: async (data) => await z.object({
+    body: z.never().optional(),
+    path: z.never().optional(),
+    query: zGetDecisionSummaryQuery.optional()
+  }).parseAsync(data),
+  responseValidator: async (data) => await zGetDecisionSummaryResponse.parseAsync(data),
+  url: '/reports/summary',
+  ...options
 });

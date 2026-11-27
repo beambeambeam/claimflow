@@ -94,7 +94,7 @@ func OperationPermissions(byOperation map[string]Permission) api.StrictMiddlewar
 func Authorize(ctx context.Context, resource, action string) (User, error) {
 	user, ok := UserFrom(ctx)
 	if !ok {
-		return User{}, errUnauthenticated
+		return User{}, httperr.ErrUnauthenticated
 	}
 
 	if !PermissionsOf(user.Role).Allows(resource, action) {

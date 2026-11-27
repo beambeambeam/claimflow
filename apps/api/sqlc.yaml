@@ -8,6 +8,7 @@ sql:
       - internal/system/queries.sql
       - internal/auth/queries.sql
       - internal/claim/queries.sql
+      - internal/report/queries.sql
     gen:
       go:
         package: db

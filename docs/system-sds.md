@@ -2,8 +2,8 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.18 (draft for Deliverable 1)
-- **Last updated:** 2026-11-24
+- **Version:** 0.19 (draft for Deliverable 1)
+- **Last updated:** 2026-11-27
 - **Baseline:** `docs/srs.md` v0.3 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
 This document defines the system-wide design: architecture, data model, the API contract and its conventions, roles and access, authentication, configuration, and deployment. Each feature contract in `docs/sprints/` refines it with exact operations in `apps/api/openapi.yaml`, screens, and schema changes.
@@ -116,6 +116,7 @@ apps/api/
       model.go  queries.sql  *_test.go
     report/                        # feature: decision summaries (Sprint 3)
       handler.go  service.go  queries.sql  *_test.go
+    daterange/                     # shared: the Asia/Bangkok `from`/`to` date range of the All Claims filters and the summary (Sprint 3)
     httperr/                       # shared: RFC 9457 problem responses and request IDs (Section 4.2)
     system/                        # shared: /health and /ready (Section 4.3)
     money/                         # shared: the money.Satang type (Section 2.3)
@@ -129,7 +130,7 @@ apps/api/
 - **Names.** Packages are short singular nouns. Following [Package names](https://go.dev/blog/package-names), there are no `util`, `common`, or `models` packages, and type names do not repeat the package name (`claim.Service`, not `claim.ClaimService`).
 - **Enforcement.** `depguard` rules in `.golangci.yml`:
   - `internal/report/**` must not import `internal/claim`, and the reverse.
-  - Shared packages (`api`, `db`, `httperr`, `money`, `pgtest`) must not import a feature.
+  - Shared packages (`api`, `daterange`, `db`, `httperr`, `money`, `pgtest`) must not import a feature.
   - Only `_test.go` files may import `pgtest`.
 
 #### 1.4.2 Web (`apps/web`)
@@ -759,6 +760,7 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.12 | 2026-11-15 | Sprint 1 release. Records the changes that feature PRs made: `OperationPermissions` and the per-operation check (1.4.1, 5.1, PR #59); `validate.go` (1.4.1, PR #60); the stale-version exception in 3.3 (PR #65, F-04 contract 0.4). Adds what Sprint 1 built differently from 3.1 and 8 (the `List` methods, string actions, empty session audit fields), tracked in #67 | 1005 |
 | 0.16 | 2026-11-22 | E2E (10): Playwright runs against a local seeded stack before each release, not in CI, per Product DoD 0.3 item 4 (#66) | beambeambeam |
 | 0.17 | 2026-11-22 | Sprint 1 follow-ups (#67, #70): §3.1 "As built" note says `Create` has no `submit` flag; session creation stores `ip_address` from gin's `ClientIP` and the `User-Agent` | beambeambeam |
+| 0.19 | 2026-11-27 | F-10 review (#119): the new shared package `internal/daterange` holds the Bangkok date range that `claim` (F-09) and `report` (F-10) both read (1.4.1); `httperr.ErrUnauthenticated` replaces the copy in each of `auth`, `claim`, and `report` | 1005 |
 | 0.18 | 2026-11-24 | Lab 7 change L7/01 (#99), SRS 0.3: the BR-04 reason minimum in `claim_history.comment` (2.2) is 10 characters, not 5. No schema change: the column stays `VARCHAR(500)` NULL, and existing history rows are not checked again | 1005 |
 | 0.15 | 2026-11-19 | Release identity (9): images carry the SHA only; a version maps to its SHA (#54) | 1005 |
 | 0.14 | 2026-11-18 | 9.1 matches the live rulesets: admin bypass on `sprint` and `lab`, up to date before merging on all three, no last-push approval rule (#53) | 1005 |

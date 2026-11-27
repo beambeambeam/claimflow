@@ -7,12 +7,12 @@ import { Heading, Text } from "@astryxdesign/core/Text";
 import { useState } from "react";
 import { z } from "zod";
 
-import { categoryLabels } from "#/features/claims/labels";
 import type { ClaimInput } from "#/lib/api/types.gen";
 import { zClaimInput, zLineItemInput } from "#/lib/api/zod.gen";
 import { contractField } from "#/lib/contract";
 import { useAppForm } from "#/lib/form";
 import { formatBaht, parseSatang } from "#/lib/format";
+import { categoryLabels } from "#/lib/labels";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
 // BR-05: a claim has 1 to 20 line items (F-02 §2.1).

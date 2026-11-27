@@ -35,6 +35,12 @@ const dateTimeFormat = new Intl.DateTimeFormat("en-GB", {
 export const parseSatang = (text: string): number | null =>
   amountPattern.test(text) ? Number(text.replace(".", "")) : null;
 
+// Reads an API Money string such as `1250.00` into satang. The contract (`^\d+\.\d{2}$`) is checked by the generated
+// response validator, so this does not check it again. Unlike parseSatang, it takes any number of integer digits, such
+// as a claim total.
+export const moneyToSatang = (money: string): number =>
+  Number(money.replace(".", ""));
+
 // Formats satang as baht with a symbol and 2 decimals, such as `฿1,250.00`.
 export const formatBaht = (satang: number): string =>
   `฿${bahtFormat.format(satang / satangPerBaht)}`;
@@ -42,9 +48,7 @@ export const formatBaht = (satang: number): string =>
 // Formats an API Money string such as `1250.00` as `฿1,250.00`.
 // A value that is not an amount breaks the contract, so it is shown as received, not as zero.
 export const formatMoney = (money: string): string =>
-  moneyPattern.test(money)
-    ? formatBaht(Number(money.replace(".", "")))
-    : `฿${money}`;
+  moneyPattern.test(money) ? formatBaht(moneyToSatang(money)) : `฿${money}`;
 
 // Formats a timestamp, or a `YYYY-MM-DD` date, in the Asia/Bangkok calendar, such as `5 Nov 2026`.
 // A date-only value is midnight UTC, which is 07:00 on the same day in Bangkok.
@@ -54,3 +58,16 @@ export const formatDate = (value: string): string =>
 // Formats a timestamp in Asia/Bangkok with the time, such as `5 Nov 2026, 10:00`.
 export const formatDateTime = (value: string): string =>
   dateTimeFormat.format(new Date(value));
+
+const monthFormat = new Intl.DateTimeFormat("en-GB", {
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+// Formats an API month `YYYY-MM` (an Asia/Bangkok month) as `Oct 2026`.
+export const formatMonth = (month: string): string => {
+  const [year, number] = month.split("-").map(Number);
+
+  return monthFormat.format(new Date(Date.UTC(year, number - 1, 1)));
+};

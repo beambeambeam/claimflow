@@ -160,7 +160,7 @@ describe("auth routing", () => {
 
 describe("app header", () => {
   // F01-TEST-22 (F01-AC-20): role labels and header links follow F-01 §2.2. Links come from `permissions`: the
-  // finance map's `finance` entry adds the Finance Queue (F-08), and its `report` entry adds no link until F-10.
+  // finance map's `finance` entry adds the Finance Queue (F-08), and the `report` entry adds Summary (F-10).
   // All Claims needs only a session, so every role has it (F-09).
   const roleLabels: Record<Role, string> = {
     requester: "Requester",
@@ -170,8 +170,14 @@ describe("app header", () => {
 
   const expectedLinks: Record<Role, string[]> = {
     requester: ["My Claims", "New Claim", "All Claims"],
-    reviewer: ["My Claims", "New Claim", "Review Queue", "All Claims"],
-    finance: ["Review Queue", "Finance Queue", "All Claims"],
+    reviewer: [
+      "My Claims",
+      "New Claim",
+      "Review Queue",
+      "All Claims",
+      "Summary",
+    ],
+    finance: ["Review Queue", "Finance Queue", "All Claims", "Summary"],
   };
 
   it.each(roles)(

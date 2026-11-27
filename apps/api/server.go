@@ -20,6 +20,7 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/internal/claim"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
+	"github.com/beambeambeam/claimflow/apps/api/internal/report"
 	"github.com/beambeambeam/claimflow/apps/api/internal/system"
 )
 
@@ -85,11 +86,12 @@ func serve(ctx context.Context, listener net.Listener, handler http.Handler, log
 	return nil
 }
 
-// authHandler and claimHandler name the feature handlers here, because both are called Handler and
+// authHandler, claimHandler, and reportHandler name the feature handlers here, because each is called Handler and
 // embedding them under that name would clash.
 type (
-	authHandler  = auth.Handler
-	claimHandler = claim.Handler
+	authHandler   = auth.Handler
+	claimHandler  = claim.Handler
+	reportHandler = report.Handler
 )
 
 // server composes the feature handlers into the generated strict server interface.
@@ -97,6 +99,7 @@ type server struct {
 	system.Handler
 	authHandler
 	claimHandler
+	reportHandler
 }
 
 // newRouter builds the router: request ID and log, problem responses, cross-origin guard, session user,
@@ -122,9 +125,10 @@ func newRouterAt(logger *slog.Logger, cfg *env.Env, pool claim.Pool, now func() 
 	}
 
 	handler := api.NewStrictHandlerWithOptions(server{
-		Handler:      system.NewHandler(cfg.AppVersion, queries),
-		authHandler:  auth.NewHandler(authService, cfg.CookieSecure),
-		claimHandler: claim.NewHandler(claim.NewService(pool, now)),
+		Handler:       system.NewHandler(cfg.AppVersion, queries),
+		authHandler:   auth.NewHandler(authService, cfg.CookieSecure),
+		claimHandler:  claim.NewHandler(claim.NewService(pool, now)),
+		reportHandler: report.NewHandler(report.NewService(pool)),
 	}, []api.StrictMiddlewareFunc{auth.OperationPermissions(operationPermissions)}, api.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  httperr.ReportInvalid,
 		HandlerErrorFunc:         httperr.Report,
