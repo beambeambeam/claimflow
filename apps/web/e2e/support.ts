@@ -62,12 +62,16 @@ export const openNewClaim = async (page: Page) => {
   await expect(page).toHaveURL(/\/claims\/new$/u);
 };
 
-// Submits a claim with one Travel item as the logged-in requester and returns its claim number.
-export const submitClaim = async (page: Page, title: string) => {
+// Submits a claim with one Travel item of `amount` as the logged-in requester and returns its claim number.
+export const submitClaim = async (
+  page: Page,
+  title: string,
+  amount = "250.00"
+) => {
   await openNewClaim(page);
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Purpose").fill("Train fare for the workshop");
-  await fillItem(page, 0, { amount: "250.00", description: "Train return" });
+  await fillItem(page, 0, { amount, description: "Train return" });
   await page.getByRole("button", { name: "Submit" }).click();
 
   const confirmation = page.getByRole("heading", {

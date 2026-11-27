@@ -40,6 +40,8 @@ const (
 	MaxMealsAmount money.Satang = 150_000
 	// MaxExpenseAgeDays is how many days before the first submission an expense date may fall (BR-07).
 	MaxExpenseAgeDays = 90
+	// HighValueThresholdSatang is the total, 10,000.00 THB, above which an approval needs a final decision by Finance (BR-09).
+	HighValueThresholdSatang money.Satang = 1_000_000
 )
 
 // Rule IDs of the field errors.
@@ -57,7 +59,8 @@ var transitionError = FieldError{Field: "status", Rule: ruleTransition, Message:
 
 // Limits of the decision comment (BR-04), counted in characters after trimming.
 const (
-	// MinReasonLength and MaxCommentLength bound a reject or return reason. An approve comment has only the upper bound.
+	// MinReasonLength and MaxCommentLength bound a reject, return, or final reject reason. An approve or final approve
+	// comment has only the upper bound.
 	MinReasonLength  = 10
 	MaxCommentLength = 500
 )
@@ -132,12 +135,12 @@ func itemField(i int, name string) string {
 	return fmt.Sprintf("items[%d].%s", i, name)
 }
 
-// checkComment runs BR-04 on a decision comment: a reject or return reason is required with 10 to 500 characters, an
-// approve comment is optional with at most 500. It counts characters, not bytes, after trimming, and returns a ValidationError on the
+// checkComment runs BR-04 on a decision comment: a reject, return, or final reject reason is required with 10 to 500
+// characters, an approve or final approve comment is optional with at most 500. It counts characters, not bytes, after trimming, and returns a ValidationError on the
 // comment field, or nil.
 func checkComment(action Action, comment string) error {
 	length := utf8.RuneCountInString(strings.TrimSpace(comment))
-	needsReason := action == ActionReject || action == ActionReturn
+	needsReason := action == ActionReject || action == ActionReturn || action == ActionFinalReject
 
 	var message string
 
@@ -153,4 +156,15 @@ func checkComment(action Action, comment string) error {
 	}
 
 	return ValidationError{Fields: []FieldError{{Field: "comment", Rule: ruleComment, Message: message}}}
+}
+
+// approveTarget is the status that an approval leads to (BR-09, ADR-0001): PENDING_FINANCE when the total is more than
+// HighValueThresholdSatang and the approver is not a Finance Officer, otherwise APPROVED. It is the only place that
+// derives it.
+func approveTarget(total money.Satang, role string) db.ClaimStatus {
+	if total > HighValueThresholdSatang && role != RoleFinance {
+		return db.ClaimStatusPENDINGFINANCE
+	}
+
+	return db.ClaimStatusAPPROVED
 }

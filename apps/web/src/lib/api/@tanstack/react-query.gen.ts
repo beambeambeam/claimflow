@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveClaim, createClaim, deleteClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, returnClaim, submitClaim, updateClaim, withdrawClaim } from '../sdk.gen';
-import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, ReturnClaimData, ReturnClaimError, ReturnClaimResponse, SubmitClaimData, SubmitClaimError, SubmitClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse, WithdrawClaimData, WithdrawClaimError, WithdrawClaimResponse } from '../types.gen';
+import { approveClaim, createClaim, deleteClaim, finalApproveClaim, finalRejectClaim, getClaim, getHealth, getMe, getReady, listClaims, login, logout, type Options, rejectClaim, returnClaim, submitClaim, updateClaim, withdrawClaim } from '../sdk.gen';
+import type { ApproveClaimData, ApproveClaimError, ApproveClaimResponse, CreateClaimData, CreateClaimError, CreateClaimResponse, DeleteClaimData, DeleteClaimError, DeleteClaimResponse, FinalApproveClaimData, FinalApproveClaimError, FinalApproveClaimResponse, FinalRejectClaimData, FinalRejectClaimError, FinalRejectClaimResponse, GetClaimData, GetClaimError, GetClaimResponse, GetHealthData, GetHealthError, GetHealthResponse, GetMeData, GetMeError, GetMeResponse, GetReadyData, GetReadyError, GetReadyResponse, ListClaimsData, ListClaimsError, ListClaimsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, RejectClaimData, RejectClaimError, RejectClaimResponse, ReturnClaimData, ReturnClaimError, ReturnClaimResponse, SubmitClaimData, SubmitClaimError, SubmitClaimResponse, UpdateClaimData, UpdateClaimError, UpdateClaimResponse, WithdrawClaimData, WithdrawClaimError, WithdrawClaimResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
   Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -130,9 +130,9 @@ export const getMeOptions = (options?: Options<GetMeData>) => queryOptions<GetMe
 export const listClaimsQueryKey = (options: Options<ListClaimsData>) => createQueryKey('listClaims', options);
 
 /**
- * List claims in a scope (F-03, F-04).
+ * List claims in a scope (F-03, F-04, F-08).
  *
- * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+ * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. `scope=finance` lists every `PENDING_FINANCE` claim, oldest `submittedAt` first, and needs `finance:list` (F-08). The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
  */
 export const listClaimsOptions = (options: Options<ListClaimsData>) => queryOptions<ListClaimsResponse, ListClaimsError, ListClaimsResponse, ReturnType<typeof listClaimsQueryKey>>({
   queryFn: async ({ queryKey, signal }) => {
@@ -179,9 +179,9 @@ const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'hea
 export const listClaimsInfiniteQueryKey = (options: Options<ListClaimsData>): QueryKey<Options<ListClaimsData>> => createQueryKey('listClaims', options, true);
 
 /**
- * List claims in a scope (F-03, F-04).
+ * List claims in a scope (F-03, F-04, F-08).
  *
- * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
+ * `scope=mine` lists the session user's own claims in every status, newest first, and needs the `claim:list` route permission. `scope=review` lists the `SUBMITTED` claims assigned to the session user, oldest `submittedAt` first, and needs `review:list`. `scope=finance` lists every `PENDING_FINANCE` claim, oldest `submittedAt` first, and needs `finance:list` (F-08). The handler checks the permission after it reads `scope`, because the permission depends on the scope (F-03 §3.2). A missing or unknown `scope`, `page` below 1, or `pageSize` outside 1–100 is a 400.
  */
 export const listClaimsInfiniteOptions = (options: Options<ListClaimsData>) => {
   const opts = infiniteQueryOptions<ListClaimsResponse, ListClaimsError, InfiniteData<ListClaimsResponse>, QueryKey<Options<ListClaimsData>>, number | Pick<QueryKey<Options<ListClaimsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
@@ -286,14 +286,52 @@ export const updateClaimMutation = (options?: Partial<Options<UpdateClaimData>>)
 };
 
 /**
- * Approve a submitted claim (F-04). Sprint 1 always leads to `APPROVED`.
+ * Approve a submitted claim (F-04, F-08).
  *
- * Needs a session; the claim policy decides the rest. The checks run in this order (F-04 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it or is not its assigned reviewer, or is its requester (403); the claim is not `SUBMITTED` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional.
+ * Needs a session; the claim policy decides the rest. The checks run in this order (F-04 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it or is not its assigned reviewer, or is its requester (403); the claim is not `SUBMITTED` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional. The claim becomes `PENDING_FINANCE`, with no decision time, when its total is more than 10,000.00 THB and the approver is not a Finance Officer; otherwise it becomes `APPROVED` (BR-09, F-08 §1.1).
  */
 export const approveClaimMutation = (options?: Partial<Options<ApproveClaimData>>): UseMutationOptions<ApproveClaimResponse, ApproveClaimError, Options<ApproveClaimData>> => {
   const mutationOptions: UseMutationOptions<ApproveClaimResponse, ApproveClaimError, Options<ApproveClaimData>> = {
     mutationFn: async (fnOptions) => {
       const { data } = await approveClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Make the final approval of a claim pending finance (F-08).
+ *
+ * Needs a session; the claim policy decides the rest. The checks run in this order (F-08 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it, is not a Finance Officer, or is its requester (403); the claim is not `PENDING_FINANCE` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the comment is longer than 500 characters (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The comment is optional. The claim becomes `APPROVED` with a decision time.
+ */
+export const finalApproveClaimMutation = (options?: Partial<Options<FinalApproveClaimData>>): UseMutationOptions<FinalApproveClaimResponse, FinalApproveClaimError, Options<FinalApproveClaimData>> => {
+  const mutationOptions: UseMutationOptions<FinalApproveClaimResponse, FinalApproveClaimError, Options<FinalApproveClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await finalApproveClaim({
+        ...options,
+        ...fnOptions,
+        throwOnError: true
+      });
+      return data;
+    }
+  };
+  return mutationOptions;
+};
+
+/**
+ * Make the final rejection of a claim pending finance (F-08).
+ *
+ * Needs a session; the claim policy decides the rest. The checks run in this order (F-08 §1.4): `If-Match` is missing (428) or malformed (400); the claim does not exist (404); the actor may not see it, is not a Finance Officer, or is its requester (403); the claim is not `PENDING_FINANCE` (409 `INVALID_TRANSITION`, rule BR-03, or 409 `CONFLICT` when the version is not the current one); the reason is missing or has fewer than 10 or more than 500 characters after trimming (422, rule BR-04); the version is not the current one (409 `CONFLICT`). The claim becomes `REJECTED` with a decision time. There is no return from the final stage.
+ */
+export const finalRejectClaimMutation = (options?: Partial<Options<FinalRejectClaimData>>): UseMutationOptions<FinalRejectClaimResponse, FinalRejectClaimError, Options<FinalRejectClaimData>> => {
+  const mutationOptions: UseMutationOptions<FinalRejectClaimResponse, FinalRejectClaimError, Options<FinalRejectClaimData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await finalRejectClaim({
         ...options,
         ...fnOptions,
         throwOnError: true

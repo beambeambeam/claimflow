@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthFinanceRouteImport } from './routes/_auth/finance'
 import { Route as AuthReviewsRouteImport } from './routes/_auth/reviews'
 import { Route as AuthClaimsIndexRouteImport } from './routes/_auth/claims/index'
 import { Route as AuthClaimsClaimIdRouteImport } from './routes/_auth/claims/$claimId'
@@ -31,6 +32,11 @@ const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthFinanceRoute = AuthFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => AuthRoute,
 } as any)
 const AuthReviewsRoute = AuthReviewsRouteImport.update({
   id: '/reviews',
@@ -61,6 +67,7 @@ const AuthClaimsClaimIdEditRoute = AuthClaimsClaimIdEditRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/finance': typeof AuthFinanceRoute
   '/reviews': typeof AuthReviewsRoute
   '/claims/$claimId': typeof AuthClaimsClaimIdRoute
   '/claims/new': typeof AuthClaimsNewRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/finance': typeof AuthFinanceRoute
   '/reviews': typeof AuthReviewsRoute
   '/claims/$claimId': typeof AuthClaimsClaimIdRoute
   '/claims/new': typeof AuthClaimsNewRoute
@@ -81,6 +89,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteWithChildren
   '/login': typeof LoginRoute
+  '/_auth/finance': typeof AuthFinanceRoute
   '/_auth/reviews': typeof AuthReviewsRoute
   '/_auth/claims/$claimId': typeof AuthClaimsClaimIdRoute
   '/_auth/claims/new': typeof AuthClaimsNewRoute
@@ -92,6 +101,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/finance'
     | '/reviews'
     | '/claims/$claimId'
     | '/claims/new'
@@ -101,6 +111,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/finance'
     | '/reviews'
     | '/claims/$claimId'
     | '/claims/new'
@@ -111,6 +122,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_auth'
     | '/login'
+    | '/_auth/finance'
     | '/_auth/reviews'
     | '/_auth/claims/$claimId'
     | '/_auth/claims/new'
@@ -146,6 +158,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_auth/finance': {
+      id: '/_auth/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof AuthFinanceRouteImport
+      parentRoute: typeof AuthRoute
     }
     '/_auth/reviews': {
       id: '/_auth/reviews'
@@ -186,6 +205,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthRouteChildren {
+  AuthFinanceRoute: typeof AuthFinanceRoute
   AuthReviewsRoute: typeof AuthReviewsRoute
   AuthClaimsClaimIdRoute: typeof AuthClaimsClaimIdRoute
   AuthClaimsNewRoute: typeof AuthClaimsNewRoute
@@ -194,6 +214,7 @@ interface AuthRouteChildren {
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthFinanceRoute: AuthFinanceRoute,
   AuthReviewsRoute: AuthReviewsRoute,
   AuthClaimsClaimIdRoute: AuthClaimsClaimIdRoute,
   AuthClaimsNewRoute: AuthClaimsNewRoute,

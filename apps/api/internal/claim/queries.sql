@@ -86,6 +86,21 @@ SELECT count(*)::int AS total
 FROM claims
 WHERE assigned_reviewer_id = sqlc.arg(reviewer_id) AND status = 'SUBMITTED';
 
+-- name: ListFinanceClaims :many
+-- ListFinanceClaims returns one page of the PENDING_FINANCE claims, oldest submission first (F-08 §1.9).
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE c.status = 'PENDING_FINANCE'
+ORDER BY c.submitted_at, c.id
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: CountFinanceClaims :one
+SELECT count(*)::int AS total
+FROM claims
+WHERE status = 'PENDING_FINANCE';
+
 -- name: DecideClaim :execrows
 -- DecideClaim moves a claim to its decided status and adds one to the version, but only while the version is still the
 -- one the caller read (BR-13). It returns the rows changed: 0 means the claim changed since.
@@ -146,4 +161,12 @@ WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
 -- name: ResubmitClaim :execrows
 UPDATE claims
 SET status = 'SUBMITTED', submitted_at = sqlc.arg(now), updated_at = sqlc.arg(now), version = version + 1
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: SendClaimToFinance :execrows
+-- SendClaimToFinance moves an approved high-value claim to PENDING_FINANCE and adds one to the version, but only while
+-- the version is still the one the caller read (BR-09, BR-13). The claim waits for a final decision, so decided_at
+-- stays NULL. It returns the rows changed: 0 means the claim changed since.
+UPDATE claims
+SET status = 'PENDING_FINANCE', version = version + 1, updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);

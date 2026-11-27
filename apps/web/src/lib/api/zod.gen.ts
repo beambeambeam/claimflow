@@ -131,7 +131,7 @@ export const zClaim = z.object({
 });
 
 /**
- * The body of approve, reject, and return. The comment's length is checked by BR-04, not by this schema.
+ * The body of approveClaim, rejectClaim, returnClaim, finalApproveClaim, and finalRejectClaim. The comment's length is checked by BR-04, not by this schema.
  */
 export const zClaimDecision = z.object({
   comment: z.string().register(z.globalRegistry, { minLength: 10, maxLength: 500 }).optional()
@@ -242,7 +242,11 @@ export const zLogoutResponse = z.void();
 export const zGetMeResponse = zCurrentUserEnvelope;
 
 export const zListClaimsQuery = z.object({
-  scope: z.enum(['mine', 'review']),
+  scope: z.enum([
+    'mine',
+    'review',
+    'finance'
+  ]),
   page: z.int().gte(1).optional().default(1),
   pageSize: z.int().gte(1).lte(100).optional().default(20)
 });
@@ -314,6 +318,36 @@ export const zApproveClaimPath = z.object({
  * The decided claim, with its new `ETag`.
  */
 export const zApproveClaimResponse = zClaimEnvelope;
+
+export const zFinalApproveClaimBody = zClaimDecision;
+
+export const zFinalApproveClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zFinalApproveClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The decided claim, with its new `ETag`.
+ */
+export const zFinalApproveClaimResponse = zClaimEnvelope;
+
+export const zFinalRejectClaimBody = zClaimDecision;
+
+export const zFinalRejectClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zFinalRejectClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The decided claim, with its new `ETag`.
+ */
+export const zFinalRejectClaimResponse = zClaimEnvelope;
 
 export const zSubmitClaimHeaders = z.object({
   'If-Match': z.string().optional()
