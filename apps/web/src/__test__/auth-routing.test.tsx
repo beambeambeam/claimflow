@@ -170,7 +170,13 @@ describe("app header", () => {
 
   const expectedLinks: Record<Role, string[]> = {
     requester: ["My Claims", "New Claim", "All Claims"],
-    reviewer: ["My Claims", "New Claim", "Review Queue", "All Claims", "Summary"],
+    reviewer: [
+      "My Claims",
+      "New Claim",
+      "Review Queue",
+      "All Claims",
+      "Summary",
+    ],
     finance: ["Review Queue", "Finance Queue", "All Claims", "Summary"],
   };
 
