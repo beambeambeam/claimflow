@@ -200,6 +200,8 @@ describe("Summary", () => {
     await screen.findByText("You don't have access to this page.", {}, slow);
     expect(screen.queryByRole("table")).toBeNull();
     expect(tileCounts()).toEqual([]);
+    expect(screen.queryByLabelText("From")).toBeNull();
+    expect(screen.queryByLabelText("To")).toBeNull();
   }, 20_000);
 
   it("F10-TEST-09 extra: shows skeleton tiles and rows while the summary loads", async () => {
