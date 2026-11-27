@@ -118,7 +118,7 @@ func (s Service) Get(ctx context.Context, actor Actor, id uuid.UUID) (Claim, err
 // to the actor, oldest submission first: submitted time ascending, then id ascending (F-04 §3); decided claims leave
 // it. ScopeFinance is every PENDING_FINANCE claim in the same order (F-08 §1.9). A page past the last one has no claims
 // and the correct total.
-func (s Service) List(ctx context.Context, actor Actor, q Query) (Page, error) {
+func (s Service) List(ctx context.Context, actor Actor, q *Query) (Page, error) {
 	switch q.Scope {
 	case ScopeMine:
 		return s.listMine(ctx, actor, q)
@@ -126,13 +126,15 @@ func (s Service) List(ctx context.Context, actor Actor, q Query) (Page, error) {
 		return s.listReview(ctx, actor, q)
 	case ScopeFinance:
 		return s.listFinance(ctx, q)
+	case ScopeAll:
+		return Page{}, errors.New("claim: scope all is not implemented")
 	default:
 		return Page{}, fmt.Errorf("claim: unknown scope %q", q.Scope)
 	}
 }
 
 // listMine is List for ScopeMine.
-func (s Service) listMine(ctx context.Context, actor Actor, q Query) (Page, error) {
+func (s Service) listMine(ctx context.Context, actor Actor, q *Query) (Page, error) {
 	queries := db.New(s.pool)
 
 	total, err := queries.CountRequesterClaims(ctx, actor.ID)
@@ -156,7 +158,7 @@ func (s Service) listMine(ctx context.Context, actor Actor, q Query) (Page, erro
 }
 
 // listReview is List for ScopeReview.
-func (s Service) listReview(ctx context.Context, actor Actor, q Query) (Page, error) {
+func (s Service) listReview(ctx context.Context, actor Actor, q *Query) (Page, error) {
 	queries := db.New(s.pool)
 	reviewer := uuid.NullUUID{UUID: actor.ID, Valid: true}
 
@@ -183,7 +185,7 @@ func (s Service) listReview(ctx context.Context, actor Actor, q Query) (Page, er
 }
 
 // listFinance is List for ScopeFinance. The queue is the same for every Finance Officer.
-func (s Service) listFinance(ctx context.Context, q Query) (Page, error) {
+func (s Service) listFinance(ctx context.Context, q *Query) (Page, error) {
 	queries := db.New(s.pool)
 
 	total, err := queries.CountFinanceClaims(ctx)
@@ -209,7 +211,7 @@ func (s Service) listFinance(ctx context.Context, q Query) (Page, error) {
 
 // listPage builds the page of q from total, the number of claims on every page, and fetch, which reads a window of them.
 // A page past the last one is not fetched.
-func listPage(total int, q Query, fetch func(offset, limit int32) ([]Summary, error)) (Page, error) {
+func listPage(total int, q *Query, fetch func(offset, limit int32) ([]Summary, error)) (Page, error) {
 	if total == 0 || q.Page-1 > (total-1)/q.PageSize {
 		return Page{Claims: []Summary{}, Total: total}, nil
 	}

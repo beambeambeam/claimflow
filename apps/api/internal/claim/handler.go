@@ -110,7 +110,7 @@ func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestOb
 		return nil, fmt.Errorf("authorize: %w", err)
 	}
 
-	result, err := h.service.List(ctx, Actor{ID: user.ID, Role: user.Role}, q)
+	result, err := h.service.List(ctx, Actor{ID: user.ID, Role: user.Role}, &q)
 	if err != nil { // coverage-ignore
 		return nil, err
 	}
