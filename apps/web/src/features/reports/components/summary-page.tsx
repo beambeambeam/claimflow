@@ -19,6 +19,7 @@ import type {
   ExpenseCategory,
   StatusCounts,
 } from "#/lib/api/types.gen";
+import { zExpenseCategory } from "#/lib/api/zod.gen";
 import { formatBaht, formatMonth } from "#/lib/format";
 import { categoryLabels } from "#/lib/labels";
 import { isProblem } from "#/lib/problem";
@@ -39,14 +40,7 @@ const statuses = [
 ] as const satisfies readonly (keyof StatusCounts)[];
 
 // The categories in the order of the ExpenseCategory enum, which is the order of the columns.
-const categories: ExpenseCategory[] = [
-  "TRAVEL",
-  "ACCOMMODATION",
-  "MEALS",
-  "SUPPLIES",
-  "TRAINING",
-  "OTHER",
-];
+const categories = zExpenseCategory.options;
 
 const satangOf = (total: string) => Number(total.replace(".", ""));
 
