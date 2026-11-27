@@ -64,6 +64,47 @@ func (q *Queries) CountAllClaims(ctx context.Context, arg CountAllClaimsParams) 
 	return total, err
 }
 
+const countClaimsByStatus = `-- name: CountClaimsByStatus :many
+SELECT status, count(*)::int AS total
+FROM claims
+WHERE status <> 'DRAFT'
+  AND ($1::bool OR assigned_reviewer_id = $2)
+GROUP BY status
+`
+
+type CountClaimsByStatusParams struct {
+	AllClaims bool
+	ActorID   uuid.NullUUID
+}
+
+type CountClaimsByStatusRow struct {
+	Status ClaimStatus
+	Total  int32
+}
+
+// CountClaimsByStatus counts the claims in a summary scope by current status (F-10 §1.3, §1.4). A draft is never
+// counted. all_claims is the Finance Officer's scope, every claim that is not a draft. Otherwise the scope is the
+// claims assigned to actor_id.
+func (q *Queries) CountClaimsByStatus(ctx context.Context, arg CountClaimsByStatusParams) ([]CountClaimsByStatusRow, error) {
+	rows, err := q.db.Query(ctx, countClaimsByStatus, arg.AllClaims, arg.ActorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountClaimsByStatusRow
+	for rows.Next() {
+		var i CountClaimsByStatusRow
+		if err := rows.Scan(&i.Status, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countFinanceClaims = `-- name: CountFinanceClaims :one
 SELECT count(*)::int AS total
 FROM claims
