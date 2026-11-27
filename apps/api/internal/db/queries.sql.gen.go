@@ -13,6 +13,61 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const approvedTotalsByMonthCategory = `-- name: ApprovedTotalsByMonthCategory :many
+SELECT to_char(c.decided_at AT TIME ZONE 'Asia/Bangkok', 'YYYY-MM')::text AS month,
+       li.category,
+       sum(li.amount_satang)::bigint AS total
+FROM claims c
+JOIN line_items li ON li.claim_id = c.id
+WHERE c.status = 'APPROVED'
+  AND ($1::bool OR c.assigned_reviewer_id = $2)
+  AND ($3::timestamptz IS NULL OR c.decided_at >= $3)
+  AND ($4::timestamptz IS NULL OR c.decided_at < $4)
+GROUP BY 1, li.category
+ORDER BY 1, li.category
+`
+
+type ApprovedTotalsByMonthCategoryParams struct {
+	AllClaims bool
+	ActorID   uuid.NullUUID
+	FromAt    pgtype.Timestamptz
+	ToAt      pgtype.Timestamptz
+}
+
+type ApprovedTotalsByMonthCategoryRow struct {
+	Month    string
+	Category ExpenseCategory
+	Total    int64
+}
+
+// ApprovedTotalsByMonthCategory sums the line items of the APPROVED claims in a summary scope by the Asia/Bangkok month
+// of the decision and by category, ordered by month and then by category in the order of the expense_category enum
+// (F-10 §1.4). from_at and to_at bound decided_at as a half-open range; a NULL bound is open.
+func (q *Queries) ApprovedTotalsByMonthCategory(ctx context.Context, arg ApprovedTotalsByMonthCategoryParams) ([]ApprovedTotalsByMonthCategoryRow, error) {
+	rows, err := q.db.Query(ctx, approvedTotalsByMonthCategory,
+		arg.AllClaims,
+		arg.ActorID,
+		arg.FromAt,
+		arg.ToAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApprovedTotalsByMonthCategoryRow
+	for rows.Next() {
+		var i ApprovedTotalsByMonthCategoryRow
+		if err := rows.Scan(&i.Month, &i.Category, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const checkReady = `-- name: CheckReady :one
 SELECT 1::integer AS ok
 `

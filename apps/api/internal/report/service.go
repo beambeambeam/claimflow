@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/money"
@@ -53,11 +54,11 @@ func NewService(pool db.DBTX) Service {
 }
 
 // Summary returns the decision summary of the actor's scope for the decisions in r.
-func (s Service) Summary(ctx context.Context, actor Actor, _ Range) (Summary, error) {
-	rows, err := s.queries.CountClaimsByStatus(ctx, db.CountClaimsByStatusParams{
-		AllClaims: actor.Role == roleFinance,
-		ActorID:   uuid.NullUUID{UUID: actor.ID, Valid: true},
-	})
+func (s Service) Summary(ctx context.Context, actor Actor, r Range) (Summary, error) {
+	allClaims := actor.Role == roleFinance
+	actorID := uuid.NullUUID{UUID: actor.ID, Valid: true}
+
+	rows, err := s.queries.CountClaimsByStatus(ctx, db.CountClaimsByStatusParams{AllClaims: allClaims, ActorID: actorID})
 	if err != nil { // coverage-ignore
 		return Summary{}, fmt.Errorf("count claims by status: %w", err)
 	}
@@ -74,5 +75,26 @@ func (s Service) Summary(ctx context.Context, actor Actor, _ Range) (Summary, er
 		counts[row.Status] = int(row.Total)
 	}
 
-	return Summary{CountsByStatus: counts}, nil
+	grouped, err := s.queries.ApprovedTotalsByMonthCategory(ctx, db.ApprovedTotalsByMonthCategoryParams{
+		AllClaims: allClaims, ActorID: actorID, FromAt: timestamp(r.From), ToAt: timestamp(r.To),
+	})
+	if err != nil { // coverage-ignore
+		return Summary{}, fmt.Errorf("approved totals by month and category: %w", err)
+	}
+
+	totals := make([]Total, 0, len(grouped))
+	for _, row := range grouped {
+		totals = append(totals, Total{Month: row.Month, Category: row.Category, Amount: money.Satang(row.Total)})
+	}
+
+	return Summary{CountsByStatus: counts, ApprovedTotals: totals}, nil
+}
+
+// timestamp is a range bound as a query argument. A nil bound is NULL, which leaves that side of the range open.
+func timestamp(bound *time.Time) pgtype.Timestamptz {
+	if bound == nil {
+		return pgtype.Timestamptz{}
+	}
+
+	return pgtype.Timestamptz{Time: *bound, Valid: true}
 }
