@@ -1,9 +1,11 @@
 package report
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -189,6 +191,88 @@ func TestF10TEST03ApprovedTotalsByMonthAndCategory(t *testing.T) {
 
 			if !slices.Equal(got.ApprovedTotals, test.want) {
 				t.Fatalf("approvedTotals = %v, want %v", got.ApprovedTotals, test.want)
+			}
+		})
+	}
+}
+
+// hours shows an average for a failure message: null, or the number.
+func hours(h *float64) string {
+	if h == nil {
+		return "null"
+	}
+
+	return fmt.Sprint(*h)
+}
+
+// decidedAfter stores a decided claim of status for malee that took d from its first submission to its decision.
+func decidedAfter(t *testing.T, pool *pgxpool.Pool, p *people, status db.ClaimStatus, d time.Duration) {
+	t.Helper()
+
+	submitted := at(10, 1, 9, 0, 0)
+	insertClaim(t, pool, &stored{
+		requester: p.anan, reviewer: p.malee, status: status, firstSubmitted: submitted, decided: new(submitted.Add(d)),
+	})
+}
+
+// F10-TEST-04 (F10-AC-04): averageDecisionHours is the mean of decided_at - first_submitted_at over the APPROVED and
+// REJECTED claims decided in the range, rounded to one decimal place, and null when none was decided in it.
+func TestF10TEST04AverageDecisionHours(t *testing.T) {
+	pool := pgtest.New(t)
+	p := seedPeople(t, pool)
+	decidedAfter(t, pool, p, db.ClaimStatusAPPROVED, 2*time.Hour)
+	decidedAfter(t, pool, p, db.ClaimStatusREJECTED, 3*time.Hour)
+	decidedAfter(t, pool, p, db.ClaimStatusAPPROVED, 25*time.Hour+6*time.Minute)
+	insertClaim(t, pool, &stored{requester: p.anan, reviewer: p.malee, status: db.ClaimStatusPENDINGFINANCE, firstSubmitted: at(10, 1, 9, 0, 0)})
+	// Somchai's claim took 100 hours. Only Finance's average includes it.
+	insertClaim(t, pool, &stored{
+		requester: p.bella, reviewer: p.somchai, status: db.ClaimStatusAPPROVED,
+		firstSubmitted: at(10, 1, 9, 0, 0), decided: new(at(10, 1, 9, 0, 0).Add(100 * time.Hour)),
+	})
+	service := NewService(pool)
+
+	for _, test := range []struct {
+		name  string
+		actor Actor
+		rng   Range
+		want  *float64
+	}{
+		{"reviewer, 30.1 h over 3 claims", p.maleeActor(), Range{}, new(10.0)},
+		{"finance, 130.1 h over 4 claims", p.wanidaActor(), Range{}, new(32.5)},
+		{"no decision in the range", p.maleeActor(), Range{From: new(at(12, 1, 0, 0, 0))}, nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := service.Summary(t.Context(), test.actor, test.rng)
+			if err != nil {
+				t.Fatalf("Summary: %v", err)
+			}
+
+			if (got.AverageDecisionHours == nil) != (test.want == nil) ||
+				(test.want != nil && *got.AverageDecisionHours != *test.want) {
+				t.Fatalf("averageDecisionHours = %s, want %s", hours(got.AverageDecisionHours), hours(test.want))
+			}
+		})
+	}
+}
+
+// The average rounds half away from zero to one decimal place: 0.25 h is 0.3, not the 0.2 of rounding half to even.
+func TestAverageDecisionHoursRoundsHalfAwayFromZero(t *testing.T) {
+	for _, test := range []struct {
+		minutes int
+		want    float64
+	}{{15, 0.3}, {3, 0.1}, {2, 0.0}} {
+		t.Run(fmt.Sprintf("%d minutes", test.minutes), func(t *testing.T) {
+			pool := pgtest.New(t)
+			p := seedPeople(t, pool)
+			decidedAfter(t, pool, p, db.ClaimStatusAPPROVED, time.Duration(test.minutes)*time.Minute)
+
+			got, err := NewService(pool).Summary(t.Context(), p.maleeActor(), Range{})
+			if err != nil {
+				t.Fatalf("Summary: %v", err)
+			}
+
+			if got.AverageDecisionHours == nil || *got.AverageDecisionHours != test.want {
+				t.Fatalf("averageDecisionHours = %s, want %v", hours(got.AverageDecisionHours), test.want)
 			}
 		})
 	}
