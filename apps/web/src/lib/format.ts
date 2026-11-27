@@ -35,6 +35,8 @@ const dateTimeFormat = new Intl.DateTimeFormat("en-GB", {
 export const parseSatang = (text: string): number | null =>
   amountPattern.test(text) ? Number(text.replace(".", "")) : null;
 
+export const moneyToSatang = (_money: string): number | null => null;
+
 // Formats satang as baht with a symbol and 2 decimals, such as `฿1,250.00`.
 export const formatBaht = (satang: number): string =>
   `฿${bahtFormat.format(satang / satangPerBaht)}`;
