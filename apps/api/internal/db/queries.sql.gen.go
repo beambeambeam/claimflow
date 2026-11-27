@@ -68,6 +68,44 @@ func (q *Queries) ApprovedTotalsByMonthCategory(ctx context.Context, arg Approve
 	return items, nil
 }
 
+const averageDecisionHours = `-- name: AverageDecisionHours :one
+SELECT count(*)::int AS decided,
+       COALESCE(round(avg(extract(epoch FROM c.decided_at - c.first_submitted_at)) / 3600, 1), 0)::float8 AS hours
+FROM claims c
+WHERE c.status IN ('APPROVED', 'REJECTED')
+  AND ($1::bool OR c.assigned_reviewer_id = $2)
+  AND ($3::timestamptz IS NULL OR c.decided_at >= $3)
+  AND ($4::timestamptz IS NULL OR c.decided_at < $4)
+`
+
+type AverageDecisionHoursParams struct {
+	AllClaims bool
+	ActorID   uuid.NullUUID
+	FromAt    pgtype.Timestamptz
+	ToAt      pgtype.Timestamptz
+}
+
+type AverageDecisionHoursRow struct {
+	Decided int32
+	Hours   float64
+}
+
+// AverageDecisionHours returns how many APPROVED and REJECTED claims in a summary scope were decided in the range, and
+// the mean hours from first submission to decision, rounded to one decimal place with round(numeric), which rounds half
+// away from zero (F-10 §1.4). The mean is 0 when no claim was decided; the caller reads that as null by the count.
+// from_at and to_at bound decided_at as a half-open range; a NULL bound is open.
+func (q *Queries) AverageDecisionHours(ctx context.Context, arg AverageDecisionHoursParams) (AverageDecisionHoursRow, error) {
+	row := q.db.QueryRow(ctx, averageDecisionHours,
+		arg.AllClaims,
+		arg.ActorID,
+		arg.FromAt,
+		arg.ToAt,
+	)
+	var i AverageDecisionHoursRow
+	err := row.Scan(&i.Decided, &i.Hours)
+	return i, err
+}
+
 const checkReady = `-- name: CheckReady :one
 SELECT 1::integer AS ok
 `

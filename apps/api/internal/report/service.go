@@ -87,7 +87,19 @@ func (s Service) Summary(ctx context.Context, actor Actor, r Range) (Summary, er
 		totals = append(totals, Total{Month: row.Month, Category: row.Category, Amount: money.Satang(row.Total)})
 	}
 
-	return Summary{CountsByStatus: counts, ApprovedTotals: totals}, nil
+	average, err := s.queries.AverageDecisionHours(ctx, db.AverageDecisionHoursParams{
+		AllClaims: allClaims, ActorID: actorID, FromAt: timestamp(r.From), ToAt: timestamp(r.To),
+	})
+	if err != nil { // coverage-ignore
+		return Summary{}, fmt.Errorf("average decision hours: %w", err)
+	}
+
+	summary := Summary{CountsByStatus: counts, ApprovedTotals: totals}
+	if average.Decided > 0 {
+		summary.AverageDecisionHours = &average.Hours
+	}
+
+	return summary, nil
 }
 
 // timestamp is a range bound as a query argument. A nil bound is NULL, which leaves that side of the range open.

@@ -23,3 +23,16 @@ WHERE c.status = 'APPROVED'
   AND (sqlc.narg(to_at)::timestamptz IS NULL OR c.decided_at < sqlc.narg(to_at))
 GROUP BY 1, li.category
 ORDER BY 1, li.category;
+
+-- name: AverageDecisionHours :one
+-- AverageDecisionHours returns how many APPROVED and REJECTED claims in a summary scope were decided in the range, and
+-- the mean hours from first submission to decision, rounded to one decimal place with round(numeric), which rounds half
+-- away from zero (F-10 §1.4). The mean is 0 when no claim was decided; the caller reads that as null by the count.
+-- from_at and to_at bound decided_at as a half-open range; a NULL bound is open.
+SELECT count(*)::int AS decided,
+       COALESCE(round(avg(extract(epoch FROM c.decided_at - c.first_submitted_at)) / 3600, 1), 0)::float8 AS hours
+FROM claims c
+WHERE c.status IN ('APPROVED', 'REJECTED')
+  AND (sqlc.arg(all_claims)::bool OR c.assigned_reviewer_id = sqlc.arg(actor_id))
+  AND (sqlc.narg(from_at)::timestamptz IS NULL OR c.decided_at >= sqlc.narg(from_at))
+  AND (sqlc.narg(to_at)::timestamptz IS NULL OR c.decided_at < sqlc.narg(to_at));
