@@ -243,40 +243,43 @@ export const SummaryPage = ({
   return (
     <VStack gap={4} hAlign="stretch">
       <Heading level={1}>Summary</Heading>
-      <HStack gap={4} vAlign="end">
-        <DateInput
-          format="system_date"
-          hasClear
-          label="From"
-          max={asIsoDate(to)}
-          onChange={(value) => {
-            onRangeChange({ from: value, to });
-          }}
-          value={asIsoDate(from)}
-        />
-        <DateInput
-          format="system_date"
-          hasClear
-          label="To"
-          min={asIsoDate(from)}
-          onChange={(value) => {
-            onRangeChange({ from, to: value });
-          }}
-          status={
-            isBackwards ? { type: "error", message: rangeMessage } : undefined
-          }
-          value={asIsoDate(to)}
-        />
-        {from === undefined && to === undefined ? null : (
-          <Button
-            label="Clear"
-            onClick={() => {
-              onRangeChange({});
+      {/* A member without report:read gets only the access message (F-10 §2.2), not the range controls. */}
+      {forbidden ? null : (
+        <HStack gap={4} vAlign="end">
+          <DateInput
+            format="system_date"
+            hasClear
+            label="From"
+            max={asIsoDate(to)}
+            onChange={(value) => {
+              onRangeChange({ from: value, to });
             }}
-            variant="ghost"
+            value={asIsoDate(from)}
           />
-        )}
-      </HStack>
+          <DateInput
+            format="system_date"
+            hasClear
+            label="To"
+            min={asIsoDate(from)}
+            onChange={(value) => {
+              onRangeChange({ from, to: value });
+            }}
+            status={
+              isBackwards ? { type: "error", message: rangeMessage } : undefined
+            }
+            value={asIsoDate(to)}
+          />
+          {from === undefined && to === undefined ? null : (
+            <Button
+              label="Clear"
+              onClick={() => {
+                onRangeChange({});
+              }}
+              variant="ghost"
+            />
+          )}
+        </HStack>
+      )}
       {body()}
     </VStack>
   );
