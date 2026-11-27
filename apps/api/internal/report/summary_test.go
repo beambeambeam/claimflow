@@ -277,3 +277,74 @@ func TestAverageDecisionHoursRoundsHalfAwayFromZero(t *testing.T) {
 		})
 	}
 }
+
+// parsedRange reads from and to as the handler does, and fails on a problem.
+func parsedRange(t *testing.T, from, to *string) Range {
+	t.Helper()
+
+	rng, problems := ParseRange(from, to)
+	if len(problems) > 0 {
+		t.Fatalf("ParseRange(%v, %v) problems = %v", from, to, problems)
+	}
+
+	return rng
+}
+
+// F10-TEST-05 (F10-AC-05): the range is made of Asia/Bangkok dates on decided_at. A claim decided at 23:59:59 on 31 Oct
+// is in October, and one decided at 00:00:00 on 1 Nov, or at 17:30 UTC on 31 Oct, which is 00:30 on 1 Nov in Bangkok,
+// is in November and falls in the month 2026-11.
+func TestF10TEST05MonthEdgesInBangkok(t *testing.T) {
+	pool := pgtest.New(t)
+	p := seedPeople(t, pool)
+
+	submitted := at(10, 1, 9, 0, 0)
+
+	for _, c := range []*stored{
+		{
+			requester: p.anan, reviewer: p.malee, status: db.ClaimStatusAPPROVED, firstSubmitted: submitted,
+			decided: new(time.Date(2026, time.October, 31, 23, 59, 59, 0, ict)), items: []item{{db.ExpenseCategoryTRAVEL, 100000}},
+		},
+		{
+			requester: p.anan, reviewer: p.malee, status: db.ClaimStatusAPPROVED, firstSubmitted: submitted,
+			decided: new(time.Date(2026, time.November, 1, 0, 0, 0, 0, ict)), items: []item{{db.ExpenseCategoryACCOMMODATION, 200000}},
+		},
+		{
+			requester: p.anan, reviewer: p.malee, status: db.ClaimStatusAPPROVED, firstSubmitted: submitted,
+			decided: new(time.Date(2026, time.October, 31, 17, 30, 0, 0, time.UTC)), items: []item{{db.ExpenseCategoryMEALS, 120000}},
+		},
+	} {
+		insertClaim(t, pool, c)
+	}
+
+	service := NewService(pool)
+
+	for _, test := range []struct {
+		name     string
+		from, to *string
+		want     []Total
+	}{
+		{"October", new("2026-10-01"), new("2026-10-31"), []Total{
+			{"2026-10", db.ExpenseCategoryTRAVEL, 100000},
+		}},
+		{"from 1 November", new("2026-11-01"), nil, []Total{
+			{"2026-11", db.ExpenseCategoryACCOMMODATION, 200000},
+			{"2026-11", db.ExpenseCategoryMEALS, 120000},
+		}},
+		{"no range", nil, nil, []Total{
+			{"2026-10", db.ExpenseCategoryTRAVEL, 100000},
+			{"2026-11", db.ExpenseCategoryACCOMMODATION, 200000},
+			{"2026-11", db.ExpenseCategoryMEALS, 120000},
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := service.Summary(t.Context(), p.maleeActor(), parsedRange(t, test.from, test.to))
+			if err != nil {
+				t.Fatalf("Summary: %v", err)
+			}
+
+			if !slices.Equal(got.ApprovedTotals, test.want) {
+				t.Fatalf("approvedTotals = %v, want %v", got.ApprovedTotals, test.want)
+			}
+		})
+	}
+}
