@@ -7,6 +7,7 @@ import (
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
+	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 	"github.com/beambeambeam/claimflow/apps/api/internal/pgtest"
 )
 
@@ -15,7 +16,7 @@ func TestCreateClaimWithoutSessionUserIsUnauthenticated(t *testing.T) {
 	handler := NewHandler(newService(pgtest.New(t)))
 
 	_, err := handler.CreateClaim(t.Context(), api.CreateClaimRequestObject{Body: &api.CreateClaimJSONRequestBody{}})
-	if !errors.Is(err, errUnauthenticated) {
+	if !errors.Is(err, httperr.ErrUnauthenticated) {
 		t.Fatalf("CreateClaim error = %v, want the 401 problem", err)
 	}
 }
@@ -51,7 +52,7 @@ func TestGetClaimWithoutSessionUserIsUnauthenticated(t *testing.T) {
 	handler := NewHandler(newService(pgtest.New(t)))
 
 	_, err := handler.GetClaim(t.Context(), api.GetClaimRequestObject{})
-	if !errors.Is(err, errUnauthenticated) {
+	if !errors.Is(err, httperr.ErrUnauthenticated) {
 		t.Fatalf("GetClaim error = %v, want the 401 problem", err)
 	}
 }
@@ -62,12 +63,12 @@ func TestDecisionsWithoutSessionUserAreUnauthenticated(t *testing.T) {
 	ifMatch := `"0"`
 
 	_, err := handler.ApproveClaim(t.Context(), api.ApproveClaimRequestObject{Params: api.ApproveClaimParams{IfMatch: &ifMatch}})
-	if !errors.Is(err, errUnauthenticated) {
+	if !errors.Is(err, httperr.ErrUnauthenticated) {
 		t.Fatalf("ApproveClaim error = %v, want the 401 problem", err)
 	}
 
 	_, err = handler.RejectClaim(t.Context(), api.RejectClaimRequestObject{Params: api.RejectClaimParams{IfMatch: &ifMatch}})
-	if !errors.Is(err, errUnauthenticated) {
+	if !errors.Is(err, httperr.ErrUnauthenticated) {
 		t.Fatalf("RejectClaim error = %v, want the 401 problem", err)
 	}
 }

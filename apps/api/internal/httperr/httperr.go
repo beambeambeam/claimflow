@@ -40,6 +40,8 @@ func (e *Error) Error() string {
 var (
 	// ErrNotFound is the problem for a path with no operation.
 	ErrNotFound = &Error{Status: http.StatusNotFound, Code: api.ProblemCodeNotFound, Title: "Not found."}
+	// ErrUnauthenticated is the problem for a request that needs a session user and has none.
+	ErrUnauthenticated = &Error{Status: http.StatusUnauthorized, Code: api.ProblemCodeUnauthenticated, Title: "Authentication required."}
 	// ErrUnavailable is the problem when a dependency, such as the database, cannot be reached.
 	ErrUnavailable = &Error{Status: http.StatusServiceUnavailable, Code: api.ProblemCodeUnavailable, Title: "Service unavailable."}
 	// ErrValidation is the problem for a request that does not decode. It names no field.

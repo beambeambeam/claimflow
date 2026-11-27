@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/beambeambeam/claimflow/apps/api/internal/daterange"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 )
@@ -29,7 +30,7 @@ var (
 )
 
 // bangkok is the zone of every business date and of the claim number year (AS-06). Thailand has no daylight saving time.
-var bangkok = time.FixedZone("Asia/Bangkok", 7*60*60)
+var bangkok = daterange.Bangkok
 
 // Pool is the database handle of a Service: it runs queries and starts the transaction of each call (NFR-06).
 type Pool interface {
@@ -256,23 +257,16 @@ func allClaimsParams(actor Actor, filters *Filters) db.CountAllClaimsParams {
 		params.Category = db.NullExpenseCategory{ExpenseCategory: *filters.Category, Valid: true}
 	}
 	if filters.From != nil {
-		params.FromAt = timestamptz(bangkokMidnight(*filters.From, 0))
+		params.FromAt = timestamptz(daterange.Midnight(*filters.From, 0))
 	}
 	if filters.To != nil {
-		params.BeforeAt = timestamptz(bangkokMidnight(*filters.To, 1))
+		params.BeforeAt = timestamptz(daterange.Midnight(*filters.To, 1))
 	}
 	if q := strings.TrimSpace(filters.Q); q != "" {
 		params.Title = pgtype.Text{String: "%" + likeEscaper.Replace(q) + "%", Valid: true}
 	}
 
 	return params
-}
-
-// bangkokMidnight returns the start, in Asia/Bangkok, of the calendar date of date plus days.
-func bangkokMidnight(date time.Time, days int) time.Time {
-	year, month, d := date.Date()
-
-	return time.Date(year, month, d+days, 0, 0, 0, 0, bangkok)
 }
 
 // listPage builds the page of q from total, the number of claims on every page, and fetch, which reads a window of them.

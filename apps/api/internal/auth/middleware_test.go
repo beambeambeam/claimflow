@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
+	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
 
 // RequireSession answers 401 for an anonymous request to a route outside public, without calling the handler.
@@ -55,15 +56,15 @@ func TestRequireSessionLeavesUnmatchedRequestsToNoRoute(t *testing.T) {
 // GetMe still answers 401 if it is ever reached without a user.
 func TestGetMeWithoutUserIsUnauthenticated(t *testing.T) {
 	_, err := Handler{}.GetMe(t.Context(), api.GetMeRequestObject{})
-	if !errors.Is(err, errUnauthenticated) {
-		t.Fatalf("err = %v, want errUnauthenticated", err)
+	if !errors.Is(err, httperr.ErrUnauthenticated) {
+		t.Fatalf("err = %v, want ErrUnauthenticated", err)
 	}
 }
 
 // Logout still answers 401 if it is ever reached without a session.
 func TestLogoutWithoutSessionIsUnauthenticated(t *testing.T) {
 	_, err := Handler{}.Logout(t.Context(), api.LogoutRequestObject{})
-	if !errors.Is(err, errUnauthenticated) {
-		t.Fatalf("err = %v, want errUnauthenticated", err)
+	if !errors.Is(err, httperr.ErrUnauthenticated) {
+		t.Fatalf("err = %v, want ErrUnauthenticated", err)
 	}
 }

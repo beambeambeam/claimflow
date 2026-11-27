@@ -70,7 +70,7 @@ func RequireSession(public map[string]bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		route := c.FullPath()
 		if _, ok := UserFrom(c.Request.Context()); !ok && route != "" && !public[c.Request.Method+" "+route] {
-			httperr.Report(c, errUnauthenticated)
+			httperr.Report(c, httperr.ErrUnauthenticated)
 			c.Abort()
 
 			return

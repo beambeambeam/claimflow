@@ -3,19 +3,12 @@ package report
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
 	"github.com/beambeambeam/claimflow/apps/api/internal/auth"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
-
-var errUnauthenticated = &httperr.Error{
-	Status: http.StatusUnauthorized,
-	Code:   api.ProblemCodeUnauthenticated,
-	Title:  "Authentication required.",
-}
 
 // Handler implements the report operations of api.StrictServerInterface.
 type Handler struct {
@@ -32,7 +25,7 @@ func NewHandler(service Service) Handler {
 func (h Handler) GetDecisionSummary(ctx context.Context, request api.GetDecisionSummaryRequestObject) (api.GetDecisionSummaryResponseObject, error) {
 	user, ok := auth.UserFrom(ctx)
 	if !ok { // The route requires a session before the handler runs, so a missing user is only a guard.
-		return nil, errUnauthenticated
+		return nil, httperr.ErrUnauthenticated
 	}
 
 	rng, problems := ParseRange(request.Params.From, request.Params.To)
