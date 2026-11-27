@@ -208,6 +208,20 @@ describe("Summary", () => {
     screen.getByRole("heading", { name: "Approved: 12" });
   }, 20_000);
 
+  it("F10-TEST-09: says no claim was approved, not that there is no decision, when the range has only rejected decisions", async () => {
+    respondWith({
+      ...noDecisions,
+      averageDecisionHours: 12.5,
+    });
+    renderAt("/reports?from=2026-12-01");
+
+    await screen.findByText("No approved claims in this date range.", {}, slow);
+    screen.getByRole("heading", { name: "Approved totals" });
+    expect(screen.queryByText("No decisions in this date range.")).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
+    screen.getByText("Average decision time: 12.5 hours");
+  }, 20_000);
+
   it('F10-TEST-09: shows "You don\'t have access to this page." to a requester on 403', async () => {
     sessionUser = requester;
     summaryResponse = () =>
