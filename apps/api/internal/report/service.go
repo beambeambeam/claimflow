@@ -62,7 +62,14 @@ func (s Service) Summary(ctx context.Context, actor Actor, _ Range) (Summary, er
 		return Summary{}, fmt.Errorf("count claims by status: %w", err)
 	}
 
-	counts := make(map[db.ClaimStatus]int, len(rows))
+	counts := map[db.ClaimStatus]int{
+		db.ClaimStatusSUBMITTED:      0,
+		db.ClaimStatusRETURNED:       0,
+		db.ClaimStatusPENDINGFINANCE: 0,
+		db.ClaimStatusAPPROVED:       0,
+		db.ClaimStatusREJECTED:       0,
+		db.ClaimStatusWITHDRAWN:      0,
+	}
 	for _, row := range rows {
 		counts[row.Status] = int(row.Total)
 	}
