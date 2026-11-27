@@ -137,6 +137,25 @@ describe("Summary", () => {
     });
   }, 20_000);
 
+  it("F10-TEST-08: puts a changed To in the URL and asks for the new range", async () => {
+    const { router } = renderAt("/reports?from=2026-10-01&to=2026-11-30");
+    await screen.findByText("Oct 2026", {}, slow);
+
+    fireEvent.change(screen.getByLabelText("To"), {
+      target: { value: "2026-10-31" },
+    });
+
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({
+        from: "2026-10-01",
+        to: "2026-10-31",
+      });
+    });
+    await waitFor(() => {
+      expect(requestedUrls.at(-1)?.searchParams.get("to")).toBe("2026-10-31");
+    });
+  }, 20_000);
+
   it("F10-TEST-08: shows the Summary link with report:read", async () => {
     renderAt("/reports");
 
