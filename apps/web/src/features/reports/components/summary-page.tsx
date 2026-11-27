@@ -182,7 +182,16 @@ export const SummaryPage = ({
     }
 
     if (result.approvedTotals.length === 0) {
-      return <EmptyState title="No decisions in this date range." />;
+      // Only REJECTED decisions in the range have an average but no approved total.
+      return (
+        <EmptyState
+          title={
+            result.averageDecisionHours === null
+              ? "No decisions in this date range."
+              : "No approved claims in this date range."
+          }
+        />
+      );
     }
 
     const rows = monthRows(result.approvedTotals);
