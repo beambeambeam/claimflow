@@ -265,7 +265,9 @@ const submittedLoadClaims = async (): Promise<string[]> => {
 
 // percentile is the nearest-rank percentile of numbers, in ms.
 const percentile = (numbers: number[], p: number): number => {
-  const sorted = numbers.toSorted((a, b) => a - b);
+  // The copy is sorted, not the caller's array; the root tsconfig targets ES2022, which has no toSorted.
+  // eslint-disable-next-line unicorn/no-array-sort
+  const sorted = [...numbers].sort((a, b) => a - b);
 
   return sorted[Math.max(0, Math.ceil((p / 100) * sorted.length) - 1)] ?? 0;
 };
@@ -305,6 +307,7 @@ const main = async (): Promise<number> => {
   console.log(`- Base URL: ${baseUrl}`);
   console.log(`- Time: ${new Date().toISOString()}`);
   console.log(`- API version: ${parseHealth(health.reply.body).version}`);
+  console.log("- Percentiles: p50 and p95 by nearest rank");
   console.log(
     `- Rounds: ${rounds} timed, after 1 warm-up round that is not counted`
   );
