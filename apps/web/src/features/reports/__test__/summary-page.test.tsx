@@ -56,6 +56,13 @@ const respondWith = (summary: Summary) => {
   summaryResponse = () => HttpResponse.json({ data: summary });
 };
 
+// A tile shows the count as a heading named after its status, such as "Submitted: 4".
+const tileCounts = () =>
+  screen
+    .queryAllByRole("heading", { level: 2 })
+    .map((heading) => heading.getAttribute("aria-label"))
+    .filter((label) => label !== null);
+
 const cellsOf = (row: HTMLElement) =>
   within(row)
     .getAllByRole("cell")
@@ -78,25 +85,14 @@ describe("Summary", () => {
     );
 
     // Six tiles in lifecycle order, each with its status label and count.
-    const tiles = [
-      ["Submitted", "4"],
-      ["Returned", "1"],
-      ["Pending finance", "2"],
-      ["Approved", "12"],
-      ["Rejected", "3"],
-      ["Withdrawn", "1"],
-    ];
-
-    expect(
-      screen
-        .getAllByRole("group")
-        .map((tile) => tile.getAttribute("aria-label"))
-    ).toEqual(tiles.map(([label]) => label));
-
-    for (const [label, count] of tiles) {
-      within(screen.getByRole("group", { name: label })).getByText(count);
-    }
-
+    expect(tileCounts()).toEqual([
+      "Submitted: 4",
+      "Returned: 1",
+      "Pending finance: 2",
+      "Approved: 12",
+      "Rejected: 3",
+      "Withdrawn: 1",
+    ]);
     screen.getByText("Current claims, not limited by the date range.");
 
     // One column per category with an approved total, and the month total last.
@@ -190,7 +186,7 @@ describe("Summary", () => {
     expect(screen.queryByRole("table")).toBeNull();
     screen.getByText("Average decision time: –");
     // The counts are of current claims, so they stay.
-    within(screen.getByRole("group", { name: "Approved" })).getByText("12");
+    screen.getByRole("heading", { name: "Approved: 12" });
   }, 20_000);
 
   it('F10-TEST-09: shows "You don\'t have access to this page." to a requester on 403', async () => {
@@ -203,7 +199,7 @@ describe("Summary", () => {
 
     await screen.findByText("You don't have access to this page.", {}, slow);
     expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.queryByRole("group")).toBeNull();
+    expect(tileCounts()).toEqual([]);
   }, 20_000);
 
   it("F10-TEST-09 extra: shows skeleton tiles and rows while the summary loads", async () => {
@@ -211,9 +207,9 @@ describe("Summary", () => {
     renderAt("/reports");
 
     await screen.findByRole("heading", { name: "Summary" }, slow);
-    await waitFor(() => {
-      expect(screen.getAllByRole("group")).toHaveLength(6);
-    });
+    await screen.findByText("Pending finance", {}, slow);
+    expect(tileCounts()).toEqual([]);
+    expect(screen.getAllByRole("row")).toHaveLength(4);
     expect(screen.queryByText("Oct 2026")).toBeNull();
   }, 20_000);
 

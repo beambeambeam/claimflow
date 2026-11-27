@@ -72,6 +72,13 @@ export const AppHeader = ({ user }: { user: CurrentUser }) => {
               isSelected={pathname === "/all-claims"}
               label="All Claims"
             />
+            {can(user, "report", "read") ? (
+              <TopNavItem
+                href="/reports"
+                isSelected={pathname === "/reports"}
+                label="Summary"
+              />
+            ) : null}
           </>
         }
       />

@@ -54,3 +54,16 @@ export const formatDate = (value: string): string =>
 // Formats a timestamp in Asia/Bangkok with the time, such as `5 Nov 2026, 10:00`.
 export const formatDateTime = (value: string): string =>
   dateTimeFormat.format(new Date(value));
+
+const monthFormat = new Intl.DateTimeFormat("en-GB", {
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+// Formats an API month `YYYY-MM` (an Asia/Bangkok month) as `Oct 2026`.
+export const formatMonth = (month: string): string => {
+  const [year, number] = month.split("-").map(Number);
+
+  return monthFormat.format(new Date(Date.UTC(year, number - 1, 1)));
+};

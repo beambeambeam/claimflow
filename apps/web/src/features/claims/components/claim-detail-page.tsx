@@ -16,7 +16,7 @@ import { DateText } from "#/components/date-text";
 import { Money } from "#/components/money";
 import { StatusBadge, statusLabels } from "#/components/status-badge";
 import { TextSkeleton } from "#/components/text-skeleton";
-import { actionLabels, categoryLabels } from "#/features/claims/labels";
+import { actionLabels } from "#/features/claims/labels";
 import { getClaimOptions } from "#/lib/api/@tanstack/react-query.gen";
 import type {
   Claim,
@@ -26,6 +26,7 @@ import type {
 } from "#/lib/api/types.gen";
 import { returnsUsedLabel } from "#/lib/contract";
 import { formatDate } from "#/lib/format";
+import { categoryLabels } from "#/lib/labels";
 
 import { ClaimAccessDenied, ClaimLoadFailure } from "./claim-load-failure";
 import { ClaimOwnerActions } from "./claim-owner-actions";
