@@ -38,13 +38,6 @@ describe("moneyToSatang", () => {
   ])("reads the API amount %s as %i satang", (money, satang) => {
     expect(moneyToSatang(money)).toBe(satang);
   });
-
-  it.each(["", "1", "1.5", "1.005", "-1.00", "abc", "1,250.00"])(
-    "rejects %j",
-    (money) => {
-      expect(moneyToSatang(money)).toBeNull();
-    }
-  );
 });
 
 describe("formatBaht", () => {

@@ -57,8 +57,7 @@ const monthRows = (totals: ApprovedTotal[]): MonthRow[] => {
 
   for (const { month, category, total } of totals) {
     const row = rows.get(month) ?? { month, cells: {}, total: 0 };
-    // The API sends every total as a Money string, so the fallback is never used.
-    const satang = moneyToSatang(total) ?? 0;
+    const satang = moneyToSatang(total);
     row.cells[category] = (row.cells[category] ?? 0) + satang;
     row.total += satang;
     rows.set(month, row);
