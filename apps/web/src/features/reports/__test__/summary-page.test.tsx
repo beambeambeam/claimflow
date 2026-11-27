@@ -197,6 +197,35 @@ describe("Summary", () => {
     expect(requestedUrls).toEqual([]);
   }, 20_000);
 
+  it("F10-TEST-08 extra: keeps the status tiles from the last answer when From moves after To, and hides the table and the average", async () => {
+    const { router } = renderAt("/reports?from=2026-10-01&to=2026-11-30");
+    await screen.findByText("Oct 2026", {}, slow);
+    const asked = requestedUrls.length;
+
+    // The date inputs do not let a user pick a backwards range, but the URL can hold one.
+    await router.navigate({
+      to: "/reports",
+      search: { from: "2026-12-15", to: "2026-11-30" },
+    });
+
+    await screen.findByText(
+      "The end date must be on or after the start date.",
+      {},
+      slow
+    );
+    expect(tileCounts()).toEqual([
+      "Submitted: 4",
+      "Returned: 1",
+      "Pending finance: 2",
+      "Approved: 12",
+      "Rejected: 3",
+      "Withdrawn: 1",
+    ]);
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByText(/Average decision time/u)).toBeNull();
+    expect(requestedUrls).toHaveLength(asked);
+  }, 20_000);
+
   it("F10-TEST-09: says there is no decision in the range, and shows a dash for the average", async () => {
     respondWith(noDecisions);
     renderAt("/reports?from=2026-12-01");
