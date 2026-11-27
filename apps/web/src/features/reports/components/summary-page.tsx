@@ -8,7 +8,7 @@ import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Table } from "@astryxdesign/core/Table";
 import type { TableColumn } from "@astryxdesign/core/Table";
 import { Heading, Text } from "@astryxdesign/core/Text";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { LoadError } from "#/components/load-error";
 import { StatusBadge, statusLabels } from "#/components/status-badge";
@@ -135,10 +135,15 @@ export const SummaryPage = ({
   const summary = useQuery({
     ...getDecisionSummaryOptions({ query: { from, to } }),
     enabled: !isBackwards,
+    // A backwards range asks for nothing and keeps the last answer for the status tiles.
+    placeholderData: keepPreviousData,
     retry: false,
   });
 
+  // The tiles show current claims, which the range does not change, so the last answer serves them. The table and
+  // the average are of the range in the URL, so they wait for its own answer.
   const result = summary.data?.data;
+  const rangeResult = summary.isPlaceholderData ? undefined : result;
   const forbidden = isProblem(summary.error) && summary.error.status === 403;
 
   const tiles = () => (
@@ -169,16 +174,16 @@ export const SummaryPage = ({
   );
 
   const totals = () => {
-    if (!result) {
+    if (!rangeResult) {
       return <Table columns={skeletonColumns} data={skeletonRows} idKey="id" />;
     }
 
-    if (result.approvedTotals.length === 0) {
+    if (rangeResult.approvedTotals.length === 0) {
       // Only REJECTED decisions in the range have an average but no approved total.
       return (
         <EmptyState
           title={
-            result.averageDecisionHours === null
+            rangeResult.averageDecisionHours === null
               ? "No decisions in this date range."
               : "No approved claims in this date range."
           }
@@ -186,17 +191,17 @@ export const SummaryPage = ({
       );
     }
 
-    const rows = monthRows(result.approvedTotals);
+    const rows = monthRows(rangeResult.approvedTotals);
 
     return <Table columns={totalsColumns(rows)} data={rows} idKey="month" />;
   };
 
   const average = () => {
-    if (!result) {
+    if (!rangeResult) {
       return <TextSkeleton type="body" width="16rem" />;
     }
 
-    const hours = result.averageDecisionHours;
+    const hours = rangeResult.averageDecisionHours;
 
     return (
       <Text type="body">
@@ -225,8 +230,9 @@ export const SummaryPage = ({
       );
     }
 
+    // The controls show what is wrong, so only the tiles of the last answer stay.
     if (isBackwards) {
-      return null;
+      return result ? tiles() : null;
     }
 
     return (
