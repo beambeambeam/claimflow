@@ -13,8 +13,8 @@ test("F10-TEST-13: rev.malee opens Summary, picks October 2026, and sees the til
   await expect(page).toHaveURL(/\/reports$/u);
   await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible();
 
-  await page.getByLabel("From").fill("2026-10-01");
-  await page.getByLabel("To").fill("2026-10-31");
+  await page.getByRole("combobox", { name: "From" }).fill("2026-10-01");
+  await page.getByRole("combobox", { name: "To" }).fill("2026-10-31");
   await expect(page).toHaveURL(/from=2026-10-01/u);
   await expect(page).toHaveURL(/to=2026-10-31/u);
 
