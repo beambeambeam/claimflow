@@ -2,7 +2,7 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.19 (draft for Deliverable 1)
+- **Version:** 0.20 (draft for Deliverable 1)
 - **Last updated:** 2026-11-27
 - **Baseline:** `docs/srs.md` v0.3 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
@@ -763,7 +763,7 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.17 | 2026-11-22 | Sprint 1 follow-ups (#67, #70): §3.1 "As built" note says `Create` has no `submit` flag; session creation stores `ip_address` from gin's `ClientIP` and the `User-Agent` | beambeambeam |
 | 0.19 | 2026-11-27 | F-10 review (#119): the new shared package `internal/daterange` holds the Bangkok date range that `claim` (F-09) and `report` (F-10) both read (1.4.1); `httperr.ErrUnauthenticated` replaces the copy in each of `auth`, `claim`, and `report` | 1005 |
 | 0.18 | 2026-11-24 | Lab 7 change L7/01 (#99), SRS 0.3: the BR-04 reason minimum in `claim_history.comment` (2.2) is 10 characters, not 5. No schema change: the column stays `VARCHAR(500)` NULL, and existing history rows are not checked again | 1005 |
-| 0.19 | 2026-11-27 | F-10/02: `seed-load` and `seed_load.go` (1.4.1), the `seed:load` and root `perf` commands (2.5) | Kiatisakk |
+| 0.20 | 2026-11-27 | F-10/02: `seed-load` and `seed_load.go` (1.4.1), the `seed:load` and root `perf` commands (2.5) | 1005 |
 | 0.15 | 2026-11-19 | Release identity (9): images carry the SHA only; a version maps to its SHA (#54) | 1005 |
 | 0.14 | 2026-11-18 | 9.1 matches the live rulesets: admin bypass on `sprint` and `lab`, up to date before merging on all three, no last-push approval rule (#53) | 1005 |
 | 0.13 | 2026-11-17 | Lab 5 (#53): the root `Dockerfile` and `WEB_DIR` (8, 9); the `migrate` compose service (9); `image` replaces `api_image` and is a required check in the `main`, `sprint`, and `lab` rulesets; the `lab` ruleset is documented (9, 9.1) | 1005 |
