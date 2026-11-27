@@ -72,3 +72,37 @@ func TestF10TEST01ScopeOfReviewerAndFinance(t *testing.T) {
 		})
 	}
 }
+
+// F10-TEST-02 (F10-AC-02): countsByStatus has the six non-draft keys with 0 for a status with no claim, and it counts
+// current statuses without the date range, so a range that excludes every decision leaves the counts as they are.
+func TestF10TEST02CountsHaveSixKeysAndIgnoreTheRange(t *testing.T) {
+	pool := pgtest.New(t)
+	p := seedPeople(t, pool)
+	scopeDataset(t, p, func(c *stored) {
+		if c.status != db.ClaimStatusRETURNED {
+			insertClaim(t, pool, c)
+		}
+	})
+	service := NewService(pool)
+
+	want := map[db.ClaimStatus]int{
+		db.ClaimStatusSUBMITTED: 2, db.ClaimStatusRETURNED: 0, db.ClaimStatusPENDINGFINANCE: 1,
+		db.ClaimStatusAPPROVED: 2, db.ClaimStatusREJECTED: 1, db.ClaimStatusWITHDRAWN: 1,
+	}
+
+	for name, rng := range map[string]Range{
+		"no range":                {},
+		"range after every claim": {From: new(at(12, 1, 0, 0, 0))},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, err := service.Summary(t.Context(), p.maleeActor(), rng)
+			if err != nil {
+				t.Fatalf("Summary: %v", err)
+			}
+
+			if !maps.Equal(got.CountsByStatus, want) {
+				t.Fatalf("countsByStatus = %v, want %v", got.CountsByStatus, want)
+			}
+		})
+	}
+}
