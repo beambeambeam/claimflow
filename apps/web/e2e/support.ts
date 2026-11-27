@@ -91,8 +91,39 @@ export const submitClaim = async (
   return claimNo;
 };
 
-// Opens the claim from the Review Queue of the logged-in reviewer.
-export const openFromReviewQueue = async (page: Page, claimNo: string) => {
-  await page.getByRole("link", { name: claimNo }).first().click();
+// The Review Queue pages the spec looks through before it gives up: 20 claims each, more than the load data holds.
+const maxQueuePages = 10;
+
+// Opens the claim from the Review Queue of the logged-in reviewer. The queue lists the oldest submission first, so with
+// the F-10/02 load data a claim the spec just submitted is on a later page: each page is checked in turn.
+export const openFromReviewQueue = async (
+  page: Page,
+  claimNo: string,
+  queuePage = 1
+): Promise<void> => {
+  if (queuePage > 1) {
+    await page.goto(`/reviews?page=${queuePage}`);
+  }
+
+  // Wait for the rows, not the skeleton, before looking for the claim.
+  await expect(
+    page.getByRole("table").getByRole("link", { name: /^CLM-/u }).first()
+  ).toBeVisible();
+
+  const link = page.getByRole("link", { name: claimNo }).first();
+
+  if ((await link.count()) === 0) {
+    if (queuePage >= maxQueuePages) {
+      throw new Error(
+        `${claimNo} is not in the first ${maxQueuePages} pages of the Review Queue`
+      );
+    }
+
+    await openFromReviewQueue(page, claimNo, queuePage + 1);
+
+    return;
+  }
+
+  await link.click();
   await expect(page).toHaveURL(/\/claims\/[0-9a-f-]{36}$/u);
 };
