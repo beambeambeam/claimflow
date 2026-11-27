@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 // The same value `api seed` hashes. Set it in the environment for the test run. It is never committed.
 export const password = process.env.SEED_USER_PASSWORD ?? "";
@@ -94,13 +94,14 @@ export const submitClaim = async (
 // The Review Queue pages the spec looks through before it gives up: 20 claims each, more than the load data holds.
 const maxQueuePages = 10;
 
-// Opens the claim from the Review Queue of the logged-in reviewer. The queue lists the oldest submission first, so with
-// the F-10/02 load data a claim the spec just submitted is on a later page: each page is checked in turn.
-export const openFromReviewQueue = async (
+// Finds the claim's row in the Review Queue of the logged-in reviewer and leaves that page open. The queue lists the
+// oldest submission first, so with the F-10/02 load data a claim the spec just submitted is on a later page: each page
+// is checked in turn.
+export const findInReviewQueue = async (
   page: Page,
   claimNo: string,
   queuePage = 1
-): Promise<void> => {
+): Promise<Locator> => {
   if (queuePage > 1) {
     await page.goto(`/reviews?page=${queuePage}`);
   }
@@ -110,20 +111,24 @@ export const openFromReviewQueue = async (
     page.getByRole("table").getByRole("link", { name: /^CLM-/u }).first()
   ).toBeVisible();
 
-  const link = page.getByRole("link", { name: claimNo }).first();
+  const row = page.getByRole("row", { name: new RegExp(claimNo, "u") });
 
-  if ((await link.count()) === 0) {
-    if (queuePage >= maxQueuePages) {
-      throw new Error(
-        `${claimNo} is not in the first ${maxQueuePages} pages of the Review Queue`
-      );
-    }
-
-    await openFromReviewQueue(page, claimNo, queuePage + 1);
-
-    return;
+  if ((await row.count()) > 0) {
+    return row;
   }
 
-  await link.click();
+  if (queuePage >= maxQueuePages) {
+    throw new Error(
+      `${claimNo} is not in the first ${maxQueuePages} pages of the Review Queue`
+    );
+  }
+
+  return await findInReviewQueue(page, claimNo, queuePage + 1);
+};
+
+// Opens the claim from the Review Queue of the logged-in reviewer.
+export const openFromReviewQueue = async (page: Page, claimNo: string) => {
+  const row = await findInReviewQueue(page, claimNo);
+  await row.getByRole("link", { name: claimNo }).click();
   await expect(page).toHaveURL(/\/claims\/[0-9a-f-]{36}$/u);
 };
