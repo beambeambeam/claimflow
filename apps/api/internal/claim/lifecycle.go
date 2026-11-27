@@ -35,20 +35,28 @@ var transitions = map[Action]map[db.ClaimStatus]transition{
 	},
 }
 
-// NextStatus returns the status and the history action that action leads to from the status from, for a claim with
-// total and an actor with role, as Act applies it. ok is false when the lifecycle does not allow action from there.
-// The load dataset builds and checks its histories with it (F-10 §1.8).
-func NextStatus(action Action, from db.ClaimStatus, total money.Satang, role string) (to db.ClaimStatus, history db.ClaimAction, ok bool) {
+// nextTransition returns the transition that action leads to from the status from, for a claim with total and an actor
+// with role. ok is false when the lifecycle does not allow action from there.
+func nextTransition(action Action, from db.ClaimStatus, total money.Satang, role string) (transition, bool) {
 	step, ok := transitions[action][from]
 	if !ok {
-		return "", "", false
+		return transition{}, false
 	}
 
 	if action == ActionApprove {
 		step.to = approveTarget(total, role)
 	}
 
-	return step.to, step.history, true
+	return step, true
+}
+
+// NextStatus returns the status and the history action that action leads to from the status from, for a claim with
+// total and an actor with role, as Act applies it. ok is false when the lifecycle does not allow action from there.
+// The load dataset builds and checks its histories with it (F-10 §1.8).
+func NextStatus(action Action, from db.ClaimStatus, total money.Satang, role string) (to db.ClaimStatus, history db.ClaimAction, ok bool) {
+	step, ok := nextTransition(action, from, total, role)
+
+	return step.to, step.history, ok
 }
 
 // CheckLineItems runs the line item rules of a claim (BR-05, BR-06, BR-12) and, with firstSubmittedAt set, the expense

@@ -315,12 +315,10 @@ func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int
 			return err
 		}
 
-		to, history, ok := NextStatus(action, row.Status, row.TotalSatang, actor.Role)
+		step, ok := nextTransition(action, row.Status, row.TotalSatang, actor.Role)
 		if !ok {
 			return ErrInvalidTransition
 		}
-
-		step := transition{to: to, history: history}
 
 		if err := record(ctx, queries, actor, &row, version, action, step, comment, now); err != nil {
 			return err
