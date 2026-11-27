@@ -218,12 +218,12 @@ Tested code commits: `ce2b278` (Go) and `e6c9fd5` (web) on `feat/implement-issue
 | F08-TEST-15 | F08-AC-12 | `apps/web/src/features/finance/__test__/pending-finance.test.tsx` · `F08-TEST-15` (four cases) | pass (local) | e6c9fd5, written with the code, so no red commit (#47) |
 | F08-TEST-16 | F08-AC-13 | `apps/web/src/features/finance/__test__/finance-queue-page.test.tsx` and `final-decision-panel.test.tsx` · `F08-TEST-16` | pass (local) | e6c9fd5, written with the code, so no red commit (#47) |
 | F08-TEST-17 | F08-AC-13 | `apps/web/src/__test__/auth-routing.test.tsx` · `F08-TEST-17: shows the Finance Queue link only with finance:list` | pass (local) | e6c9fd5, written with the code, so no red commit (#47) |
-| F08-TEST-18 | F08-AC-14 | `apps/web/e2e/f08-two-stage-approval.spec.ts` · `F08-TEST-18: req.anan submits 15,000.00, rev.malee approves to Pending finance, fin.wanida final-approves from the Finance Queue, and req.anan sees Approved` | pass on a local stack with the base seed, at the code of d08920a (#50) | e6c9fd5, written after the code, so no red commit (#47) |
+| F08-TEST-18 | F08-AC-14 | `apps/web/e2e/f08-two-stage-approval.spec.ts` · `F08-TEST-18: req.anan submits 15,000.00, rev.malee approves to Pending finance, fin.wanida final-approves from the Finance Queue, and req.anan sees Approved` | pass on a local stack with the base seed and the load data, at 50200ad (#50) | e6c9fd5, written after the code, so no red commit (#47) |
 | F08-TEST-19 | F04-AC-19 (seed) | `apps/api/seed_test.go` · `TestF04TEST22SeedAddsSampleClaimsOnce/F08-TEST-19/pending finance claim is seeded once with two history entries` | pass | red 47ed2d5, green 952c32d (#47) |
 
 - TDD evidence for the DoD: BR-09 (F08-TEST-02, 03) red `edce51e`, green `f233bba`; BR-02 for final decisions (F08-TEST-08) red `47ed2d5`, green `952c32d`; BR-16 from `PENDING_FINANCE` (F08-TEST-05) red `edce51e`, green `f233bba`.
 - F08-TEST-09, 11, 12 and 15 to 18 have no red commit: they were written with or after the code.
-- F08-TEST-18 passed on a local stack (`vp dev`, API, PostgreSQL with `migrate up` and `seed`) at the code of `d08920a` (#50).
+- F08-TEST-18 passed on a local stack (`vp dev`, API, PostgreSQL with `migrate up`, `seed`, and `seed-load`) at `50200ad` (#50).
 
 ### F-09 test results
 
@@ -243,10 +243,10 @@ Tested code commits: `60af57d` (Go) and `040f2f0` (web) on `feat/implement-issue
 | F09-TEST-10 | F09-AC-09 | `apps/web/src/features/claims/__test__/all-claims-page.test.tsx` · `F09-TEST-10` (13 cases: controls from the URL, unknown values dropped, category change to page 1, status and date changes to page 1, one debounced request, search over 120 characters not sent, range check, 400 field message, server error with Try again, skeleton rows, past-last-page to last page, next page keeps filters, row link) | pass (local) | 040f2f0, written with the code, so no red commit (#48) |
 | F09-TEST-11 | F09-AC-10 | `apps/web/src/features/claims/__test__/all-claims-page.test.tsx` · `F09-TEST-11` (two cases) | pass (local) | 040f2f0, written with the code, so no red commit (#48) |
 | F09-TEST-12 | F09-AC-09 | `apps/web/src/__test__/auth-routing.test.tsx` · `F09-TEST-12: shows the %s role the All Claims link` (three roles) | pass (local) | 040f2f0; seen failing before the link was added, committed with it (#48) |
-| F09-TEST-13 | F09-AC-11 | `apps/web/e2e/f09-all-claims.spec.ts` · `F09-TEST-13: rev.malee filters All Claims by Approved, searches part of a title, and Clear filters brings the full list back` | pass on a local stack with the base seed, at the code of d08920a (#50) | 040f2f0, written after the code, so no red commit; it passes once the New Claim header link opens an empty form after a submit: red c57c7ac, green 89a362f (#50) |
+| F09-TEST-13 | F09-AC-11 | `apps/web/e2e/f09-all-claims.spec.ts` · `F09-TEST-13: rev.malee filters All Claims by Approved, searches part of a title, and Clear filters brings the full list back` | pass on a local stack with the base seed and the load data, at 50200ad (#50) | 040f2f0, written after the code, so no red commit; it passes once the New Claim header link opens an empty form after a submit: red c57c7ac, green 89a362f (#50) |
 
 - TDD evidence for the DoD: the visibility agreement (F09-TEST-08) and the Bangkok date boundaries (F09-TEST-03) are red at `d8c6710` ("scope all is not implemented") and green at `6f57aeb`.
-- F09-TEST-13 failed on `sprint-3`: after the first submit, the New Claim header link pointed at the open URL and kept the confirmation, so the second claim found no form. #50 fixes the page (red `c57c7ac`, green `89a362f`), and the spec passes on a local stack with the base seed at the code of `d08920a`.
+- F09-TEST-13 failed on `sprint-3`: after the first submit, the New Claim header link pointed at the open URL and kept the confirmation, so the second claim found no form. #50 fixes the page (red `c57c7ac`, green `89a362f`), and the spec passes on a local stack with the base seed and the load data at `50200ad`.
 
 ### F-10 test results
 
@@ -271,7 +271,7 @@ Tested code commit: `6889cc6` on `feat/decision-summary`, rebased onto `sprint-3
 - TDD evidence for the DoD: the scope (F10-TEST-01) is red at `7085d22` and green at `14dfcdc`; the Bangkok month edges (F10-TEST-05) are red at `c6c00ae` and green at `0336dc6`.
 - F10-TEST-13 passed on a local stack (`vp dev`, API, PostgreSQL with `migrate up`, `seed`, and the #50 `seed-load`) at `e01e532`.
 - F-10/02 (#50): the load dataset has 240 claims `CLM-LOAD-0001` to `CLM-LOAD-0240` (SUBMITTED 96, APPROVED 66, REJECTED 32, RETURNED 16, WITHDRAWN 16, PENDING_FINANCE 14; 86 SUBMITTED to rev.malee). It adds no business rule, so it has no red commit. F10-TEST-12 runs on the deployed Sprint 3 release with the load data and is saved with its tag.
-- E2E and the load data: F08-TEST-18 passes on a local stack with the base seed only (at the code of d08920a); F10-TEST-13 passes with the load data at the same code. With the load data it cannot find its new claim on the first page of the Review Queue, so the E2E specs other than F10-TEST-13 run on a database without `seed-load`.
+- E2E and the load data: all 11 E2E tests (`apps/web/e2e`, F-01 to F-10) pass in one run on a local stack with `migrate up`, `seed`, and `seed-load` at `50200ad` (#50). The specs find a claim on any Review Queue page, because the load claims fill the first pages of the oldest-first queue.
 
 ### Sprint 2 release checks
 
