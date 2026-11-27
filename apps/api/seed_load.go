@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/claim"
+	"github.com/beambeambeam/claimflow/apps/api/internal/daterange"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 )
@@ -20,7 +21,7 @@ import (
 const loadClaimCount = 240
 
 // loadZone is the zone of the dataset's dates (AS-06).
-var loadZone = time.FixedZone("Asia/Bangkok", 7*60*60)
+var loadZone = daterange.Bangkok
 
 // loadRequesters are the users who own load claims: every seed requester and reviewer that has a reviewer.
 var loadRequesters = []string{"req.anan", "req.ploy", "req.niran", "rev.malee", "rev.somchai", "rev.prasert"}
