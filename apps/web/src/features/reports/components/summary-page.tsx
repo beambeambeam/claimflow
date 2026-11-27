@@ -20,7 +20,8 @@ import type {
   StatusCounts,
 } from "#/lib/api/types.gen";
 import { zExpenseCategory } from "#/lib/api/zod.gen";
-import { formatBaht, formatMonth } from "#/lib/format";
+import { isBackwardsRange, rangeMessage } from "#/lib/date-range";
+import { formatBaht, formatMonth, moneyToSatang } from "#/lib/format";
 import { categoryLabels } from "#/lib/labels";
 import { isProblem } from "#/lib/problem";
 
@@ -42,8 +43,6 @@ const statuses = [
 // The categories in the order of the ExpenseCategory enum, which is the order of the columns.
 const categories = zExpenseCategory.options;
 
-const satangOf = (total: string) => Number(total.replace(".", ""));
-
 // The index signature lets a row be a Table row, whose type is a record.
 interface MonthRow {
   [key: string]: string | number | Partial<Record<ExpenseCategory, number>>;
@@ -58,7 +57,8 @@ const monthRows = (totals: ApprovedTotal[]): MonthRow[] => {
 
   for (const { month, category, total } of totals) {
     const row = rows.get(month) ?? { month, cells: {}, total: 0 };
-    const satang = satangOf(total);
+    // The API sends every total as a Money string, so the fallback is never used.
+    const satang = moneyToSatang(total) ?? 0;
     row.cells[category] = (row.cells[category] ?? 0) + satang;
     row.total += satang;
     rows.set(month, row);
@@ -110,8 +110,6 @@ const skeletonColumns: TableColumn<{ id: number }>[] = ["Month", "Total"].map(
   })
 );
 
-const rangeMessage = "The end date must be on or after the start date.";
-
 const isoDate = /^\d{4}-\d{2}-\d{2}$/u;
 
 const isIsoDate = (value: string): value is ISODateString =>
@@ -132,7 +130,7 @@ export const SummaryPage = ({
 }) => {
   const { from, to } = range;
   // The web checks the range before it sends (F-10 §2.1).
-  const isBackwards = from !== undefined && to !== undefined && from > to;
+  const isBackwards = isBackwardsRange(from, to);
 
   const summary = useQuery({
     ...getDecisionSummaryOptions({ query: { from, to } }),

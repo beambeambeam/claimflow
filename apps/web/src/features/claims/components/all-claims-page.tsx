@@ -25,6 +25,7 @@ import type {
 import { listClaimsOptions } from "#/lib/api/@tanstack/react-query.gen";
 import type { ClaimSummary } from "#/lib/api/types.gen";
 import { zClaimStatus, zExpenseCategory } from "#/lib/api/zod.gen";
+import { isBackwardsRange, rangeMessage } from "#/lib/date-range";
 import { categoryLabels } from "#/lib/labels";
 import { isProblem, problemFieldErrors } from "#/lib/problem";
 
@@ -48,8 +49,6 @@ const optionsOf = (labels: Record<string, string>) => [
 const statusOptions = optionsOf(statusLabels);
 
 const categoryOptions = optionsOf(categoryLabels);
-
-const rangeMessage = "The end date must be on or after the start date.";
 
 const searchLengthMessage = "Search text must be at most 120 characters.";
 
@@ -246,11 +245,8 @@ export const AllClaimsPage = ({
     (value) => value !== undefined
   );
 
-  // ISO dates compare in calendar order as text. The API would reject the range, so it is never sent.
-  const isBadRange =
-    filters.from !== undefined &&
-    filters.to !== undefined &&
-    filters.from > filters.to;
+  // The API would reject the range, so it is never sent.
+  const isBadRange = isBackwardsRange(filters.from, filters.to);
 
   const claims = useQuery({
     ...listClaimsOptions({
