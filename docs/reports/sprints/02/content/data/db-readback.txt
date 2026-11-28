@@ -1,0 +1,17 @@
+$ docker exec d2report-pg psql -U claimflow -d claimflow -c "select c.claim_no, c.status, c.version v, c.return_count rc, h.action, coalesce(h.from_status::text,'-') as from_s, h.to_status::text as to_s, left(coalesce(h.comment,''),30) as comment from claims c join claim_history h on h.claim_id=c.id where c.claim_no in (...) order by c.claim_no, h.created_at"
+    claim_no     |  status   | v | rc |  action  |  from_s   |   to_s    |            comment             
+-----------------+-----------+---+----+----------+-----------+-----------+--------------------------------
+ CLM-2026-000001 | APPROVED  | 1 |  0 | SUBMIT   | -         | SUBMITTED | 
+ CLM-2026-000001 | APPROVED  | 1 |  0 | APPROVE  | SUBMITTED | APPROVED  | 
+ CLM-2026-000002 | SUBMITTED | 3 |  0 | SUBMIT   | DRAFT     | SUBMITTED | 
+ CLM-2026-000004 | SUBMITTED | 6 |  3 | SUBMIT   | -         | SUBMITTED | 
+ CLM-2026-000004 | SUBMITTED | 6 |  3 | RETURN   | SUBMITTED | RETURNED  | Please attach the taxi receipt
+ CLM-2026-000004 | SUBMITTED | 6 |  3 | RESUBMIT | RETURNED  | SUBMITTED | 
+ CLM-2026-000004 | SUBMITTED | 6 |  3 | RETURN   | SUBMITTED | RETURNED  | Round 2: please check the rece
+ CLM-2026-000004 | SUBMITTED | 6 |  3 | RESUBMIT | RETURNED  | SUBMITTED | 
+ CLM-2026-000004 | SUBMITTED | 6 |  3 | RETURN   | SUBMITTED | RETURNED  | Round 3: please check the rece
+ CLM-2026-000004 | SUBMITTED | 6 |  3 | RESUBMIT | RETURNED  | SUBMITTED | 
+ CLM-2026-000005 | WITHDRAWN | 1 |  0 | SUBMIT   | -         | SUBMITTED | 
+ CLM-2026-000005 | WITHDRAWN | 1 |  0 | WITHDRAW | SUBMITTED | WITHDRAWN | No longer needed
+(12 rows)
+
