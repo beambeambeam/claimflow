@@ -18,6 +18,10 @@ _Avoid_: Unsent claim, saved claim
 
 _Avoid_: Entry, row, expense line
 
+**Receipt File**: A photo or PDF, attached to one line item, that proves its payment. It is optional and adds to the receipt reference, which every line item still needs. A line item holds at most five.
+
+_Avoid_: Attachment, document, upload, receipt (when the file is meant)
+
 **Requester**: The member who submits a claim and owns it. Any member with an assigned reviewer can be a requester, including a reviewer. A Finance Officer cannot be a requester.
 
 _Avoid_: Claimant, applicant, user (when the owner is meant)
