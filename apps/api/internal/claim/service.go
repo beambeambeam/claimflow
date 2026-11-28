@@ -315,7 +315,7 @@ func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int
 			return err
 		}
 
-		step, ok := transitions[action][row.Status]
+		step, ok := nextTransition(action, row.Status, row.TotalSatang, actor.Role)
 		if !ok {
 			return ErrInvalidTransition
 		}
@@ -349,9 +349,6 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetCl
 		}
 		if int(row.Version) != version {
 			return ErrConflict
-		}
-		if action == ActionApprove {
-			step.to = approveTarget(row.TotalSatang, actor.Role)
 		}
 		changed, err = reviewStep(ctx, queries, row, action, step, now)
 	}

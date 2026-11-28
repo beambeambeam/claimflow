@@ -2,7 +2,7 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.19 (draft for Deliverable 1)
+- **Version:** 0.20 (draft for Deliverable 1)
 - **Last updated:** 2026-11-27
 - **Baseline:** `docs/srs.md` v0.3 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
@@ -93,7 +93,7 @@ This follows the Go guide [Organizing a Go module](https://go.dev/doc/modules/la
 ```
 apps/api/
   main.go  server.go  config.go   # entry: startup, config, router; composes the feature handlers
-  migrate.go  seed.go              # `migrate` and `seed` subcommands of the one binary
+  migrate.go  seed.go  seed_load.go   # `migrate`, `seed`, and `seed-load` subcommands of the one binary
   validate.go                      # request validation middleware: JSON body checked against the contract schema (400 with field errors)
   openapi.yaml                     # the API contract (Section 4)
   oapi-codegen.yaml  sqlc.yaml     # code generation config
@@ -313,7 +313,8 @@ Indexes: `(requester_id, status)` and `(assigned_reviewer_id, status)`.
 | `bun run migrate:new <name> sql` | Adds a goose SQL migration file |
 | `bun run generate` | Regenerate `env/env.go` (varlock), `internal/api` (oapi-codegen), and `internal/db` (sqlc); generated code is committed, and CI fails if regenerating changes it |
 | `bun run seed` | Load the base demo dataset. Idempotent: upserts by username/claim_no. |
-| `bun run seed:load` | Add ~200 extra claims for NFR-07 (Sprint 3) |
+| `bun run seed:load` | Runs `api seed-load`: adds 240 load claims `CLM-LOAD-0001` to `CLM-LOAD-0240` for NFR-07 (F-10 §1.8). Idempotent by `claim_no`. Needs the base seed users. |
+| `bun run perf -- --base-url <url> --rounds 20` (repo root) | NFR-07 timed run, `scripts/nfr07-timed-run.ts`: prints the response times of the main requests as a Markdown table and exits non-zero when the overall p95 is 1 s or more (F-10 §1.9). Needs `SEED_USER_PASSWORD` in the environment and the load data. |
 
 In `apps/web`, `bun run generate` regenerates `src/lib/api` from `../api/openapi.yaml`, with the same CI check. The root `bun run generate` runs both.
 
@@ -762,6 +763,7 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.17 | 2026-11-22 | Sprint 1 follow-ups (#67, #70): §3.1 "As built" note says `Create` has no `submit` flag; session creation stores `ip_address` from gin's `ClientIP` and the `User-Agent` | beambeambeam |
 | 0.19 | 2026-11-27 | F-10 review (#119): the new shared package `internal/daterange` holds the Bangkok date range that `claim` (F-09) and `report` (F-10) both read (1.4.1); `httperr.ErrUnauthenticated` replaces the copy in each of `auth`, `claim`, and `report` | 1005 |
 | 0.18 | 2026-11-24 | Lab 7 change L7/01 (#99), SRS 0.3: the BR-04 reason minimum in `claim_history.comment` (2.2) is 10 characters, not 5. No schema change: the column stays `VARCHAR(500)` NULL, and existing history rows are not checked again | 1005 |
+| 0.20 | 2026-11-27 | F-10/02: `seed-load` and `seed_load.go` (1.4.1), the `seed:load` and root `perf` commands (2.5) | 1005 |
 | 0.15 | 2026-11-19 | Release identity (9): images carry the SHA only; a version maps to its SHA (#54) | 1005 |
 | 0.14 | 2026-11-18 | 9.1 matches the live rulesets: admin bypass on `sprint` and `lab`, up to date before merging on all three, no last-push approval rule (#53) | 1005 |
 | 0.13 | 2026-11-17 | Lab 5 (#53): the root `Dockerfile` and `WEB_DIR` (8, 9); the `migrate` compose service (9); `image` replaces `api_image` and is a required check in the `main`, `sprint`, and `lab` rulesets; the `lab` ruleset is documented (9, 9.1) | 1005 |

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { logIn, logOut, submitClaim } from "./support";
+import { findInReviewQueue, logIn, logOut, submitClaim } from "./support";
 
 const reviewerLanding = /\/reviews$/u;
 
@@ -13,7 +13,7 @@ test("F07-TEST-12: req.anan submits and withdraws a claim with a comment, it sho
   // The claim is in the reviewer's queue before it is withdrawn.
   await logOut(page);
   await logIn(page, "rev.malee", reviewerLanding);
-  await expect(page.getByRole("link", { name: claimNo })).toBeVisible();
+  await expect(await findInReviewQueue(page, claimNo)).toBeVisible();
 
   await logOut(page);
   await logIn(page, "req.anan");

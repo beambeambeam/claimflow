@@ -140,6 +140,23 @@ FROM "user" u
 WHERE u.username = sqlc.arg(requester)
 ON CONFLICT (claim_no) DO NOTHING;
 
+-- name: ListUserIDsByUsername :many
+-- ListUserIDsByUsername returns the id of each existing user among usernames. The load dataset reads the base seed users with it.
+SELECT username, id FROM "user" WHERE username = ANY(sqlc.arg(usernames)::text[]);
+
+-- name: InsertLoadClaim :execrows
+-- InsertLoadClaim adds a load-test claim (F-10 §1.8) unless its claim number exists. Unlike InsertSeedClaim it takes every
+-- time of the claim, so they match its history. The reviewer is the requester's own, as in the base seed.
+INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
+                    return_count, first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+SELECT sqlc.arg(id), sqlc.arg(claim_no), u.id, u.reviewer_id, sqlc.arg(title), sqlc.arg(purpose),
+       sqlc.arg(status)::claim_status, sqlc.arg(total_satang), sqlc.arg(version), sqlc.arg(return_count),
+       sqlc.arg(first_submitted_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz, sqlc.narg(decided_at)::timestamptz,
+       sqlc.arg(created_at)::timestamptz, sqlc.arg(updated_at)::timestamptz
+FROM "user" u
+WHERE u.username = sqlc.arg(requester)
+ON CONFLICT (claim_no) DO NOTHING;
+
 -- name: UpdateClaimContent :execrows
 UPDATE claims
 SET title = sqlc.arg(title), purpose = sqlc.arg(purpose), total_satang = sqlc.arg(total_satang),

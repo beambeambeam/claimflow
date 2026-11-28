@@ -1,7 +1,7 @@
 import { useToast } from "@astryxdesign/core/Toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
 import { can } from "#/features/auth/permissions";
 import {
@@ -56,11 +56,31 @@ export const NewClaimForm = ({
   );
 };
 
+// A link to the URL already open reloads it instead of navigating, so a page would keep its state, such as the
+// confirmation of the last submit. The count changes on each such reload of pathname: use it as a key to start afresh.
+export const useRemountOnSameHref = (pathname: string) => {
+  const router = useRouter();
+  const [visit, setVisit] = useState(0);
+
+  useEffect(
+    () =>
+      router.subscribe("onBeforeNavigate", ({ hrefChanged, toLocation }) => {
+        if (!hrefChanged && toLocation.pathname === pathname) {
+          setVisit((count) => count + 1);
+        }
+      }),
+    [router, pathname]
+  );
+
+  return visit;
+};
+
 // A member who has claim:create sees the New Claim form (F-02 §2.2).
 export const NewClaimPage = ({ user }: { user: CurrentUser }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const showToast = useToast();
+  const visit = useRemountOnSameHref("/claims/new");
 
   if (!can(user, "claim", "create")) {
     return <CannotCreateClaim />;
@@ -68,6 +88,7 @@ export const NewClaimPage = ({ user }: { user: CurrentUser }) => {
 
   return (
     <NewClaimForm
+      key={visit}
       onDraftSaved={(draft) => {
         const claimId = draft.data.id;
         queryClient.setQueryData(

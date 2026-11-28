@@ -5,6 +5,7 @@ import {
   fillItem,
   logIn,
   logOut,
+  findInReviewQueue,
   openFromReviewQueue,
   openNewClaim,
 } from "./support";
@@ -51,9 +52,7 @@ test("F05-TEST-25: save, edit, submit, review and delete drafts", async ({
 
   await logOut(page);
   await logIn(page, "rev.malee", /\/reviews$/u);
-  await expect(
-    page.getByRole("row", { name: new RegExp(claimNo, "u") })
-  ).toContainText(updated);
+  await expect(await findInReviewQueue(page, claimNo)).toContainText(updated);
   await openFromReviewQueue(page, claimNo);
   await expect(history.getByRole("listitem")).toHaveCount(1);
   await expect(history).toContainText("Draft → Submitted");

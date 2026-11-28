@@ -35,6 +35,7 @@
     "lint:github": "vp lint --deny-warnings --format=github",
     "format": "vp fmt && bun run --cwd apps/api format",
     "format:check": "vp fmt --check && bun run --cwd apps/api format:check",
+    "perf": "bun scripts/nfr07-timed-run.ts",
     "prepare": "vp config"
   },
   "devDependencies": {

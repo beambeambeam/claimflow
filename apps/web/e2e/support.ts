@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { z } from "zod";
 
 // The same value `api seed` hashes. Set it in the environment for the test run. It is never committed.
 export const password = process.env.SEED_USER_PASSWORD ?? "";
@@ -91,8 +92,61 @@ export const submitClaim = async (
   return claimNo;
 };
 
+// The page size of the Review Queue (`claim-queue.tsx`).
+const queuePageSize = 20;
+
+// The part of a `ClaimPage` that gives the page count.
+const queueTotal = z.object({ total: z.number().int().min(0) });
+
+// The claim's row on the Review Queue page that is open, once the rows (not the skeleton) are there.
+const queueRow = async (page: Page, claimNo: string) => {
+  await expect(
+    page.getByRole("table").getByRole("link", { name: /^CLM-/u }).first()
+  ).toBeVisible();
+
+  return page.getByRole("row", { name: new RegExp(claimNo, "u") });
+};
+
+// Finds the claim's row in the Review Queue of the logged-in reviewer and leaves that page open. The queue lists the
+// oldest submission first, so with the F-10/02 load data a claim the spec just submitted is on the last page, or the
+// one before it when the page fills up meanwhile. The page count comes from the queue's own `total`.
+export const findInReviewQueue = async (
+  page: Page,
+  claimNo: string
+): Promise<Locator> => {
+  const first = await queueRow(page, claimNo);
+
+  if ((await first.count()) > 0) {
+    return first;
+  }
+
+  const response = await page.request.get(
+    "/api/v1/claims?scope=review&page=1&pageSize=1"
+  );
+
+  const { total } = queueTotal.parse(await response.json());
+  const lastPage = Math.max(1, Math.ceil(total / queuePageSize));
+
+  await page.goto(`/reviews?page=${lastPage}`);
+  const last = await queueRow(page, claimNo);
+
+  if ((await last.count()) > 0) {
+    return last;
+  }
+
+  await page.goto(`/reviews?page=${Math.max(1, lastPage - 1)}`);
+  const before = await queueRow(page, claimNo);
+
+  if ((await before.count()) === 0) {
+    throw new Error(`${claimNo} is not on the last pages of the Review Queue`);
+  }
+
+  return before;
+};
+
 // Opens the claim from the Review Queue of the logged-in reviewer.
 export const openFromReviewQueue = async (page: Page, claimNo: string) => {
-  await page.getByRole("link", { name: claimNo }).first().click();
+  const row = await findInReviewQueue(page, claimNo);
+  await row.getByRole("link", { name: claimNo }).click();
   await expect(page).toHaveURL(/\/claims\/[0-9a-f-]{36}$/u);
 };
