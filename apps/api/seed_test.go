@@ -149,6 +149,7 @@ var seededClaims = []seededClaim{
 	{"req.anan", "", "DRAFT", "1250.00", nil, ""},
 	{"req.anan", "rev.malee", "RETURNED", "1250.00", []string{"SUBMIT", "RETURN"}, "Please attach the taxi receipt."},
 	{"req.ploy", "rev.malee", "WITHDRAWN", "1250.00", []string{"SUBMIT", "WITHDRAW"}, "Booked by the company instead."},
+	{"req.niran", "rev.somchai", "PENDING_FINANCE", "15000.00", []string{"SUBMIT", "APPROVE"}, ""},
 }
 
 // F04-TEST-22 (F04-AC-19): on an empty database, the seed adds the sample claims of F-04 §4 with their history. A second
@@ -174,8 +175,8 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 	}
 
 	claims, items, history := counts()
-	if claims != len(seededClaims) || items != 12 || history != 12 {
-		t.Fatalf("after the first run: %d claims, %d items, %d history entries; want %d claims, 12 items, 12 history entries",
+	if claims != len(seededClaims) || items != 13 || history != 14 {
+		t.Fatalf("after the first run: %d claims, %d items, %d history entries; want %d claims, 13 items, 14 history entries",
 			claims, items, history, len(seededClaims))
 	}
 
@@ -209,11 +210,12 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 			t.Fatalf("scan claim: %v", err)
 		}
 
-		// A return and a withdrawal are not decisions: the claim has a new version but no decision time.
+		// A return, a withdrawal, and an approval that waits for Finance are not decisions: the claim has a new version but
+		// no decision time.
 		wantDecision := claim.status == "APPROVED" || claim.status == "REJECTED"
-		wantVersion := wantDecision || claim.status == "RETURNED" || claim.status == "WITHDRAWN"
+		wantVersion := wantDecision || claim.status == "RETURNED" || claim.status == "WITHDRAWN" || claim.status == "PENDING_FINANCE"
 		if !itemsMatch || submitted != (claim.status != "DRAFT") || decided != wantDecision || (version == 1) != wantVersion {
-			t.Fatalf("claim %+v: items match %t, submitted %t, decided %t, version %d; want items summing to the total, submission times for submitted claims, a decision time only when decided, and version 1 only after a decision, a return, or a withdrawal",
+			t.Fatalf("claim %+v: items match %t, submitted %t, decided %t, version %d; want items summing to the total, submission times for submitted claims, a decision time only when decided, and version 1 only after a decision, a return, a withdrawal, or an approval that waits for Finance",
 				claim, itemsMatch, submitted, decided, version)
 		}
 
@@ -290,6 +292,23 @@ func TestF04TEST22SeedAddsSampleClaimsOnce(t *testing.T) {
 			t.Fatalf("seed withdrawn claim: items = %d, history = %d, comment = %q, error = %v", items, history, comment, err)
 		}
 	})
+	t.Run("F08-TEST-19/pending finance claim is seeded once with two history entries", func(t *testing.T) {
+		var items, history int
+		var approver string
+		err := pool.QueryRow(t.Context(), `
+			SELECT (SELECT count(*) FROM line_items i WHERE i.claim_id = c.id AND i.category = 'TRAVEL'),
+			       (SELECT count(*) FROM claim_history WHERE claim_id = c.id),
+			       (SELECT u.username FROM claim_history h JOIN "user" u ON u.id = h.actor_id
+			        WHERE h.claim_id = c.id AND h.action = 'APPROVE' AND h.to_status = 'PENDING_FINANCE')
+			FROM claims c
+			JOIN "user" r ON r.id = c.requester_id
+			JOIN "user" v ON v.id = c.assigned_reviewer_id
+			WHERE c.claim_no = 'CLM-2026-900010' AND c.status = 'PENDING_FINANCE' AND c.total_satang = 1500000
+				AND r.username = 'req.niran' AND v.username = 'rev.somchai' AND c.decided_at IS NULL`).Scan(&items, &history, &approver)
+		if err != nil || items != 1 || history != 2 || approver != "rev.somchai" {
+			t.Fatalf("seed pending finance claim: items = %d, history = %d, approver = %q, error = %v", items, history, approver, err)
+		}
+	})
 }
 
 // TestSeedCommandRefusesEmptyPassword: `api seed` fails before it writes anything when SEED_USER_PASSWORD is unset.
@@ -322,7 +341,7 @@ func TestSeedCommandRefusesEmptyPassword(t *testing.T) {
 func TestSeedCommandSeedsWithPassword(t *testing.T) {
 	pool := pgtest.New(t)
 
-	for _, want := range []string{"seeded 7 users and 9 new claims\n", "seeded 7 users and 0 new claims\n"} {
+	for _, want := range []string{"seeded 7 users and 10 new claims\n", "seeded 7 users and 0 new claims\n"} {
 		var out bytes.Buffer
 		if err := seedCommand(t.Context(), pool.Config().ConnString(), seedPassword, testBcryptCost, &out); err != nil {
 			t.Fatalf("seedCommand: %v", err)

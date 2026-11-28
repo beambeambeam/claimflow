@@ -21,7 +21,8 @@ type seedItem struct {
 
 // seedClaim is one sample claim of F-04 §4. A draft has no history. For submitted claims, decision is empty for a claim that
 // still waits, APPROVE or REJECT for one its reviewer has decided, RETURN for one that waits for its requester, or WITHDRAW
-// for one its requester has withdrawn. reason is the comment of the decision.
+// for one its requester has withdrawn. pendingFinance marks an APPROVE that sent a high-value claim to Finance (F-08 §4).
+// reason is the comment of the decision.
 type seedClaim struct {
 	claimNo   string
 	requester string
@@ -30,7 +31,9 @@ type seedClaim struct {
 	items     []seedItem
 	draft     bool
 	decision  db.ClaimAction
-	reason    string
+	// pendingFinance leaves an approved claim PENDING_FINANCE, with no decision time.
+	pendingFinance bool
+	reason         string
 	// createdAgo orders the examples in My Claims and the review queue.
 	createdAgo time.Duration
 }
@@ -93,6 +96,13 @@ var seedClaims = []seedClaim{
 		reason:     "Booked by the company instead.",
 		createdAgo: 18 * time.Hour,
 	},
+	{
+		claimNo: "CLM-2026-900010", requester: "req.niran", title: "Vendor site travel", purpose: "Flights and ground travel to the vendor site",
+		items:          []seedItem{{db.ExpenseCategoryTRAVEL, "Return flights and transfers", 1_500_000}},
+		decision:       db.ClaimActionAPPROVE,
+		pendingFinance: true,
+		createdAgo:     60 * time.Hour,
+	},
 }
 
 // decisionStatuses is the status a claim has after each decision.
@@ -122,6 +132,9 @@ func seedClaimRows(ctx context.Context, queries *db.Queries, ids map[string]uuid
 		case claim.decision == db.ClaimActionWITHDRAW:
 			// A withdrawal is the requester's, not a decision: the claim has no decision time.
 			status, version = db.ClaimStatusWITHDRAWN, 1
+		case claim.pendingFinance:
+			// The approval sent the claim to Finance: it waits for the final decision, so it has no decision time.
+			status, version = db.ClaimStatusPENDINGFINANCE, 1
 		case claim.decision != "":
 			status, version, decided = decisionStatuses[claim.decision], 1, pgtype.Timestamptz{Time: decidedAt, Valid: true}
 		}

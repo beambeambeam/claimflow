@@ -6,6 +6,7 @@ linters:
   enable:
     - bodyclose
     - copyloopvar
+    - depguard
     - errname
     - errorlint
     - exhaustive
@@ -23,6 +24,21 @@ linters:
     - usestdlibvars
     - wrapcheck
   settings:
+    # Module boundaries of SDS §1.4.1: the report feature reads claims with its own queries, not through the claim module.
+    depguard:
+      rules:
+        report-not-claim:
+          files:
+            - "**/internal/report/**"
+          deny:
+            - pkg: github.com/beambeambeam/claimflow/apps/api/internal/claim
+              desc: internal/report reads claims and line items with its own queries and must not import internal/claim (F-10 §1.7).
+        claim-not-report:
+          files:
+            - "**/internal/claim/**"
+          deny:
+            - pkg: github.com/beambeambeam/claimflow/apps/api/internal/report
+              desc: internal/claim must not import internal/report (SDS §1.4.1).
     gocritic:
       enabled-tags:
         - diagnostic

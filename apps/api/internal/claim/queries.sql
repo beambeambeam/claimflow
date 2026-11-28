@@ -86,6 +86,21 @@ SELECT count(*)::int AS total
 FROM claims
 WHERE assigned_reviewer_id = sqlc.arg(reviewer_id) AND status = 'SUBMITTED';
 
+-- name: ListFinanceClaims :many
+-- ListFinanceClaims returns one page of the PENDING_FINANCE claims, oldest submission first (F-08 §1.9).
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE c.status = 'PENDING_FINANCE'
+ORDER BY c.submitted_at, c.id
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: CountFinanceClaims :one
+SELECT count(*)::int AS total
+FROM claims
+WHERE status = 'PENDING_FINANCE';
+
 -- name: DecideClaim :execrows
 -- DecideClaim moves a claim to its decided status and adds one to the version, but only while the version is still the
 -- one the caller read (BR-13). It returns the rows changed: 0 means the claim changed since.
@@ -125,6 +140,23 @@ FROM "user" u
 WHERE u.username = sqlc.arg(requester)
 ON CONFLICT (claim_no) DO NOTHING;
 
+-- name: ListUserIDsByUsername :many
+-- ListUserIDsByUsername returns the id of each existing user among usernames. The load dataset reads the base seed users with it.
+SELECT username, id FROM "user" WHERE username = ANY(sqlc.arg(usernames)::text[]);
+
+-- name: InsertLoadClaim :execrows
+-- InsertLoadClaim adds a load-test claim (F-10 §1.8) unless its claim number exists. Unlike InsertSeedClaim it takes every
+-- time of the claim, so they match its history. The reviewer is the requester's own, as in the base seed.
+INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
+                    return_count, first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+SELECT sqlc.arg(id), sqlc.arg(claim_no), u.id, u.reviewer_id, sqlc.arg(title), sqlc.arg(purpose),
+       sqlc.arg(status)::claim_status, sqlc.arg(total_satang), sqlc.arg(version), sqlc.arg(return_count),
+       sqlc.arg(first_submitted_at)::timestamptz, sqlc.arg(submitted_at)::timestamptz, sqlc.narg(decided_at)::timestamptz,
+       sqlc.arg(created_at)::timestamptz, sqlc.arg(updated_at)::timestamptz
+FROM "user" u
+WHERE u.username = sqlc.arg(requester)
+ON CONFLICT (claim_no) DO NOTHING;
+
 -- name: UpdateClaimContent :execrows
 UPDATE claims
 SET title = sqlc.arg(title), purpose = sqlc.arg(purpose), total_satang = sqlc.arg(total_satang),
@@ -147,3 +179,45 @@ WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
 UPDATE claims
 SET status = 'SUBMITTED', submitted_at = sqlc.arg(now), updated_at = sqlc.arg(now), version = version + 1
 WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: SendClaimToFinance :execrows
+-- SendClaimToFinance moves an approved high-value claim to PENDING_FINANCE and adds one to the version, but only while
+-- the version is still the one the caller read (BR-09, BR-13). The claim waits for a final decision, so decided_at
+-- stays NULL. It returns the rows changed: 0 means the claim changed since.
+UPDATE claims
+SET status = 'PENDING_FINANCE', version = version + 1, updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND version = sqlc.arg(version);
+
+-- name: ListAllClaims :many
+-- ListAllClaims returns one page of the claims the actor can see, newest first (F-09 §1.4, §1.5). The visibility
+-- clause is the SQL form of isVisible in policy.go: own claims, and claims that are not DRAFT and either assigned to
+-- the actor or seen by a Finance Officer. Each filter is a parameter that is NULL when not set (F-09 §1.3). The date
+-- bounds are half-open timestamps on first_submitted_at, or created_at for a claim that was never submitted. title is a
+-- LIKE pattern with %, _, and \ already escaped.
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE (c.requester_id = sqlc.arg(actor_id)
+       OR (c.status <> 'DRAFT' AND (c.assigned_reviewer_id = sqlc.arg(actor_id) OR sqlc.arg(actor_role)::text = 'finance')))
+  AND (sqlc.narg(status)::claim_status IS NULL OR c.status = sqlc.narg(status)::claim_status)
+  AND (sqlc.narg(category)::expense_category IS NULL OR EXISTS (
+        SELECT 1 FROM line_items li WHERE li.claim_id = c.id AND li.category = sqlc.narg(category)::expense_category))
+  AND (sqlc.narg(from_at)::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) >= sqlc.narg(from_at)::timestamptz)
+  AND (sqlc.narg(before_at)::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) < sqlc.narg(before_at)::timestamptz)
+  AND (sqlc.narg(title)::text IS NULL OR c.title ILIKE sqlc.narg(title)::text ESCAPE '\')
+ORDER BY c.created_at DESC, c.id DESC
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: CountAllClaims :one
+-- CountAllClaims counts the claims of ListAllClaims on every page, with the same WHERE clause.
+SELECT count(*)::int AS total
+FROM claims c
+WHERE (c.requester_id = sqlc.arg(actor_id)
+       OR (c.status <> 'DRAFT' AND (c.assigned_reviewer_id = sqlc.arg(actor_id) OR sqlc.arg(actor_role)::text = 'finance')))
+  AND (sqlc.narg(status)::claim_status IS NULL OR c.status = sqlc.narg(status)::claim_status)
+  AND (sqlc.narg(category)::expense_category IS NULL OR EXISTS (
+        SELECT 1 FROM line_items li WHERE li.claim_id = c.id AND li.category = sqlc.narg(category)::expense_category))
+  AND (sqlc.narg(from_at)::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) >= sqlc.narg(from_at)::timestamptz)
+  AND (sqlc.narg(before_at)::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) < sqlc.narg(before_at)::timestamptz)
+  AND (sqlc.narg(title)::text IS NULL OR c.title ILIKE sqlc.narg(title)::text ESCAPE '\');

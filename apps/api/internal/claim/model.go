@@ -11,10 +11,14 @@ import (
 	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 )
 
-// Actor is the member who makes a call. Only the id comes from the request; the module reads everything else, such as
+// RoleFinance is the role of a Finance Officer, the only role that the claim policy reads (F-08 §1.8).
+const RoleFinance = "finance"
+
+// Actor is the member who makes a call: the id and role of the session user. The module reads everything else, such as
 // the assigned reviewer, from the database.
 type Actor struct {
-	ID uuid.UUID
+	ID   uuid.UUID
+	Role string
 }
 
 // LineItemInput is one line item of a new claim. ExpenseDate is a calendar date.
@@ -82,11 +86,27 @@ const (
 	ScopeMine Scope = "mine"
 	// ScopeReview is the SUBMITTED claims assigned to the actor, oldest submission first (F-04 §3).
 	ScopeReview Scope = "review"
+	// ScopeFinance is every PENDING_FINANCE claim, oldest submission first (F-08 §1.9).
+	ScopeFinance Scope = "finance"
+	// ScopeAll is every claim the actor can see, newest first, narrowed by Filters (F-09 §1.1).
+	ScopeAll Scope = "all"
 )
 
-// Query selects one page of a list: the scope, the page number, 1-based, and the page size. F-09 adds filters here.
+// Filters narrows ScopeAll (F-09 §1.3). A nil or empty field sets no filter, and the set filters combine with AND.
+// From and To are calendar dates: only their year, month, and day count, as Asia/Bangkok dates. Q is a title
+// substring; List trims it.
+type Filters struct {
+	Status   *db.ClaimStatus
+	Category *db.ExpenseCategory
+	From     *time.Time
+	To       *time.Time
+	Q        string
+}
+
+// Query selects one page of a list: the scope, the page number, 1-based, the page size, and for ScopeAll the filters.
 type Query struct {
 	Scope    Scope
+	Filters  Filters
 	Page     int
 	PageSize int
 }
@@ -124,6 +144,7 @@ type Claim struct {
 func (c *Claim) subject() Subject {
 	subject := Subject{
 		RequesterID: c.Requester.ID, Status: c.Status, OwnerHasReviewer: c.ownerReviewerID.Valid, ReturnCount: c.ReturnCount,
+		TotalSatang: c.Total,
 	}
 	if c.AssignedReviewer != nil {
 		subject.AssignedReviewerID = c.AssignedReviewer.ID

@@ -119,11 +119,11 @@ export type Claim = {
 };
 
 /**
- * The body of approve, reject, and return. The comment's length is checked by BR-04, not by this schema.
+ * The body of approveClaim, rejectClaim, returnClaim, finalApproveClaim, and finalRejectClaim. The comment's length is checked by BR-04, not by this schema.
  */
 export type ClaimDecision = {
   /**
-   * Optional for approve (at most 500 characters). Required for reject and return (10–500 characters after trimming). The web uses `x-min-length` for the reason minimum and `x-max-length` for the comment counter.
+   * Optional for approve and final approve (at most 500 characters). Required for reject, return, and final reject (10–500 characters after trimming). The web uses `x-min-length` for the reason minimum and `x-max-length` for the comment counter.
    */
   comment?: string;
 };
@@ -164,6 +164,43 @@ export type ClaimPage = {
    * The number of claims in the scope, on every page.
    */
   total: number;
+};
+
+export type SummaryEnvelope = {
+  data: Summary;
+};
+
+export type Summary = {
+  countsByStatus: StatusCounts;
+  /**
+   * The approved line-item totals by Bangkok month of the decision and category, ordered by month, then category. Only non-zero groups are listed.
+   */
+  approvedTotals: Array<ApprovedTotal>;
+  /**
+   * The mean hours from first submission to decision, rounded to one decimal place. Null when no claim was decided in the range.
+   */
+  averageDecisionHours: number | null;
+};
+
+/**
+ * The claims in scope by current status. Every key is present, `0` for an empty status.
+ */
+export type StatusCounts = {
+  SUBMITTED: number;
+  RETURNED: number;
+  PENDING_FINANCE: number;
+  APPROVED: number;
+  REJECTED: number;
+  WITHDRAWN: number;
+};
+
+export type ApprovedTotal = {
+  /**
+   * The Asia/Bangkok month of the decision.
+   */
+  month: string;
+  category: ExpenseCategory;
+  total: Money;
 };
 
 /**
@@ -369,7 +406,27 @@ export type ListClaimsData = {
     /**
      * The list to read.
      */
-    scope: 'mine' | 'review';
+    scope: 'mine' | 'review' | 'finance' | 'all';
+    /**
+     * Only claims in this status (`scope=all` only).
+     */
+    status?: ClaimStatus;
+    /**
+     * Only claims with a line item in this category (`scope=all` only).
+     */
+    category?: ExpenseCategory;
+    /**
+     * The first Asia/Bangkok date of the range, inclusive (`scope=all` only).
+     */
+    from?: string;
+    /**
+     * The last Asia/Bangkok date of the range, inclusive (`scope=all` only).
+     */
+    to?: string;
+    /**
+     * Text to find in the title, case-insensitive (`scope=all` only).
+     */
+    q?: string;
     /**
      * The 1-based page number. A page past the last one returns an empty `data`.
      */
@@ -405,7 +462,7 @@ export type ListClaimsError = ListClaimsErrors[keyof ListClaimsErrors];
 
 export type ListClaimsResponses = {
   /**
-   * One page of the scope's claims. `mine`: newest first (`createdAt`, then `id`, descending). `review`: oldest first (`submittedAt`, then `id`, ascending).
+   * One page of the scope's claims. `mine` and `all`: newest first (`createdAt`, then `id`, descending). `review` and `finance`: oldest first (`submittedAt`, then `id`, ascending). `total` counts the filtered claims on every page.
    */
   200: ClaimPage;
 };
@@ -692,6 +749,134 @@ export type ApproveClaimResponses = {
 
 export type ApproveClaimResponse = ApproveClaimResponses[keyof ApproveClaimResponses];
 
+export type FinalApproveClaimData = {
+  body?: ClaimDecision;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}/final-approve';
+};
+
+export type FinalApproveClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  422: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type FinalApproveClaimError = FinalApproveClaimErrors[keyof FinalApproveClaimErrors];
+
+export type FinalApproveClaimResponses = {
+  /**
+   * The decided claim, with its new `ETag`.
+   */
+  200: ClaimEnvelope;
+};
+
+export type FinalApproveClaimResponse = FinalApproveClaimResponses[keyof FinalApproveClaimResponses];
+
+export type FinalRejectClaimData = {
+  body?: ClaimDecision;
+  headers?: {
+    /**
+     * The claim's `version` in quotes, such as `"3"`, from the `ETag` of the last read. It is optional here so that the validator never rejects a request without it; the handler answers 428 when it is missing and 400 when it is not a quoted version number. Every operation that changes a claim needs it (F-04 §3).
+     */
+    'If-Match'?: string;
+  };
+  path: {
+    /**
+     * The claim id, a UUID.
+     */
+    id: string;
+  };
+  query?: never;
+  url: '/claims/{id}/final-reject';
+};
+
+export type FinalRejectClaimErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  404: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  409: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  422: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  428: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type FinalRejectClaimError = FinalRejectClaimErrors[keyof FinalRejectClaimErrors];
+
+export type FinalRejectClaimResponses = {
+  /**
+   * The decided claim, with its new `ETag`.
+   */
+  200: ClaimEnvelope;
+};
+
+export type FinalRejectClaimResponse = FinalRejectClaimResponses[keyof FinalRejectClaimResponses];
+
 export type SubmitClaimData = {
   body?: never;
   headers?: {
@@ -943,3 +1128,49 @@ export type WithdrawClaimResponses = {
 };
 
 export type WithdrawClaimResponse = WithdrawClaimResponses[keyof WithdrawClaimResponses];
+
+export type GetDecisionSummaryData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * The first decision date, inclusive, in Asia/Bangkok. No lower bound when missing.
+     */
+    from?: string;
+    /**
+     * The last decision date, inclusive, in Asia/Bangkok. No upper bound when missing.
+     */
+    to?: string;
+  };
+  url: '/reports/summary';
+};
+
+export type GetDecisionSummaryErrors = {
+  /**
+   * An RFC 9457 problem.
+   */
+  400: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  401: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  403: Problem;
+  /**
+   * An RFC 9457 problem.
+   */
+  default: Problem;
+};
+
+export type GetDecisionSummaryError = GetDecisionSummaryErrors[keyof GetDecisionSummaryErrors];
+
+export type GetDecisionSummaryResponses = {
+  /**
+   * The decision summary.
+   */
+  200: SummaryEnvelope;
+};
+
+export type GetDecisionSummaryResponse = GetDecisionSummaryResponses[keyof GetDecisionSummaryResponses];

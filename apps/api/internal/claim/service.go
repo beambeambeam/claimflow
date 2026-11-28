@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/beambeambeam/claimflow/apps/api/internal/daterange"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/money"
 )
@@ -29,7 +30,7 @@ var (
 )
 
 // bangkok is the zone of every business date and of the claim number year (AS-06). Thailand has no daylight saving time.
-var bangkok = time.FixedZone("Asia/Bangkok", 7*60*60)
+var bangkok = daterange.Bangkok
 
 // Pool is the database handle of a Service: it runs queries and starts the transaction of each call (NFR-06).
 type Pool interface {
@@ -90,7 +91,7 @@ func (s Service) Create(ctx context.Context, actor Actor, in Input, submit bool)
 		return Claim{}, fmt.Errorf("create claim: %w", err)
 	}
 
-	_, created.AllowedActions = Allowed(actor.ID, created.subject())
+	_, created.AllowedActions = Allowed(actor, created.subject())
 
 	return created, nil
 }
@@ -103,7 +104,7 @@ func (s Service) Get(ctx context.Context, actor Actor, id uuid.UUID) (Claim, err
 		return Claim{}, fmt.Errorf("get claim: %w", err)
 	}
 
-	visible, actions := Allowed(actor.ID, found.subject())
+	visible, actions := Allowed(actor, found.subject())
 	if !visible {
 		return Claim{}, ErrForbidden
 	}
@@ -116,20 +117,26 @@ func (s Service) Get(ctx context.Context, actor Actor, id uuid.UUID) (Claim, err
 // List returns one page of the claims in q's scope (SDS §3.1). ScopeMine is the actor's own claims in every status,
 // newest first: created time descending, then id descending (F-03 §1.4). ScopeReview is the SUBMITTED claims assigned
 // to the actor, oldest submission first: submitted time ascending, then id ascending (F-04 §3); decided claims leave
-// it. A page past the last one has no claims and the correct total.
-func (s Service) List(ctx context.Context, actor Actor, q Query) (Page, error) {
+// it. ScopeFinance is every PENDING_FINANCE claim in the same order (F-08 §1.9). ScopeAll is every claim the actor can
+// see, newest first as ScopeMine, narrowed by q.Filters (F-09 §1.3); the other scopes ignore the filters. A page past
+// the last one has no claims and the correct total.
+func (s Service) List(ctx context.Context, actor Actor, q *Query) (Page, error) {
 	switch q.Scope {
 	case ScopeMine:
 		return s.listMine(ctx, actor, q)
 	case ScopeReview:
 		return s.listReview(ctx, actor, q)
+	case ScopeFinance:
+		return s.listFinance(ctx, q)
+	case ScopeAll:
+		return s.listAll(ctx, actor, q)
 	default:
 		return Page{}, fmt.Errorf("claim: unknown scope %q", q.Scope)
 	}
 }
 
 // listMine is List for ScopeMine.
-func (s Service) listMine(ctx context.Context, actor Actor, q Query) (Page, error) {
+func (s Service) listMine(ctx context.Context, actor Actor, q *Query) (Page, error) {
 	queries := db.New(s.pool)
 
 	total, err := queries.CountRequesterClaims(ctx, actor.ID)
@@ -153,7 +160,7 @@ func (s Service) listMine(ctx context.Context, actor Actor, q Query) (Page, erro
 }
 
 // listReview is List for ScopeReview.
-func (s Service) listReview(ctx context.Context, actor Actor, q Query) (Page, error) {
+func (s Service) listReview(ctx context.Context, actor Actor, q *Query) (Page, error) {
 	queries := db.New(s.pool)
 	reviewer := uuid.NullUUID{UUID: actor.ID, Valid: true}
 
@@ -179,9 +186,92 @@ func (s Service) listReview(ctx context.Context, actor Actor, q Query) (Page, er
 	})
 }
 
+// listFinance is List for ScopeFinance. The queue is the same for every Finance Officer.
+func (s Service) listFinance(ctx context.Context, q *Query) (Page, error) {
+	queries := db.New(s.pool)
+
+	total, err := queries.CountFinanceClaims(ctx)
+	if err != nil { // coverage-ignore
+		return Page{}, fmt.Errorf("count finance claims: %w", err)
+	}
+
+	return listPage(int(total), q, func(offset, limit int32) ([]Summary, error) {
+		rows, err := queries.ListFinanceClaims(ctx, db.ListFinanceClaimsParams{PageOffset: offset, PageLimit: limit})
+		if err != nil { // coverage-ignore
+			return nil, fmt.Errorf("list finance claims: %w", err)
+		}
+
+		summaries := make([]Summary, 0, len(rows))
+		for i := range rows {
+			// The same columns as ListRequesterClaims; see listReview.
+			summaries = append(summaries, summarize((*db.ListRequesterClaimsRow)(&rows[i])))
+		}
+
+		return summaries, nil
+	})
+}
+
+// listAll is List for ScopeAll. The visibility clause of the query is the SQL form of isVisible, so the list and
+// the claim policy agree (F-09 §1.4).
+func (s Service) listAll(ctx context.Context, actor Actor, q *Query) (Page, error) {
+	queries := db.New(s.pool)
+	params := allClaimsParams(actor, &q.Filters)
+
+	total, err := queries.CountAllClaims(ctx, params)
+	if err != nil { // coverage-ignore
+		return Page{}, fmt.Errorf("count all claims: %w", err)
+	}
+
+	return listPage(int(total), q, func(offset, limit int32) ([]Summary, error) {
+		rows, err := queries.ListAllClaims(ctx, db.ListAllClaimsParams{
+			ActorID: params.ActorID, ActorRole: params.ActorRole, Status: params.Status, Category: params.Category,
+			FromAt: params.FromAt, BeforeAt: params.BeforeAt, Title: params.Title, PageOffset: offset, PageLimit: limit,
+		})
+		if err != nil { // coverage-ignore
+			return nil, fmt.Errorf("list all claims: %w", err)
+		}
+
+		summaries := make([]Summary, 0, len(rows))
+		for i := range rows {
+			// The same columns as ListRequesterClaims; see listReview.
+			summaries = append(summaries, summarize((*db.ListRequesterClaimsRow)(&rows[i])))
+		}
+
+		return summaries, nil
+	})
+}
+
+// likeEscaper escapes the LIKE wildcards and the escape character, so a title search matches them literally.
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+// allClaimsParams maps the actor and filters to the query parameters. From becomes Bangkok midnight at its start and
+// To Bangkok midnight at the start of the next day, a half-open range that holds both dates whole (F-09 §1.8). Q is
+// trimmed and becomes a case-insensitive substring pattern; an empty Q sets no title filter.
+func allClaimsParams(actor Actor, filters *Filters) db.CountAllClaimsParams {
+	params := db.CountAllClaimsParams{ActorID: actor.ID, ActorRole: actor.Role}
+
+	if filters.Status != nil {
+		params.Status = db.NullClaimStatus{ClaimStatus: *filters.Status, Valid: true}
+	}
+	if filters.Category != nil {
+		params.Category = db.NullExpenseCategory{ExpenseCategory: *filters.Category, Valid: true}
+	}
+	if filters.From != nil {
+		params.FromAt = timestamptz(daterange.Midnight(*filters.From, 0))
+	}
+	if filters.To != nil {
+		params.BeforeAt = timestamptz(daterange.Midnight(*filters.To, 1))
+	}
+	if q := strings.TrimSpace(filters.Q); q != "" {
+		params.Title = pgtype.Text{String: "%" + likeEscaper.Replace(q) + "%", Valid: true}
+	}
+
+	return params
+}
+
 // listPage builds the page of q from total, the number of claims on every page, and fetch, which reads a window of them.
 // A page past the last one is not fetched.
-func listPage(total int, q Query, fetch func(offset, limit int32) ([]Summary, error)) (Page, error) {
+func listPage(total int, q *Query, fetch func(offset, limit int32) ([]Summary, error)) (Page, error) {
 	if total == 0 || q.Page-1 > (total-1)/q.PageSize {
 		return Page{Claims: []Summary{}, Total: total}, nil
 	}
@@ -225,7 +315,7 @@ func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int
 			return err
 		}
 
-		step, ok := transitions[action][row.Status]
+		step, ok := nextTransition(action, row.Status, row.TotalSatang, actor.Role)
 		if !ok {
 			return ErrInvalidTransition
 		}
@@ -241,7 +331,7 @@ func (s Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int
 		return Claim{}, fmt.Errorf("act on claim: %w", err)
 	}
 
-	_, acted.AllowedActions = Allowed(actor.ID, acted.subject())
+	_, acted.AllowedActions = Allowed(actor, acted.subject())
 
 	return acted, nil
 }
@@ -286,7 +376,8 @@ func record(ctx context.Context, queries *db.Queries, actor Actor, row *db.GetCl
 }
 
 // reviewStep applies the step at the version that was read: a return keeps the claim open for its requester, a
-// withdrawal ends it without a decision, and a decision stamps the decision time.
+// withdrawal ends it without a decision, an approval that goes to Finance waits for the final decision, and a decision
+// stamps the decision time.
 func reviewStep(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, action Action, step transition, now time.Time) (int64, error) {
 	if action == ActionWithdraw {
 		changed, err := queries.WithdrawClaim(ctx, db.WithdrawClaimParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
@@ -301,6 +392,15 @@ func reviewStep(ctx context.Context, queries *db.Queries, row *db.GetClaimRow, a
 		changed, err := queries.ReturnClaim(ctx, db.ReturnClaimParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
 		if err != nil { // coverage-ignore
 			return 0, fmt.Errorf("return claim: %w", err)
+		}
+
+		return changed, nil
+	}
+
+	if step.to == db.ClaimStatusPENDINGFINANCE {
+		changed, err := queries.SendClaimToFinance(ctx, db.SendClaimToFinanceParams{Now: timestamptz(now), ID: row.ID, Version: row.Version})
+		if err != nil { // coverage-ignore
+			return 0, fmt.Errorf("send claim to finance: %w", err)
 		}
 
 		return changed, nil
@@ -435,7 +535,7 @@ func insertItems(ctx context.Context, queries *db.Queries, id uuid.UUID, items [
 
 // checkVersionedAction reports a stale version rather than an invalid transition when the status changed.
 func checkVersionedAction(actor Actor, subject Subject, action Action, version, current int) error {
-	err := check(actor.ID, subject, action)
+	err := check(actor, subject, action)
 	if errors.Is(err, ErrInvalidTransition) && version != current {
 		return ErrConflict
 	}
@@ -458,7 +558,7 @@ func findClaim(ctx context.Context, queries *db.Queries, id uuid.UUID) (db.GetCl
 func claimSubject(row *db.GetClaimRow) Subject {
 	return Subject{
 		RequesterID: row.RequesterID, AssignedReviewerID: row.ReviewerID.UUID, Status: row.Status,
-		OwnerHasReviewer: row.OwnerReviewerID.Valid, ReturnCount: int(row.ReturnCount),
+		OwnerHasReviewer: row.OwnerReviewerID.Valid, ReturnCount: int(row.ReturnCount), TotalSatang: row.TotalSatang,
 	}
 }
 

@@ -5,6 +5,7 @@ import {
   formatDate,
   formatDateTime,
   formatMoney,
+  moneyToSatang,
   parseSatang,
 } from "#/lib/format";
 
@@ -24,6 +25,19 @@ describe("parseSatang", () => {
       expect(parseSatang(text)).toBeNull();
     }
   );
+});
+
+describe("moneyToSatang", () => {
+  it.each([
+    ["0.00", 0],
+    ["0.01", 1],
+    ["1250.00", 125_000],
+    ["300.50", 30_050],
+    // More than 6 integer digits: a claim total, which parseSatang rejects.
+    ["1234567.50", 123_456_750],
+  ])("reads the API amount %s as %i satang", (money, satang) => {
+    expect(moneyToSatang(money)).toBe(satang);
+  });
 });
 
 describe("formatBaht", () => {

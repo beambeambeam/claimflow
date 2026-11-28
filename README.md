@@ -43,6 +43,15 @@ bun run --cwd apps/api seed        # add the demo users and sample claims
 
 Sample claims: two `Submitted`, one `Approved`, and one `Rejected` (with a reason) from `req.anan`, `req.ploy`, and `req.niran` to their reviewers, plus a `Submitted` claim each from `rev.malee` and `rev.prasert` (40,000.00) for the next reviewer up. Sprint 2 adds a `Draft` with two line items and a `Returned` claim from `req.anan`, and a `Withdrawn` claim from `req.ploy`.
 
+For the NFR-07 timed run, add the 240 load claims (`CLM-LOAD-0001` to `CLM-LOAD-0240`) after `seed`, then run the timed requests against a base URL with the seed password in the environment, and keep the table in `docs/perf/`:
+
+```sh
+bun run --cwd apps/api seed:load
+SEED_USER_PASSWORD=<the seed password> bun run perf -- --base-url <url> --rounds 20 > docs/perf/nfr-07-<tag>.md
+```
+
+Each round approves one submitted load claim, so reset the database and run `seed:load` again before a second run.
+
 ## End-to-end tests
 
 The Playwright specs in `apps/web/e2e` run against a running stack. They do not start servers. Seed the database as above, start `bun run dev`, install the browser once, and run the specs with the seed password:

@@ -13,6 +13,99 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const approvedTotalsByMonthCategory = `-- name: ApprovedTotalsByMonthCategory :many
+SELECT to_char(c.decided_at AT TIME ZONE 'Asia/Bangkok', 'YYYY-MM')::text AS month,
+       li.category,
+       sum(li.amount_satang)::bigint AS total
+FROM claims c
+JOIN line_items li ON li.claim_id = c.id
+WHERE c.status = 'APPROVED'
+  AND ($1::bool OR c.assigned_reviewer_id = $2)
+  AND ($3::timestamptz IS NULL OR c.decided_at >= $3)
+  AND ($4::timestamptz IS NULL OR c.decided_at < $4)
+GROUP BY 1, li.category
+ORDER BY 1, li.category
+`
+
+type ApprovedTotalsByMonthCategoryParams struct {
+	AllClaims bool
+	ActorID   uuid.NullUUID
+	FromAt    pgtype.Timestamptz
+	ToAt      pgtype.Timestamptz
+}
+
+type ApprovedTotalsByMonthCategoryRow struct {
+	Month    string
+	Category ExpenseCategory
+	Total    int64
+}
+
+// ApprovedTotalsByMonthCategory sums the line items of the APPROVED claims in a summary scope by the Asia/Bangkok month
+// of the decision and by category, ordered by month and then by category in the order of the expense_category enum
+// (F-10 §1.4). from_at and to_at bound decided_at as a half-open range; a NULL bound is open.
+func (q *Queries) ApprovedTotalsByMonthCategory(ctx context.Context, arg ApprovedTotalsByMonthCategoryParams) ([]ApprovedTotalsByMonthCategoryRow, error) {
+	rows, err := q.db.Query(ctx, approvedTotalsByMonthCategory,
+		arg.AllClaims,
+		arg.ActorID,
+		arg.FromAt,
+		arg.ToAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApprovedTotalsByMonthCategoryRow
+	for rows.Next() {
+		var i ApprovedTotalsByMonthCategoryRow
+		if err := rows.Scan(&i.Month, &i.Category, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const averageDecisionHours = `-- name: AverageDecisionHours :one
+SELECT count(*)::int AS decided,
+       COALESCE(round(avg(extract(epoch FROM c.decided_at - c.first_submitted_at)) / 3600, 1), 0)::float8 AS hours
+FROM claims c
+WHERE c.status IN ('APPROVED', 'REJECTED')
+  AND ($1::bool OR c.assigned_reviewer_id = $2)
+  AND ($3::timestamptz IS NULL OR c.decided_at >= $3)
+  AND ($4::timestamptz IS NULL OR c.decided_at < $4)
+`
+
+type AverageDecisionHoursParams struct {
+	AllClaims bool
+	ActorID   uuid.NullUUID
+	FromAt    pgtype.Timestamptz
+	ToAt      pgtype.Timestamptz
+}
+
+type AverageDecisionHoursRow struct {
+	Decided int32
+	Hours   float64
+}
+
+// AverageDecisionHours returns how many APPROVED and REJECTED claims in a summary scope were decided in the range, and
+// the mean hours from first submission to decision, rounded to one decimal place with round(numeric), which rounds half
+// away from zero (F-10 §1.4). The mean is 0 when no claim was decided; the caller reads that as null by the count.
+// from_at and to_at bound decided_at as a half-open range; a NULL bound is open.
+func (q *Queries) AverageDecisionHours(ctx context.Context, arg AverageDecisionHoursParams) (AverageDecisionHoursRow, error) {
+	row := q.db.QueryRow(ctx, averageDecisionHours,
+		arg.AllClaims,
+		arg.ActorID,
+		arg.FromAt,
+		arg.ToAt,
+	)
+	var i AverageDecisionHoursRow
+	err := row.Scan(&i.Decided, &i.Hours)
+	return i, err
+}
+
 const checkReady = `-- name: CheckReady :one
 SELECT 1::integer AS ok
 `
@@ -23,6 +116,99 @@ func (q *Queries) CheckReady(ctx context.Context) (int32, error) {
 	var ok int32
 	err := row.Scan(&ok)
 	return ok, err
+}
+
+const countAllClaims = `-- name: CountAllClaims :one
+SELECT count(*)::int AS total
+FROM claims c
+WHERE (c.requester_id = $1
+       OR (c.status <> 'DRAFT' AND (c.assigned_reviewer_id = $1 OR $2::text = 'finance')))
+  AND ($3::claim_status IS NULL OR c.status = $3::claim_status)
+  AND ($4::expense_category IS NULL OR EXISTS (
+        SELECT 1 FROM line_items li WHERE li.claim_id = c.id AND li.category = $4::expense_category))
+  AND ($5::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) >= $5::timestamptz)
+  AND ($6::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) < $6::timestamptz)
+  AND ($7::text IS NULL OR c.title ILIKE $7::text ESCAPE '\')
+`
+
+type CountAllClaimsParams struct {
+	ActorID   uuid.UUID
+	ActorRole string
+	Status    NullClaimStatus
+	Category  NullExpenseCategory
+	FromAt    pgtype.Timestamptz
+	BeforeAt  pgtype.Timestamptz
+	Title     pgtype.Text
+}
+
+// CountAllClaims counts the claims of ListAllClaims on every page, with the same WHERE clause.
+func (q *Queries) CountAllClaims(ctx context.Context, arg CountAllClaimsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countAllClaims,
+		arg.ActorID,
+		arg.ActorRole,
+		arg.Status,
+		arg.Category,
+		arg.FromAt,
+		arg.BeforeAt,
+		arg.Title,
+	)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
+}
+
+const countClaimsByStatus = `-- name: CountClaimsByStatus :many
+SELECT status, count(*)::int AS total
+FROM claims
+WHERE status <> 'DRAFT'
+  AND ($1::bool OR assigned_reviewer_id = $2)
+GROUP BY status
+`
+
+type CountClaimsByStatusParams struct {
+	AllClaims bool
+	ActorID   uuid.NullUUID
+}
+
+type CountClaimsByStatusRow struct {
+	Status ClaimStatus
+	Total  int32
+}
+
+// CountClaimsByStatus counts the claims in a summary scope by current status (F-10 §1.3, §1.4). A draft is never
+// counted. all_claims is the Finance Officer's scope, every claim that is not a draft. Otherwise the scope is the
+// claims assigned to actor_id.
+func (q *Queries) CountClaimsByStatus(ctx context.Context, arg CountClaimsByStatusParams) ([]CountClaimsByStatusRow, error) {
+	rows, err := q.db.Query(ctx, countClaimsByStatus, arg.AllClaims, arg.ActorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountClaimsByStatusRow
+	for rows.Next() {
+		var i CountClaimsByStatusRow
+		if err := rows.Scan(&i.Status, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countFinanceClaims = `-- name: CountFinanceClaims :one
+SELECT count(*)::int AS total
+FROM claims
+WHERE status = 'PENDING_FINANCE'
+`
+
+func (q *Queries) CountFinanceClaims(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, countFinanceClaims)
+	var total int32
+	err := row.Scan(&total)
+	return total, err
 }
 
 const countRequesterClaims = `-- name: CountRequesterClaims :one
@@ -437,6 +623,60 @@ func (q *Queries) InsertLineItem(ctx context.Context, arg InsertLineItemParams) 
 	return err
 }
 
+const insertLoadClaim = `-- name: InsertLoadClaim :execrows
+INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
+                    return_count, first_submitted_at, submitted_at, decided_at, created_at, updated_at)
+SELECT $1, $2, u.id, u.reviewer_id, $3, $4,
+       $5::claim_status, $6, $7, $8,
+       $9::timestamptz, $10::timestamptz, $11::timestamptz,
+       $12::timestamptz, $13::timestamptz
+FROM "user" u
+WHERE u.username = $14
+ON CONFLICT (claim_no) DO NOTHING
+`
+
+type InsertLoadClaimParams struct {
+	ID               uuid.UUID
+	ClaimNo          string
+	Title            string
+	Purpose          string
+	Status           ClaimStatus
+	TotalSatang      money.Satang
+	Version          int32
+	ReturnCount      int16
+	FirstSubmittedAt pgtype.Timestamptz
+	SubmittedAt      pgtype.Timestamptz
+	DecidedAt        pgtype.Timestamptz
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
+	Requester        string
+}
+
+// InsertLoadClaim adds a load-test claim (F-10 §1.8) unless its claim number exists. Unlike InsertSeedClaim it takes every
+// time of the claim, so they match its history. The reviewer is the requester's own, as in the base seed.
+func (q *Queries) InsertLoadClaim(ctx context.Context, arg InsertLoadClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertLoadClaim,
+		arg.ID,
+		arg.ClaimNo,
+		arg.Title,
+		arg.Purpose,
+		arg.Status,
+		arg.TotalSatang,
+		arg.Version,
+		arg.ReturnCount,
+		arg.FirstSubmittedAt,
+		arg.SubmittedAt,
+		arg.DecidedAt,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.Requester,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const insertSeedClaim = `-- name: InsertSeedClaim :execrows
 INSERT INTO claims (id, claim_no, requester_id, assigned_reviewer_id, title, purpose, status, total_satang, version,
                     return_count, first_submitted_at, submitted_at, decided_at, created_at, updated_at)
@@ -486,6 +726,94 @@ func (q *Queries) InsertSeedClaim(ctx context.Context, arg InsertSeedClaimParams
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const listAllClaims = `-- name: ListAllClaims :many
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE (c.requester_id = $1
+       OR (c.status <> 'DRAFT' AND (c.assigned_reviewer_id = $1 OR $2::text = 'finance')))
+  AND ($3::claim_status IS NULL OR c.status = $3::claim_status)
+  AND ($4::expense_category IS NULL OR EXISTS (
+        SELECT 1 FROM line_items li WHERE li.claim_id = c.id AND li.category = $4::expense_category))
+  AND ($5::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) >= $5::timestamptz)
+  AND ($6::timestamptz IS NULL OR coalesce(c.first_submitted_at, c.created_at) < $6::timestamptz)
+  AND ($7::text IS NULL OR c.title ILIKE $7::text ESCAPE '\')
+ORDER BY c.created_at DESC, c.id DESC
+LIMIT $9 OFFSET $8
+`
+
+type ListAllClaimsParams struct {
+	ActorID    uuid.UUID
+	ActorRole  string
+	Status     NullClaimStatus
+	Category   NullExpenseCategory
+	FromAt     pgtype.Timestamptz
+	BeforeAt   pgtype.Timestamptz
+	Title      pgtype.Text
+	PageOffset int32
+	PageLimit  int32
+}
+
+type ListAllClaimsRow struct {
+	ID                uuid.UUID
+	ClaimNo           string
+	Status            ClaimStatus
+	Title             string
+	TotalSatang       money.Satang
+	SubmittedAt       pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	RequesterID       uuid.UUID
+	RequesterName     string
+	RequesterPosition string
+}
+
+// ListAllClaims returns one page of the claims the actor can see, newest first (F-09 §1.4, §1.5). The visibility
+// clause is the SQL form of isVisible in policy.go: own claims, and claims that are not DRAFT and either assigned to
+// the actor or seen by a Finance Officer. Each filter is a parameter that is NULL when not set (F-09 §1.3). The date
+// bounds are half-open timestamps on first_submitted_at, or created_at for a claim that was never submitted. title is a
+// LIKE pattern with %, _, and \ already escaped.
+func (q *Queries) ListAllClaims(ctx context.Context, arg ListAllClaimsParams) ([]ListAllClaimsRow, error) {
+	rows, err := q.db.Query(ctx, listAllClaims,
+		arg.ActorID,
+		arg.ActorRole,
+		arg.Status,
+		arg.Category,
+		arg.FromAt,
+		arg.BeforeAt,
+		arg.Title,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllClaimsRow
+	for rows.Next() {
+		var i ListAllClaimsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClaimNo,
+			&i.Status,
+			&i.Title,
+			&i.TotalSatang,
+			&i.SubmittedAt,
+			&i.CreatedAt,
+			&i.RequesterID,
+			&i.RequesterName,
+			&i.RequesterPosition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listClaimHistory = `-- name: ListClaimHistory :many
@@ -571,6 +899,66 @@ func (q *Queries) ListClaimLineItems(ctx context.Context, claimID uuid.UUID) ([]
 			&i.ExpenseDate,
 			&i.AmountSatang,
 			&i.ReceiptRef,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFinanceClaims = `-- name: ListFinanceClaims :many
+SELECT c.id, c.claim_no, c.status, c.title, c.total_satang, c.submitted_at, c.created_at,
+       r.id AS requester_id, r.name AS requester_name, r.position AS requester_position
+FROM claims c
+JOIN "user" r ON r.id = c.requester_id
+WHERE c.status = 'PENDING_FINANCE'
+ORDER BY c.submitted_at, c.id
+LIMIT $2 OFFSET $1
+`
+
+type ListFinanceClaimsParams struct {
+	PageOffset int32
+	PageLimit  int32
+}
+
+type ListFinanceClaimsRow struct {
+	ID                uuid.UUID
+	ClaimNo           string
+	Status            ClaimStatus
+	Title             string
+	TotalSatang       money.Satang
+	SubmittedAt       pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	RequesterID       uuid.UUID
+	RequesterName     string
+	RequesterPosition string
+}
+
+// ListFinanceClaims returns one page of the PENDING_FINANCE claims, oldest submission first (F-08 §1.9).
+func (q *Queries) ListFinanceClaims(ctx context.Context, arg ListFinanceClaimsParams) ([]ListFinanceClaimsRow, error) {
+	rows, err := q.db.Query(ctx, listFinanceClaims, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFinanceClaimsRow
+	for rows.Next() {
+		var i ListFinanceClaimsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClaimNo,
+			&i.Status,
+			&i.Title,
+			&i.TotalSatang,
+			&i.SubmittedAt,
+			&i.CreatedAt,
+			&i.RequesterID,
+			&i.RequesterName,
+			&i.RequesterPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -704,6 +1092,36 @@ func (q *Queries) ListReviewClaims(ctx context.Context, arg ListReviewClaimsPara
 	return items, nil
 }
 
+const listUserIDsByUsername = `-- name: ListUserIDsByUsername :many
+SELECT username, id FROM "user" WHERE username = ANY($1::text[])
+`
+
+type ListUserIDsByUsernameRow struct {
+	Username string
+	ID       uuid.UUID
+}
+
+// ListUserIDsByUsername returns the id of each existing user among usernames. The load dataset reads the base seed users with it.
+func (q *Queries) ListUserIDsByUsername(ctx context.Context, usernames []string) ([]ListUserIDsByUsernameRow, error) {
+	rows, err := q.db.Query(ctx, listUserIDsByUsername, usernames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserIDsByUsernameRow
+	for rows.Next() {
+		var i ListUserIDsByUsernameRow
+		if err := rows.Scan(&i.Username, &i.ID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const nextClaimSequence = `-- name: NextClaimSequence :one
 SELECT nextval('claim_no_seq')::bigint AS seq
 `
@@ -754,6 +1172,29 @@ type ReturnClaimParams struct {
 // returns the rows changed: 0 means the claim changed since.
 func (q *Queries) ReturnClaim(ctx context.Context, arg ReturnClaimParams) (int64, error) {
 	result, err := q.db.Exec(ctx, returnClaim, arg.Now, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const sendClaimToFinance = `-- name: SendClaimToFinance :execrows
+UPDATE claims
+SET status = 'PENDING_FINANCE', version = version + 1, updated_at = $1
+WHERE id = $2 AND version = $3
+`
+
+type SendClaimToFinanceParams struct {
+	Now     pgtype.Timestamptz
+	ID      uuid.UUID
+	Version int32
+}
+
+// SendClaimToFinance moves an approved high-value claim to PENDING_FINANCE and adds one to the version, but only while
+// the version is still the one the caller read (BR-09, BR-13). The claim waits for a final decision, so decided_at
+// stays NULL. It returns the rows changed: 0 means the claim changed since.
+func (q *Queries) SendClaimToFinance(ctx context.Context, arg SendClaimToFinanceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, sendClaimToFinance, arg.Now, arg.ID, arg.Version)
 	if err != nil {
 		return 0, err
 	}

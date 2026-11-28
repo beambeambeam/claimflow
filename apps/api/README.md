@@ -33,6 +33,8 @@ bun run --cwd apps/api migrate up
 
 `bun run seed` runs `api seed` after `migrate up`. It creates or updates the seven SDS §2.5 demo users (`fin.wanida`, `rev.prasert`, `rev.malee`, `rev.somchai`, `req.anan`, `req.ploy`, `req.niran`) and stores a bcrypt hash of `SEED_USER_PASSWORD` for each. Set `SEED_USER_PASSWORD` in `apps/api/.env` (local only, never committed) or in the environment. Without it, `seed` fails and writes nothing. It also adds nine sample claims from F-04 §4 with their line items. The six submitted claims have history, and so have the F-06 returned claim (`SUBMIT`, then `RETURN` with its reason) and the F-07 withdrawn claim (`SUBMIT`, then `WITHDRAW` with its comment). The F-05 draft has two items and no history. They have fixed claim numbers (`CLM-2026-900001` to `CLM-2026-900009`), so a second run updates the same users and adds no claim twice.
 
+`bun run seed:load` runs `api seed-load` under `varlock run`. It adds the F-10 load dataset: 240 claims with the fixed numbers `CLM-LOAD-0001` to `CLM-LOAD-0240`, with line items and history. Run `seed` first, because the load claims belong to the base seed users. A second run adds no claim twice. Each timed run of the root `bun run perf` approves `--rounds` submitted load claims, so a second run against the same deployment needs a database reset and `seed:load` again.
+
 `bun run db:down` stops the database and keeps its volume.
 
 ## Code generation
@@ -76,6 +78,7 @@ Run these in `apps/api`. Root scripts call them for you.
 | `bun run migrate <up\|down\|status>` | Run migrations against `DATABASE_URL` |
 | `bun run migrate:new <name> sql` | Add a migration file |
 | `bun run seed` | Create or update the seven demo users and add the sample claims under `varlock run`; needs `SEED_USER_PASSWORD` |
+| `bun run seed:load` | Add the 240 `CLM-LOAD-*` claims under `varlock run`; run `seed` first |
 | `bun run test` | Run tests with the race detector |
 | `bun run test:coverage` | Run tests and require 100% coverage ([go-test-coverage](https://github.com/vladopajic/go-test-coverage)) |
 | `bun run lint` / `bun run lint:fix` | Lint with [golangci-lint](https://golangci-lint.run) |

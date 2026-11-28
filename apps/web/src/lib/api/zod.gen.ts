@@ -131,7 +131,7 @@ export const zClaim = z.object({
 });
 
 /**
- * The body of approve, reject, and return. The comment's length is checked by BR-04, not by this schema.
+ * The body of approveClaim, rejectClaim, returnClaim, finalApproveClaim, and finalRejectClaim. The comment's length is checked by BR-04, not by this schema.
  */
 export const zClaimDecision = z.object({
   comment: z.string().register(z.globalRegistry, { minLength: 10, maxLength: 500 }).optional()
@@ -167,6 +167,34 @@ export const zClaimPage = z.object({
   page: z.int(),
   pageSize: z.int(),
   total: z.int()
+});
+
+/**
+ * The claims in scope by current status. Every key is present, `0` for an empty status.
+ */
+export const zStatusCounts = z.object({
+  SUBMITTED: z.int(),
+  RETURNED: z.int(),
+  PENDING_FINANCE: z.int(),
+  APPROVED: z.int(),
+  REJECTED: z.int(),
+  WITHDRAWN: z.int()
+});
+
+export const zApprovedTotal = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  category: zExpenseCategory,
+  total: zMoney
+});
+
+export const zSummary = z.object({
+  countsByStatus: zStatusCounts,
+  approvedTotals: z.array(zApprovedTotal),
+  averageDecisionHours: z.number().nullable()
+});
+
+export const zSummaryEnvelope = z.object({
+  data: zSummary
 });
 
 /**
@@ -242,13 +270,23 @@ export const zLogoutResponse = z.void();
 export const zGetMeResponse = zCurrentUserEnvelope;
 
 export const zListClaimsQuery = z.object({
-  scope: z.enum(['mine', 'review']),
+  scope: z.enum([
+    'mine',
+    'review',
+    'finance',
+    'all'
+  ]),
+  status: zClaimStatus.optional(),
+  category: zExpenseCategory.optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  q: z.string().max(120).optional(),
   page: z.int().gte(1).optional().default(1),
   pageSize: z.int().gte(1).lte(100).optional().default(20)
 });
 
 /**
- * One page of the scope's claims. `mine`: newest first (`createdAt`, then `id`, descending). `review`: oldest first (`submittedAt`, then `id`, ascending).
+ * One page of the scope's claims. `mine` and `all`: newest first (`createdAt`, then `id`, descending). `review` and `finance`: oldest first (`submittedAt`, then `id`, ascending). `total` counts the filtered claims on every page.
  */
 export const zListClaimsResponse = zClaimPage;
 
@@ -315,6 +353,36 @@ export const zApproveClaimPath = z.object({
  */
 export const zApproveClaimResponse = zClaimEnvelope;
 
+export const zFinalApproveClaimBody = zClaimDecision;
+
+export const zFinalApproveClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zFinalApproveClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The decided claim, with its new `ETag`.
+ */
+export const zFinalApproveClaimResponse = zClaimEnvelope;
+
+export const zFinalRejectClaimBody = zClaimDecision;
+
+export const zFinalRejectClaimHeaders = z.object({
+  'If-Match': z.string().optional()
+});
+
+export const zFinalRejectClaimPath = z.object({
+  id: z.string()
+});
+
+/**
+ * The decided claim, with its new `ETag`.
+ */
+export const zFinalRejectClaimResponse = zClaimEnvelope;
+
 export const zSubmitClaimHeaders = z.object({
   'If-Match': z.string().optional()
 });
@@ -372,3 +440,13 @@ export const zWithdrawClaimPath = z.object({
  * The decided claim, with its new `ETag`.
  */
 export const zWithdrawClaimResponse = zClaimEnvelope;
+
+export const zGetDecisionSummaryQuery = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional()
+});
+
+/**
+ * The decision summary.
+ */
+export const zGetDecisionSummaryResponse = zSummaryEnvelope;

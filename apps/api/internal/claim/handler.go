@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/beambeambeam/claimflow/apps/api/internal/api"
 	"github.com/beambeambeam/claimflow/apps/api/internal/auth"
+	"github.com/beambeambeam/claimflow/apps/api/internal/daterange"
 	"github.com/beambeambeam/claimflow/apps/api/internal/db"
 	"github.com/beambeambeam/claimflow/apps/api/internal/httperr"
 )
@@ -25,12 +28,6 @@ const (
 	defaultPageSize = 20
 	maxPageSize     = 100
 )
-
-var errUnauthenticated = &httperr.Error{
-	Status: http.StatusUnauthorized,
-	Code:   api.ProblemCodeUnauthenticated,
-	Title:  "Authentication required.",
-}
 
 var errClaimNotFound = &httperr.Error{
 	Status: http.StatusNotFound,
@@ -54,10 +51,10 @@ func NewHandler(service Service) Handler {
 func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequestObject) (api.CreateClaimResponseObject, error) {
 	user, ok := auth.UserFrom(ctx)
 	if !ok {
-		return nil, errUnauthenticated
+		return nil, httperr.ErrUnauthenticated
 	}
 
-	created, err := h.service.Create(ctx, Actor{ID: user.ID}, input(request.Body), request.Params.Draft == nil || !*request.Params.Draft)
+	created, err := h.service.Create(ctx, Actor{ID: user.ID, Role: user.Role}, input(request.Body), request.Params.Draft == nil || !*request.Params.Draft)
 	if err != nil {
 		return nil, problem(err)
 	}
@@ -72,19 +69,24 @@ func (h Handler) CreateClaim(ctx context.Context, request api.CreateClaimRequest
 }
 
 // listScopes maps each scope of the contract to the module's scope and the resource of its route permission:
-// claim:list for mine, which a Finance Officer lacks (F03-AC-04), and review:list for review, which a requester lacks
-// (F04-AC-02).
+// claim:list for mine, which a Finance Officer lacks (F03-AC-04), review:list for review, which a requester lacks
+// (F04-AC-02), and finance:list for finance, which only a Finance Officer has (F-08 §1.8). all has no resource: it needs
+// only a session (F-09 §1.7).
 var listScopes = map[api.ListClaimsParamsScope]struct {
 	scope    Scope
 	resource string
 }{
-	api.ListScopeMine:   {scope: ScopeMine, resource: "claim"},
-	api.ListScopeReview: {scope: ScopeReview, resource: "review"},
+	api.ListScopeMine:    {scope: ScopeMine, resource: "claim"},
+	api.ListScopeReview:  {scope: ScopeReview, resource: "review"},
+	api.ListScopeFinance: {scope: ScopeFinance, resource: "finance"},
+	api.ListScopeAll:     {scope: ScopeAll},
 }
 
-// ListClaims returns one page of claims in the scope: the session user's own (mine), or the SUBMITTED claims assigned
-// to them (review). A missing or unknown scope, a page below 1, and a page size outside 1–100 are 400. The route
-// permission depends on the scope, so the handler checks it after it reads the scope.
+// ListClaims returns one page of claims in the scope: the session user's own (mine), the SUBMITTED claims assigned to
+// them (review), every PENDING_FINANCE claim (finance), or every claim they can see, narrowed by the filters (all). A
+// missing or unknown scope, a page below 1, and a page size outside 1–100 are 400. A bad filter is a 400 that names
+// each bad parameter (F-09 §1.3). The route permission depends on the scope, so the handler checks it after it reads
+// the scope.
 func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestObject) (api.ListClaimsResponseObject, error) {
 	params := request.Params
 	q := Query{Page: defaultPage, PageSize: defaultPageSize}
@@ -102,14 +104,25 @@ func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestOb
 		return nil, httperr.ErrValidation
 	}
 
-	q.Scope = scope.scope
-
-	user, err := auth.Authorize(ctx, scope.resource, "list")
-	if err != nil {
-		return nil, fmt.Errorf("authorize: %w", err)
+	filters, invalid := listFilters(&params)
+	if len(invalid) > 0 {
+		return nil, fmt.Errorf("list filters: %w", httperr.InvalidFields(invalid))
 	}
 
-	result, err := h.service.List(ctx, Actor{ID: user.ID}, q)
+	q.Scope, q.Filters = scope.scope, filters
+
+	user, ok := auth.UserFrom(ctx)
+	if !ok {
+		return nil, httperr.ErrUnauthenticated
+	}
+
+	if scope.resource != "" {
+		if _, err := auth.Authorize(ctx, scope.resource, "list"); err != nil {
+			return nil, fmt.Errorf("authorize: %w", err)
+		}
+	}
+
+	result, err := h.service.List(ctx, Actor{ID: user.ID, Role: user.Role}, &q)
 	if err != nil { // coverage-ignore
 		return nil, err
 	}
@@ -122,12 +135,81 @@ func (h Handler) ListClaims(ctx context.Context, request api.ListClaimsRequestOb
 	return api.ListClaims200JSONResponse(body), nil
 }
 
+// The messages of the filter checks (F-09 §1.3).
+const (
+	scopeOnlyMessage = "Filters are only available for scope=all."
+	maxQueryLength   = 120
+)
+
+// listFilters checks the filter parameters of a list request and returns them as Filters, or one field error per bad
+// parameter, in parameter order (F-09 §1.3). A filter with a scope other than all is an error, so a client never gets
+// an unfiltered list it thinks is filtered. A from later than to is an error on to.
+func listFilters(params *api.ListClaimsParams) (Filters, []api.FieldError) {
+	invalid := []api.FieldError{}
+
+	if params.Scope != api.ListScopeAll {
+		for _, set := range []struct {
+			field string
+			isSet bool
+		}{
+			{"status", params.Status != nil},
+			{"category", params.Category != nil},
+			{"from", params.From != nil},
+			{"to", params.To != nil},
+			{"q", params.Q != nil},
+		} {
+			if set.isSet {
+				invalid = append(invalid, api.FieldError{Field: set.field, Rule: "scope", Message: scopeOnlyMessage})
+			}
+		}
+
+		return Filters{}, invalid
+	}
+
+	var filters Filters
+
+	if params.Status != nil {
+		if params.Status.Valid() {
+			status := db.ClaimStatus(*params.Status)
+			filters.Status = &status
+		} else {
+			invalid = append(invalid, api.FieldError{Field: "status", Rule: "enum", Message: "Unknown status."})
+		}
+	}
+
+	if params.Category != nil {
+		if params.Category.Valid() {
+			category := db.ExpenseCategory(*params.Category)
+			filters.Category = &category
+		} else {
+			invalid = append(invalid, api.FieldError{Field: "category", Rule: "enum", Message: "Unknown category."})
+		}
+	}
+
+	var dateProblems []api.FieldError
+	filters.From, filters.To, dateProblems = daterange.Parse(params.From, params.To)
+	invalid = append(invalid, dateProblems...)
+
+	if params.Q != nil {
+		filters.Q = strings.TrimSpace(*params.Q)
+		if utf8.RuneCountInString(filters.Q) > maxQueryLength {
+			invalid = append(invalid, api.FieldError{Field: "q", Rule: "maxLength", Message: "Search text must be at most 120 characters."})
+		}
+	}
+
+	if len(invalid) > 0 {
+		return Filters{}, invalid
+	}
+
+	return filters, nil
+}
+
 // GetClaim returns a claim that the session user may see, with the actions the claim policy allows. A malformed id is
 // 400, a missing claim 404, and a claim the user may not see 403 with no claim data (F03-AC-06, F03-AC-08).
 func (h Handler) GetClaim(ctx context.Context, request api.GetClaimRequestObject) (api.GetClaimResponseObject, error) {
 	user, ok := auth.UserFrom(ctx)
 	if !ok {
-		return nil, errUnauthenticated
+		return nil, httperr.ErrUnauthenticated
 	}
 
 	id, err := uuid.Parse(request.Id)
@@ -135,7 +217,7 @@ func (h Handler) GetClaim(ctx context.Context, request api.GetClaimRequestObject
 		return nil, httperr.ErrValidation
 	}
 
-	found, err := h.service.Get(ctx, Actor{ID: user.ID}, id)
+	found, err := h.service.Get(ctx, Actor{ID: user.ID, Role: user.Role}, id)
 	if err != nil {
 		return nil, problem(err)
 	}
@@ -164,6 +246,28 @@ func (h Handler) RejectClaim(ctx context.Context, request api.RejectClaimRequest
 	}
 
 	return api.RejectClaim200JSONResponse{DecidedJSONResponse: decidedBody(&decided)}, nil
+}
+
+// FinalApproveClaim makes the final approval of a PENDING_FINANCE claim for the session user. The checks run in the
+// order of F-08 §1.4.
+func (h Handler) FinalApproveClaim(ctx context.Context, request api.FinalApproveClaimRequestObject) (api.FinalApproveClaimResponseObject, error) {
+	decided, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionFinalApprove, request.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.FinalApproveClaim200JSONResponse{DecidedJSONResponse: decidedBody(&decided)}, nil
+}
+
+// FinalRejectClaim makes the final rejection of a PENDING_FINANCE claim for the session user. The checks run in the
+// order of F-08 §1.4.
+func (h Handler) FinalRejectClaim(ctx context.Context, request api.FinalRejectClaimRequestObject) (api.FinalRejectClaimResponseObject, error) {
+	decided, err := h.decide(ctx, request.Id, request.Params.IfMatch, ActionFinalReject, request.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.FinalRejectClaim200JSONResponse{DecidedJSONResponse: decidedBody(&decided)}, nil
 }
 
 // ReturnClaim returns the claim to its requester for the session user. The checks run in the order of F-04 §1.4.
@@ -261,7 +365,7 @@ func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, 
 
 	user, ok := auth.UserFrom(ctx)
 	if !ok {
-		return Actor{}, uuid.Nil, 0, errUnauthenticated
+		return Actor{}, uuid.Nil, 0, httperr.ErrUnauthenticated
 	}
 
 	id, err := uuid.Parse(rawID)
@@ -269,18 +373,23 @@ func mutationTarget(ctx context.Context, rawID string, ifMatch *string) (Actor, 
 		return Actor{}, uuid.Nil, 0, httperr.ErrValidation
 	}
 
-	return Actor{ID: user.ID}, id, version, nil
+	return Actor{ID: user.ID, Role: user.Role}, id, version, nil
 }
 
 var transitionErrors = map[Action]FieldError{
-	ActionApprove:  transitionError,
-	ActionReject:   transitionError,
-	ActionReturn:   {Field: "status", Rule: ruleTransition, Message: "Only a submitted claim can be returned."},
-	ActionEdit:     {Field: "status", Rule: "BR-10", Message: "Only a draft or a returned claim can be edited."},
-	ActionDelete:   {Field: "status", Rule: "BR-10", Message: "Only a draft can be deleted."},
-	ActionSubmit:   {Field: "status", Rule: ruleTransition, Message: "Only a draft or a returned claim can be submitted."},
-	ActionWithdraw: {Field: "status", Rule: "BR-16", Message: "Only a submitted or returned claim can be withdrawn."},
+	ActionApprove:      transitionError,
+	ActionReject:       transitionError,
+	ActionReturn:       {Field: "status", Rule: ruleTransition, Message: "Only a submitted claim can be returned."},
+	ActionEdit:         {Field: "status", Rule: "BR-10", Message: "Only a draft or a returned claim can be edited."},
+	ActionDelete:       {Field: "status", Rule: "BR-10", Message: "Only a draft can be deleted."},
+	ActionSubmit:       {Field: "status", Rule: ruleTransition, Message: "Only a draft or a returned claim can be submitted."},
+	ActionWithdraw:     {Field: "status", Rule: "BR-16", Message: "Only a submitted or returned claim can be withdrawn."},
+	ActionFinalApprove: finalTransitionError,
+	ActionFinalReject:  finalTransitionError,
 }
+
+// finalTransitionError is the field error of a final decision on a claim that is not PENDING_FINANCE (F-08 §1.5).
+var finalTransitionError = FieldError{Field: "status", Rule: ruleTransition, Message: "Only a claim pending finance can be finally approved or rejected."}
 
 // returnLimitError is the field error of ErrReturnLimit: the claim was already returned MaxReturns times (BR-14).
 var returnLimitError = FieldError{Field: "returnCount", Rule: "BR-14", Message: fmt.Sprintf("This claim has already been returned %d times.", MaxReturns)}

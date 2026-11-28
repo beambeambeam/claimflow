@@ -6,7 +6,7 @@
 - **Responsibilities verified here:** SR-03 (NFR-05, local restart), SR-04 (BR-03, BR-11, BR-13, NFR-06)
 - **Depends on:** F-01, F-02, F-03 (claim policy and Claim Detail)
 - **Design baseline:** `docs/system-sds.md` v0.8 §2.2 `claim_history`; §3.2 `APPROVE`, `REJECT`; §3.3; §4.1 versions; §4.3 `approve`, `reject`; §5.2; §5.3 `scope=review` and access tests; §7.2 decisions; ADR-0001
-- **Version:** 0.9 · **Last updated:** 2026-11-24
+- **Version:** 0.10 · **Last updated:** 2026-11-25
 
 ---
 
@@ -179,7 +179,7 @@ Example 409 for an invalid transition:
 ## 4. Data spec
 
 - **Schema:** no change. F-04 uses `claims.status`, `version`, `decided_at`, and `claim_history` from F-02 `00002_claims.sql`, including the append-only trigger (BR-11).
-- **Seed:** `bun run seed` adds sample claims, idempotent by `claim_no`, so every Sprint 1 and Sprint 2 screen has data. The last three rows come with Sprint 2 (F-05, F-06, F-07 §4):
+- **Seed:** `bun run seed` adds sample claims, idempotent by `claim_no`, so every Sprint 1 and Sprint 2 screen has data. Rows 7–9 come with Sprint 2 (F-05, F-06, F-07 §4), and the last row with Sprint 3 (F-08 §4):
 
 | Requester | Assigned reviewer | Status | History |
 | --- | --- | --- | --- |
@@ -192,6 +192,7 @@ Example 409 for an invalid transition:
 | `req.anan` | none | `DRAFT` (F-05) | none |
 | `req.anan` | `rev.malee` | `RETURNED`, `returnCount` 1 (F-06) | `SUBMIT`, `RETURN` with reason |
 | `req.ploy` | `rev.malee` | `WITHDRAWN` (F-07) | `SUBMIT`, `WITHDRAW` with comment |
+| `req.niran` | `rev.somchai` | `PENDING_FINANCE` (15,000.00, F-08) | `SUBMIT`, `APPROVE` |
 
 ## 5. Acceptance criteria
 
@@ -245,7 +246,7 @@ Levels as in F-01 §6. Module tests call `claim.Service.Act` against `pgtest` Po
 | F04-TEST-19 | F04-AC-16 | Manual | `docker compose` database with a named volume; seed plus one claim created and approved through the UI | Stop the API and the database container; start both; open My Claims and the claim as `req.anan` | Same claims, items, totals, and history as before the restart; result recorded with the commit |
 | F04-TEST-20 | F04-AC-17 | Component | MSW: queue with 2 claims; empty; 500; `/auth/me` as requester | Render Review Queue for each | Columns and order; empty message; error with **Try again**; requester sees the 403 page |
 | F04-TEST-21 | F04-AC-18 | Component | MSW claim with `allowedActions` `[]` and `["approve", "reject"]`; approve 200; reject 422; approve 409; approve 403 | Render; open each dialog and submit; type a 9-character, then a 10-character reason; for the mocked 422, submit a 10-character reason that the mock refuses | No panel for `[]`; confirm dialog; **Reject** disabled with the "at least 10 characters" message at 9 characters and enabled at 10; the mocked 422 message under the field with the 10-character text kept (the dialog cannot send a shorter reason); toast on success; 409 toast and refetch; 403 access page, and another claim still opens |
-| F04-TEST-22 | F04-AC-19 | Integration | Empty database | Run seed twice | Claims in §4 with their history exist after the first run (9 claims and 12 history rows once the Sprint 2 rows land; 6 and 8 before); row counts are the same after the second |
+| F04-TEST-22 | F04-AC-19 | Integration | Empty database | Run seed twice | Claims in §4 with their history exist after the first run (10 claims and 14 history rows once the F-08 row lands; 9 and 12 before); row counts are the same after the second |
 | F04-TEST-23 | F04-AC-20 | E2E | Seeded database | Log in as `req.anan` and submit; log in as `rev.malee`, open the claim from Review Queue, approve; log in as `req.anan`, open the claim | Status `Approved`; history shows `SUBMIT` then `APPROVE` with actor names |
 | F04-TEST-24 | F04-AC-05, F04-AC-18 | E2E | Seeded `SUBMITTED` claim | `rev.malee` opens the Reject dialog; leaves the reason empty, then types a 9-character reason; then rejects with "Receipt missing"; `req.anan` opens the claim | **Reject** is disabled for the empty and the 9-character reason, with the "at least 10 characters" message for the 9-character one; status `Rejected`; reason shown in history |
 
@@ -275,3 +276,4 @@ The Product DoD applies. For F-04 the evidence is:
 | 0.7 | 2026-11-22 | Follow-up (#67): F04-TEST-21 adds the approve 403 case: the access page shows no claim data, and another claim still opens after it | beambeambeam |
 | 0.8 | 2026-11-24 | Lab 7 change L7/01 (#99), SRS 0.3 BR-04: a reject reason needs 10–500 characters, not 5–500. Revised §1.5 (rule and both messages), the §1.6 boundary row, the §2.2 Reject row, F04-AC-06 (9 characters → 422, 10 → 200), F04-AC-18 (Reject is disabled below 10 characters), and the inputs and expected results of F04-TEST-06, 07, and 21 (the dialog blocks a reason under 10 characters), and F04-TEST-24 (its steps now check the disabled Reject button for an empty and a short reason; its reason "Receipt missing" (15 characters) is unchanged). Every other AC and test is unchanged. The §7 results were recorded under the 5–500 rule of 0.1–0.7 | 1005 |
 | 0.9 | 2026-11-24 | Sprint 2 seed (PR #100): §4 adds the `DRAFT`, `RETURNED`, and `WITHDRAWN` sample claims of F-05, F-06, and F-07; F04-TEST-22 expects their rows. Each Sprint 2 ticket that adds a seed row updates `TestF04TEST22SeedAddsSampleClaimsOnce` in the same PR. Version 0.8 is L7/01 (#101), which merges first | beambeambeam |
+| 0.10 | 2026-11-25 | Sprint 3 seed: §4 adds the `PENDING_FINANCE` sample claim of F-08; F04-TEST-22 expects 10 claims and 14 history rows once F-08/02 (#47) adds it in the same PR | beambeambeam |

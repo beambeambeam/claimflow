@@ -7,6 +7,7 @@
     "generate": "varlock codegen && go tool -modfile=tools.mod oapi-codegen -config oapi-codegen.yaml openapi.yaml && go tool -modfile=tools.mod sqlc generate",
     "migrate": "varlock run -- go run . migrate",
     "seed": "varlock run -- go run . seed",
+    "seed:load": "varlock run -- go run . seed-load",
     "migrate:new": "go tool -modfile=tools.mod goose -dir migrations create",
     "test": "go test -race ./...",
     "test:coverage": "go test -race -coverpkg=./... -coverprofile=coverage.out ./... && go tool -modfile=tools.mod go-test-coverage --config=.testcoverage.yml",

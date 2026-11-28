@@ -60,6 +60,25 @@ export const AppHeader = ({ user }: { user: CurrentUser }) => {
                 label="Review Queue"
               />
             ) : null}
+            {can(user, "finance", "list") ? (
+              <TopNavItem
+                href="/finance"
+                isSelected={pathname === "/finance"}
+                label="Finance Queue"
+              />
+            ) : null}
+            <TopNavItem
+              href="/all-claims"
+              isSelected={pathname === "/all-claims"}
+              label="All Claims"
+            />
+            {can(user, "report", "read") ? (
+              <TopNavItem
+                href="/reports"
+                isSelected={pathname === "/reports"}
+                label="Summary"
+              />
+            ) : null}
           </>
         }
       />

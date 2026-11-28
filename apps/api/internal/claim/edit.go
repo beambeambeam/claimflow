@@ -55,7 +55,7 @@ func (s Service) Edit(ctx context.Context, actor Actor, id uuid.UUID, version in
 		return Claim{}, fmt.Errorf("edit claim: %w", err)
 	}
 
-	_, edited.AllowedActions = Allowed(actor.ID, edited.subject())
+	_, edited.AllowedActions = Allowed(actor, edited.subject())
 	return edited, nil
 }
 

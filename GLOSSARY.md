@@ -66,6 +66,20 @@ _Avoid_: Accountant, finance approver
 
 _Avoid_: Second approval, finance approval
 
+**Finance Queue**: The list of high-value claims that wait for a Final Decision, oldest first. Every Finance Officer sees the same queue.
+
+_Avoid_: Finance inbox, second-stage queue
+
+### Reporting
+
+**Decision Summary**: Counts of claims by status, approved totals by month and category, and the average Decision Time. A reviewer's summary covers the claims assigned to them; a Finance Officer's covers the whole department. Requesters have none and use filtering instead.
+
+_Avoid_: Dashboard, statistics
+
+**Decision Time**: The time from a claim's first submission to its approval or rejection. For a high-value claim it ends at the Final Decision, so it includes the Finance Officer's stage.
+
+_Avoid_: Turnaround time, response time
+
 ### Access
 
 **Visible Claim**: A claim a member may see. A claim is visible to its requester, to its assigned reviewer (even after the claim ends), and, except for Drafts, to every Finance Officer. Other reviewers in the reporting line cannot see it.

@@ -24,6 +24,7 @@ describe("StatusBadge", () => {
   it.each<[ClaimStatus, string]>([
     ["SUBMITTED", "blue"],
     ["RETURNED", "yellow"],
+    ["PENDING_FINANCE", "purple"],
     ["APPROVED", "green"],
     ["REJECTED", "red"],
     ["DRAFT", "neutral"],
