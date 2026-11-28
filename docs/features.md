@@ -1,9 +1,9 @@
 # Feature Inventory
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System
-- **Baseline:** `docs/srs.md` v0.2
-- **Version:** 1.0 (IDs frozen on merge; later changes go in the change log in `docs/traceability.md`)
-- **Last updated:** 2026-11-04
+- **Baseline:** `docs/srs.md` v0.4
+- **Version:** 1.1 (IDs frozen on merge; later changes go in the change log in `docs/traceability.md`)
+- **Last updated:** 2026-11-28
 
 This document splits the SRS into **features**, which are user-visible slices delivered in one sprint, and **system responsibilities**, which are cross-cutting qualities that no single feature owns. Requirement IDs are the SRS IDs, unchanged. The requirement-by-requirement view is in `docs/traceability.md`. Section 4 links each feature and responsibility to its design in `docs/system-sds.md`.
 
@@ -23,6 +23,7 @@ This document splits the SRS into **features**, which are user-visible slices de
 | F-08 | Two-stage high-value approval | A claim over 10,000.00 THB approved by a non-Finance reviewer moves to `PendingFinance`. A Finance Officer then makes the final approve or reject decision. If the assigned reviewer is a Finance Officer, their approval is final. | FR-07, FR-12, BR-01, BR-02, BR-03, BR-04, BR-09, NFR-08 | F-04 | 3 |
 | F-09 | Filter and search | Filter the claims a user may see by status, category, and date range, and search them by title. | FR-13 | F-03, F-04 | 3 |
 | F-10 | Decision summaries | Counts by status, approved total by category and month, and average decision time. Reviewers see their assigned claims; Finance sees the whole department. | FR-14 | F-04, F-08 | 3 |
+| F-11 | Receipt Files | The requester attaches photos or PDFs to each line item while the claim is new, a `Draft`, or `Returned`. Anyone who can see the claim opens them from Claim Detail. The browser moves the file bytes straight to S3 with presigned URLs (ADR-0002). An operator sweep removes files never attached. | FR-02, FR-07, FR-15, FR-16, FR-17, BR-03, BR-08, BR-10, BR-11, BR-18, NFR-02, NFR-04, NFR-06, NFR-08, NFR-10 | F-02, F-03, F-05, F-06 | 3 |
 
 ### 1.1 Dependency graph
 
@@ -43,6 +44,10 @@ flowchart LR
     F04 --> F09
     F04 --> F10[F-10 Decision summaries]
     F08 --> F10
+    F02 --> F11[F-11 Receipt Files]
+    F03 --> F11
+    F05 --> F11
+    F06 --> F11
 ```
 
 Every dependency points to the same sprint or an earlier one, so each sprint can be built in order.
@@ -53,6 +58,7 @@ Every dependency points to the same sprint or an earlier one, so each sprint can
 - **F-05 and F-06 share the claim editor.** F-05 builds editing for `Draft`; F-06 reuses it for `Returned` claims. That is why F-06 depends on F-05. Every edit re-runs the line-item rules (BR-05, BR-06, BR-08, BR-12) and recalculates the total (FR-03), so both features carry them.
 - **The first submission can come from F-02 or F-05.** Submitting a draft is a first submission, so F-05 also records the assigned reviewer (BR-17), checks the expense date window (BR-07), and writes the first history entry (FR-07).
 - **F-07 depends on F-06** because withdrawing from `Returned` needs the `Returned` state to exist. Withdrawing from `Submitted` could ship without it, but F-07 is planned as one feature in Sprint 2.
+- **F-11 joined Sprint 3 on 2026-11-28.** It replaces the planned extra F-EXTRA-01 (#61). It depends on F-05 and F-06 because Receipt Files can be added and removed on a `Draft` or `Returned` claim through the shared claim editor. Its contract is `docs/sprints/sprint-3/F-11-receipt-files.md`, and its tickets merge into `sprint-3` like the other Sprint 3 features.
 - **Rules that span sprints** (FR-03, FR-07, BR-01 to BR-08, BR-10, BR-12, BR-17, NFR-08) are listed under every feature that adds a new path where the rule applies. Each of those features must test the rule on its own paths.
 
 ## 2. System responsibilities
@@ -61,10 +67,10 @@ These are cross-cutting requirements. Each lists the sprint that **establishes**
 
 | ID | Responsibility | Requirements | Applies to | Established | Verified |
 | --- | --- | --- | --- | --- | --- |
-| SR-01 | Authorization enforcement: 401 for anonymous requests, 403 for wrong role or no ownership/assignment, enforced on the server | NFR-02 | Every feature that adds an endpoint: F-01–F-10 | Sprint 1 | Sprint 1, 2, 3 (each sprint's new endpoints) |
+| SR-01 | Authorization enforcement: 401 for anonymous requests, 403 for wrong role or no ownership/assignment, enforced on the server | NFR-02 | Every feature that adds an endpoint: F-01–F-11 | Sprint 1 | Sprint 1, 2, 3 (each sprint's new endpoints) |
 | SR-02 | Secrets and configuration: varlock schema, no secrets in Git, `.env.example` | NFR-04 | All | Sprint 1 (local) | Sprint 1 (repository scan); Lab 5 (Secret Manager on GCP) |
 | SR-03 | Persistence and durability: data survives restart and redeploy | NFR-05 | All | Sprint 1 (PostgreSQL + migrations) | Sprint 1 (local restart); Lab 5 (GCP redeploy) |
-| SR-04 | Lifecycle integrity: valid transitions only, append-only history, one transaction per change, optimistic locking | BR-03, BR-11, BR-13, NFR-06 | F-02, F-04, F-05, F-06, F-07, F-08 | Sprint 1 (F-04) | Sprint 1, 2, 3 (every new transition) |
+| SR-04 | Lifecycle integrity: valid transitions only, append-only history, one transaction per change, optimistic locking | BR-03, BR-11, BR-13, NFR-06 | F-02, F-04, F-05, F-06, F-07, F-08, F-11 | Sprint 1 (F-04) | Sprint 1, 2, 3 (every new transition) |
 | SR-05 | Performance with realistic data volume | NFR-07 | F-03, F-04, F-09, F-10 | Sprint 3 (`seed:load` dataset) | Sprint 3 (timed API run on the deployed instance) |
 | SR-06 | Automated tests and CI gate: every BR tested, 100% Go coverage, required checks on PRs | NFR-09 | All | Sprint 1 (existing CI) | Sprint 1, 2, 3 |
 | SR-07 | Containerized delivery: one-command local run with Docker | NFR-10 | All | Lab 5 | Lab 5 |
@@ -76,13 +82,13 @@ These are cross-cutting requirements. Each lists the sprint that **establishes**
 | 1 (due 8 Nov) | F-01, F-02, F-03, F-04 | SR-01, SR-02 (local), SR-03 (local), SR-04, SR-06 |
 | Lab 5 (due 15 Nov) | – | SR-02 (cloud), SR-03 (GCP), SR-07 |
 | 2 (due 29 Nov) | F-05, F-06, F-07 | – (SR-01, SR-04, SR-06 re-verified) |
-| 3 (due 13 Dec) | F-08, F-09, F-10 | SR-05 (SR-01, SR-04, SR-06 re-verified) |
+| 3 (due 13 Dec) | F-08, F-09, F-10, F-11 | SR-05 (SR-01, SR-02, SR-04, SR-06, SR-07 re-verified) |
 
 Sprint goals and sequencing are detailed in the three-sprint plan (#5).
 
 ## 4. Design references
 
-Each feature and responsibility is designed in the system SDS (`docs/system-sds.md` v0.7). Each feature contract in `docs/sprints/` refines these sections. Section numbers below are SDS sections.
+Each feature and responsibility is designed in the system SDS (`docs/system-sds.md` v0.21). Each feature contract in `docs/sprints/` refines these sections. Section numbers below are SDS sections.
 
 | ID | SDS sections |
 | --- | --- |
@@ -96,6 +102,7 @@ Each feature and responsibility is designed in the system SDS (`docs/system-sds.
 | F-08 | 3.2 `APPROVE` → `PENDING_FINANCE`, `FINAL_APPROVE`, `FINAL_REJECT`; 4.3 `final-approve`, `final-reject`; 5.2; 5.3 `scope=finance`; 7.1 Finance Queue |
 | F-09 | 4.3 filters; 5.2 visibility; 5.3 `scope=all` |
 | F-10 | 4.4 decision summary; 5.3 matrix; 7.1 Summary |
+| F-11 | 1.1 storage path; 1.4.1 `internal/storage`; 2.2 `receipt_files`; 2.5 `deps:up`, `sweep`; 3.4 Receipt Files; 4.3 `/receipt-files`; 5.1 `receipt:create`; 5.2 Receipt File visibility; 7.1 New Claim, Edit Claim, Claim Detail; 8 `S3_*`, `AWS_*`; 9 storage; SD-17, SD-18 |
 | SR-01 | 4.2 error format; 5 roles, ownership, and permissions (route inventory test in 5.3); 6 cross-origin protection |
 | SR-02 | 8 configuration and secrets |
 | SR-03 | 2.5 migrations; 9 deployment |

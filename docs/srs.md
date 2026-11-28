@@ -3,10 +3,10 @@
 - **Product:** ClaimFlow — Department Expense Reimbursement System
 - **Course:** CPE 334 Group Project — Theme 5: Workflow and Approval System
 - **Team:** 1005, 1045
-- **Version:** 0.3 (draft for Deliverable 1)
-- **Last updated:** 2026-11-24
+- **Version:** 0.4 (draft for Deliverable 1)
+- **Last updated:** 2026-11-28
 
-Domain terms (Claim, Requester, Assigned Reviewer, Return, Withdraw, High-value Claim, …) are defined in `GLOSSARY.md`.
+Domain terms (Claim, Requester, Assigned Reviewer, Return, Withdraw, High-value Claim, Receipt File, …) are defined in `GLOSSARY.md`.
 
 ---
 
@@ -50,6 +50,7 @@ Each arrow points to that person's assigned reviewer. Section Head and Departmen
 - Enforced claim lifecycle (Section 5).
 - Two-stage approval for high-value claims (Sprint 3).
 - Claim filtering/search and decision summaries (Sprint 3).
+- Receipt Files: photos or PDFs attached to line items as proof of payment, opened from the claim (Sprint 3, F-11).
 - Persistent database with seeded demo data; Docker packaging and GCP deployment (Lab 5).
 
 ### 3.2 Exclusions (out of scope)
@@ -60,7 +61,7 @@ Each arrow points to that person's assigned reviewer. Section Head and Departmen
 | EX-02 | Real payment, bank transfer, or payroll integration | Course rule: no real payment gateway. `Approved` is the end of the workflow. |
 | EX-03 | Email, SMS, or push notifications | No external messaging services. Status is visible in the app only. |
 | EX-04 | Self-registration, password recovery, email verification | Not required; seeded accounts are used. |
-| EX-05 | Receipt file upload and OCR | A receipt reference number is entered instead (D-09). |
+| EX-05 | OCR, thumbnails, and virus scanning of Receipt Files | Receipt Files are stored and shown as uploaded (D-09). |
 | EX-06 | Multiple currencies and tax calculation | All amounts are in THB. |
 | EX-07 | Budget tracking per project or cost centre | Separate product concern. |
 | EX-08 | Account administration UI (create users, change roles, change the reporting line) | Managed through seed data/migrations. |
@@ -127,7 +128,7 @@ Priority: **M** = must, **S** = should.
 | ID | Requirement | Actor | Priority | Sprint |
 | --- | --- | --- | --- | --- |
 | FR-01 | A user can log in with username and password and log out. The system can return the current user's identity and role. | All | M | 1 |
-| FR-02 | A requester can create and submit a claim containing a title, purpose, and one or more line items (category, description, expense date, amount, receipt reference). On submission the claim is assigned to the requester's assigned reviewer. | A-01, A-02 | M | 1 |
+| FR-02 | A requester can create and submit a claim containing a title, purpose, and one or more line items (category, description, expense date, amount, receipt reference, and optional Receipt Files). On submission the claim is assigned to the requester's assigned reviewer. | A-01, A-02 | M | 1 |
 | FR-03 | The system calculates a claim's total on the server from its line items. | System | M | 1 |
 | FR-04 | A requester can list their own claims with status and total, and view any one of them in detail, including its history. | A-01, A-02 | M | 1 |
 | FR-05 | A Reviewer or Finance Officer can list the claims assigned to them that are awaiting a decision, and view each one in detail, including its full history. | A-02, A-03 | M | 1 |
@@ -140,6 +141,9 @@ Priority: **M** = must, **S** = should.
 | FR-12 | A high-value claim approved by an assigned reviewer who is not a Finance Officer moves to `PendingFinance`. A Finance Officer then approves or rejects it. | A-02, A-03 | M | 3 |
 | FR-13 | Users can filter the claims they are allowed to see by status, category, and date range, and search them by title. | All | S | 3 |
 | FR-14 | Decision summaries: a Reviewer sees counts by status, approved total by category and month, and average decision time for the claims assigned to them. A Finance Officer sees the same for the whole department. | A-02, A-03 | M | 3 |
+| FR-15 | A requester can attach Receipt Files to each line item of a claim while it is new, a `Draft`, or `Returned`, and remove them before submitting. Each upload shows its progress and can be cancelled. | A-01, A-02 | S | 3 |
+| FR-16 | Anyone who can see a claim can open each line item's Receipt Files from the claim. A download link stops working after at most 5 minutes. | All | S | 3 |
+| FR-17 | An operator can run a sweep that deletes Receipt Files never attached to a claim within 24 hours, and stored files that no Receipt File record points to. Running it again changes nothing. | System | S | 3 |
 
 ## 7. Business rules
 
@@ -162,6 +166,7 @@ Priority: **M** = must, **S** = should.
 | BR-15 | **Assigned reviewer required:** a member without an assigned reviewer cannot create claims, including drafts. This includes every Finance Officer. | 1 |
 | BR-16 | **Withdraw window:** a claim can be withdrawn only while it is `Submitted` or `Returned`. | 2 |
 | BR-17 | **Reviewer fixed at submission:** a claim's assigned reviewer is recorded at its first submission and stays the same for resubmissions, even if the reporting line changes later. | 1 |
+| BR-18 | **Receipt Files:** a Receipt File is a JPEG, PNG, WebP, or PDF of 1 byte to 10 MB, and its content must match its type. A line item holds at most 5 Receipt Files, and each Receipt File belongs to one line item. Only the member who uploaded a Receipt File can attach or remove it, and only while it is unattached or its claim is `Draft` or `Returned` (BR-08). | 3 |
 
 ## 8. Non-functional requirements
 
@@ -186,6 +191,8 @@ The detailed matrix is in `docs/system-sds.md`.
 | --- | --- | --- | --- | --- |
 | Log in / log out | ✓ | ✓ | ✓ | login only |
 | Create, submit, or view **own** claims | ✓ | ✓ | ✗ (BR-15) | ✗ |
+| Attach or remove Receipt Files on own claim (S3) | allowed states | allowed states | ✗ | ✗ |
+| Open a claim's Receipt Files (S3) | own claims | own and assigned | as for viewing the claim | ✗ |
 | Edit, withdraw, or delete own claim | allowed states | allowed states | ✗ | ✗ |
 | View another user's claim | ✗ | assigned only | assigned, `PendingFinance`, and summaries | ✗ |
 | Approve, reject, or return | ✗ | assigned, not own | assigned (Department Head's claims) | ✗ |
@@ -194,7 +201,7 @@ The detailed matrix is in `docs/system-sds.md`.
 
 ## 10. Resolved decisions
 
-All decisions below were made by the team on 2026-10-31.
+All decisions below were made by the team on 2026-10-31. D-09 was revised on 2026-11-28.
 
 | ID | Question | Decision | Rationale |
 | --- | --- | --- | --- |
@@ -206,7 +213,7 @@ All decisions below were made by the team on 2026-10-31.
 | D-06 | Can a Finance Officer submit claims? | No. They have no assigned reviewer. | Covered by BR-15 with no special case. |
 | D-07 | What happens to pending claims when the reporting line changes? | They keep the reviewer recorded at submission (BR-17). | Decisions and history stay consistent. |
 | D-08 | Reject vs return? | Reject is final; to try again, the requester submits a new, unrelated claim. Return lets the requester correct and resubmit the same claim to the same reviewer, at most 3 times. | Clear meaning for each decision. The limit stops endless back-and-forth. |
-| D-09 | Receipt evidence? | A receipt reference number per line item. | File storage is not core to the workflow. |
+| D-09 | Receipt evidence? | A receipt reference number per line item, plus optional Receipt Files (F-11, revised 2026-11-28; ADR-0002). | The reference number keeps every claim checkable. Receipt Files let a reviewer see the receipt without asking for the paper. |
 | D-10 | Editing after submission? | No editing while `Submitted`. The requester may withdraw. Editing is allowed only in `Draft` or `Returned`. | A claim cannot change while a reviewer is looking at it. |
 | D-11 | Can a claim be withdrawn while `PendingFinance`? | No. | The reviewer has already decided. |
 | D-12 | Multi-stage approval? | Two stages for claims over 10,000.00 THB (Sprint 3). The Finance Officer may only approve or reject, not return. | A boundary rule that is easy to test. No return from stage 2 means no question about restarting stage 1. |
@@ -228,3 +235,4 @@ All decisions below were made by the team on 2026-10-31.
 | 0.1 | 2026-10-31 | Initial baseline draft | 1005, 1045 |
 | 0.2 | 2026-10-31 | Requirements review session: reporting-line assignment, Finance Officer from Sprint 1, Withdraw replaces Cancel, return limit, BR-14 to BR-17, D-01 to D-16 | 1005, 1045 |
 | 0.3 | 2026-11-24 | Lab 7 change L7/01 (#99): BR-04 reason minimum raised from 5 to 10 characters, for reject, return, and final reject alike. The maximum stays 500 | 1005 |
+| 0.4 | 2026-11-28 | F-11 Receipt Files added to Sprint 3: D-09 and EX-05 revised (file upload in, OCR out); FR-02 line items gain optional Receipt Files; FR-15 to FR-17 and BR-18 added; §3.1 and §9 updated | beambeambeam |

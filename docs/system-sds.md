@@ -2,9 +2,9 @@
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System (repository: `beambeambeam/claimflow`)
 - **Team:** 1005, 1045
-- **Version:** 0.20 (draft for Deliverable 1)
-- **Last updated:** 2026-11-27
-- **Baseline:** `docs/srs.md` v0.3 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
+- **Version:** 0.21 (draft for Deliverable 1)
+- **Last updated:** 2026-11-28
+- **Baseline:** `docs/srs.md` v0.4 · Glossary: `GLOSSARY.md` · Decisions: `docs/adr/`
 
 This document defines the system-wide design: architecture, data model, the API contract and its conventions, roles and access, authentication, configuration, and deployment. Each feature contract in `docs/sprints/` refines it with exact operations in `apps/api/openapi.yaml`, screens, and schema changes.
 
@@ -23,18 +23,22 @@ flowchart LR
     subgraph C[API container – apps/api]
         API[Gin router<br/>/api/v1/*<br/>+ static web files] --> MW[Cross-origin protection<br/>session middleware<br/>OpenAPI request validation]
         MW --> H[Handlers<br/>generated strict server interface]
-        H --> CM[Claim module<br/>policy + lifecycle + rules]
+        H --> CM[Claim module<br/>policy + lifecycle + rules<br/>+ Receipt Files]
         H --> AM[Auth module]
         CM & AM --> DB[internal/db<br/>sqlc over pgx]
+        CM --> ST[internal/storage<br/>aws-sdk-go-v2 S3 client]
     end
 
     DB -- "SQL over TCP" --> PG[(PostgreSQL)]
+    ST -- "HeadObject, GetObject range,<br/>DeleteObject, presign" --> S3[(S3 bucket<br/>RustFS locally, AWS S3 in production)]
+    B -- "PUT / GET with presigned URL<br/>(Receipt File bytes only)" --> S3
     SPEC[(openapi.yaml)] -. generates .-> H
     SPEC -. generates .-> CL[web API client] -.-> B
 ```
 
 - **Local:** the web dev server (`:3000`) proxies `/api` to the API (`:8080`), so the browser stays on one origin. This proxy already exists in the repo.
 - **Production:** the API container also serves the built web files (Section 9), so there is one origin and cookies work without any CORS setup.
+- **Receipt Files (F-11):** the browser sends and fetches Receipt File bytes straight to and from the S3 bucket with presigned URLs that the API signs after its own checks. The API never carries file bytes (ADR-0002). Only the bucket needs CORS; the app still needs none.
 
 ### 1.2 Technology stack
 
@@ -59,7 +63,8 @@ flowchart LR
 | CSRF | `net/http.CrossOriginProtection` (Go 1.25+) | to add | Standard library check that uses the browser's Fetch metadata; no tokens |
 | Logging | `log/slog` JSON with request ID | to add | One log line per request that can be found from an error response |
 | Configuration | varlock (`.env.schema`, generated `env/env.go`) + committed `.env.example` | in repo | Typed, validated environment with sensitive-value handling; `.env.example` documents it (NFR-04) |
-| Tests | Go `testing` + `gotestsum`; `testcontainers-go` (PostgreSQL) for integration; Vitest via `vp test` + Testing Library + MSW (web); Playwright (E2E) | partly in repo | Covers all three test levels the course requires |
+| Object storage (F-11) | `aws-sdk-go-v2` (`service/s3` and `s3.PresignClient`), RustFS `1.0.7` in the compose stack, an AWS S3 bucket in production | to add | One S3 API for both environments; presigned URLs keep file bytes off the API (ADR-0002). `feature/s3/manager` is deprecated and `transfermanager` is 0.x, so neither is used. |
+| Tests | Go `testing` + `gotestsum`; `testcontainers-go` (PostgreSQL) for integration; `gofakes3` (in-process S3) for the storage adapter; Vitest via `vp test` + Testing Library + MSW (web); Playwright (E2E) | partly in repo | Covers all three test levels the course requires |
 | Packaging | Docker (API image already builds in CI); the image also contains the web build | in repo | Lab 5 |
 
 ### 1.3 Module responsibilities
@@ -72,6 +77,8 @@ flowchart LR
 | Claim module (`internal/claim`) | **All claim business rules** (BR-01 to BR-17): the claim policy, the lifecycle, totals, the conditional update, history, transactions. | Know about HTTP or Gin. |
 | Auth module (`internal/auth`) | Login, logout, sessions, bans, route-level permissions. | Know about claims. |
 | `internal/db` (sqlc) | Generated queries and row types. | Make permission decisions. |
+| `internal/storage` | The S3 adapter: presign PUT and GET, head and read the first bytes of an object, delete, list, and head bucket (F-11). | Know about claims, Receipt File rules, or who may see a file. |
+| S3 bucket | Receipt File bytes, private, keyed `receipts/<uuidv7>`. CORS lets the web origin `PUT` and `GET`. | Hold any record of which claim a file belongs to; that is in PostgreSQL. |
 | PostgreSQL | Durable storage. Constraints and triggers are the last line of defence: FKs, CHECKs, unique indexes, the append-only history trigger. | – |
 
 **Where rules are enforced:** in the claim module, backed up by database constraints. Tests call the claim module's interface (Section 3.1) against a real PostgreSQL, so they cover how the rules are called, not only the rules alone.
@@ -93,7 +100,7 @@ This follows the Go guide [Organizing a Go module](https://go.dev/doc/modules/la
 ```
 apps/api/
   main.go  server.go  config.go   # entry: startup, config, router; composes the feature handlers
-  migrate.go  seed.go  seed_load.go   # `migrate`, `seed`, and `seed-load` subcommands of the one binary
+  migrate.go  seed.go  seed_load.go  sweep.go   # `migrate`, `seed`, `seed-load`, and `sweep` subcommands of the one binary
   validate.go                      # request validation middleware: JSON body checked against the contract schema (400 with field errors)
   openapi.yaml                     # the API contract (Section 4)
   oapi-codegen.yaml  sqlc.yaml     # code generation config
@@ -113,6 +120,7 @@ apps/api/
       policy.go                    #   who may see a claim and which actions they may take (Section 5.2)
       lifecycle.go                 #   transition table
       rules.go                     #   BR field checks
+      receipt.go                   #   Receipt Files: create, complete, link, delete, download, sweep (Section 3.4)
       model.go  queries.sql  *_test.go
     report/                        # feature: decision summaries (Sprint 3)
       handler.go  service.go  queries.sql  *_test.go
@@ -120,6 +128,7 @@ apps/api/
     httperr/                       # shared: RFC 9457 problem responses and request IDs (Section 4.2)
     system/                        # shared: /health and /ready (Section 4.3)
     money/                         # shared: the money.Satang type (Section 2.3)
+    storage/                       # shared: the S3 adapter over aws-sdk-go-v2 (F-11, Section 3.4)
     pgtest/                        # shared, tests only: one PostgreSQL container per package, a fresh database per test
   migrations/                      # goose SQL migrations (one schema for all features)
 ```
@@ -130,7 +139,8 @@ apps/api/
 - **Names.** Packages are short singular nouns. Following [Package names](https://go.dev/blog/package-names), there are no `util`, `common`, or `models` packages, and type names do not repeat the package name (`claim.Service`, not `claim.ClaimService`).
 - **Enforcement.** `depguard` rules in `.golangci.yml`:
   - `internal/report/**` must not import `internal/claim`, and the reverse.
-  - Shared packages (`api`, `daterange`, `db`, `httperr`, `money`, `pgtest`) must not import a feature.
+  - Shared packages (`api`, `daterange`, `db`, `httperr`, `money`, `pgtest`, `storage`) must not import a feature.
+- **Receipt Files live in `claim`.** Whether a member may open or change a Receipt File depends on its claim's visibility and status (Section 5.2), and `depguard` forbids a separate feature from importing `claim`. The bucket client is a shared package because readiness (`system`) also checks the bucket.
   - Only `_test.go` files may import `pgtest`.
 
 #### 1.4.2 Web (`apps/web`)
@@ -181,6 +191,8 @@ erDiagram
     USER ||--o{ CLAIM : "is assigned reviewer of"
     USER |o--o{ USER : "is assigned reviewer of (reporting line)"
     CLAIM ||--|{ LINE_ITEM : contains
+    LINE_ITEM |o--o{ RECEIPT_FILE : "is proved by"
+    USER ||--o{ RECEIPT_FILE : uploads
     CLAIM ||--o{ CLAIM_HISTORY : records
     USER ||--o{ CLAIM_HISTORY : "acts in"
 ```
@@ -271,7 +283,23 @@ Indexes: `(requester_id, status)` and `(assigned_reviewer_id, status)`.
 | description | VARCHAR(200) | NOT NULL |
 | expense_date | DATE | NOT NULL. The date window (BR-07) is checked by the claim module on every submit/resubmit. |
 | amount_satang | BIGINT | NOT NULL, CHECK `> 0 AND <= 2000000` (BR-05). CHECK `category <> 'MEALS' OR amount_satang <= 150000` (BR-12). |
-| receipt_ref | VARCHAR(50) | NOT NULL (D-09) |
+| receipt_ref | VARCHAR(50) | NOT NULL (D-09). Still required when the line item has Receipt Files. |
+
+**`receipt_files`** (F-11) – one row per Receipt File. The bytes are in the S3 bucket under `object_key`.
+
+| Field | Type | Constraints |
+| --- | --- | --- |
+| id | UUID | PK |
+| object_key | VARCHAR(64) | UNIQUE, NOT NULL. `receipts/<id>`; it never contains user input. |
+| uploader_id | UUID | FK → user.id, NOT NULL. Only the uploader can complete, attach, or delete the file. |
+| filename | VARCHAR(255) | NOT NULL. The original file name, shown in the UI and sent in the download's `Content-Disposition`. |
+| content_type | VARCHAR(50) | NOT NULL. CHECK `IN ('image/jpeg', 'image/png', 'image/webp', 'application/pdf')` (BR-18). |
+| size_bytes | INTEGER | NOT NULL. CHECK `BETWEEN 1 AND 10485760` (BR-18). |
+| state | ENUM `UPLOADING`, `READY` | NOT NULL, default `UPLOADING`. `READY` after the complete check (Section 3.4). |
+| line_item_id | UUID | FK → line_items.id, ON DELETE SET NULL, NULL while unattached. Only a `READY` file can be attached: CHECK `line_item_id IS NULL OR state = 'READY'`. |
+| created_at | TIMESTAMPTZ | NOT NULL. The sweep removes unattached files older than 24 hours. |
+
+Indexes: `(line_item_id)` and `(uploader_id, created_at)`. The limit of 5 Receipt Files per line item (BR-18) is checked by the claim module inside the claim transaction, not by a constraint.
 
 **`claim_history`** – append-only (BR-11)
 
@@ -289,6 +317,7 @@ Indexes: `(requester_id, status)` and `(assigned_reviewer_id, status)`.
 - A `BEFORE UPDATE OR DELETE` trigger on `claim_history` raises an error, so no code path can change history (BR-11). An integration test checks this.
 - Drafts have no history; history starts at the first `SUBMIT`.
 - Deleting a draft (BR-10) deletes the claim and its line items. A claim with history can never be deleted, because the trigger and the FK block it.
+- Deleting a draft also deletes its `receipt_files` rows in the same transaction, and their objects after the commit (Section 3.4). Edits replace line items, so the claim module moves each kept Receipt File to the new line item row in the same transaction.
 
 ### 2.3 Money
 
@@ -308,12 +337,13 @@ Indexes: `(requester_id, status)` and `(assigned_reviewer_id, status)`.
 
 | Command (in `apps/api`) | Purpose |
 | --- | --- |
-| `bun run db:up` (repo root) | `docker compose up -d --wait db`: PostgreSQL 17 with a named volume, for local development |
+| `bun run deps:up` (repo root) | `docker compose up -d --wait db rustfs rustfs-init`: PostgreSQL 17 and RustFS with named volumes, and the one-shot bucket and CORS setup, for local development. It replaces `db:up`. |
 | `bun run migrate up\|down\|status` | Runs `api migrate`, a subcommand of the API binary. goose applies the SQL files in `migrations/`, which are embedded in the binary, under a PostgreSQL advisory lock. The API never migrates at startup. |
 | `bun run migrate:new <name> sql` | Adds a goose SQL migration file |
 | `bun run generate` | Regenerate `env/env.go` (varlock), `internal/api` (oapi-codegen), and `internal/db` (sqlc); generated code is committed, and CI fails if regenerating changes it |
 | `bun run seed` | Load the base demo dataset. Idempotent: upserts by username/claim_no. |
 | `bun run seed:load` | Runs `api seed-load`: adds 240 load claims `CLM-LOAD-0001` to `CLM-LOAD-0240` for NFR-07 (F-10 §1.8). Idempotent by `claim_no`. Needs the base seed users. |
+| `bun run sweep` | Runs `api sweep`: deletes unattached Receipt Files older than 24 hours, objects with no `receipt_files` row, and rows whose object is missing (FR-17, Section 3.4). Safe to run again. Run by hand; it is not scheduled. |
 | `bun run perf -- --base-url <url> --rounds 20` (repo root) | NFR-07 timed run, `scripts/nfr07-timed-run.ts`: prints the response times of the main requests as a Markdown table and exits non-zero when the overall p95 is 1 s or more (F-10 §1.9). Needs `SEED_USER_PASSWORD` in the environment and the load data. |
 
 In `apps/web`, `bun run generate` regenerates `src/lib/api` from `../api/openapi.yaml`, with the same CI check. The root `bun run generate` runs both.
@@ -330,7 +360,7 @@ In `apps/web`, `bun run generate` regenerates `src/lib/api` from `../api/openapi
 | `rev.prasert` | `reviewer` | Department Head | `fin.wanida` | Top of the reviewer line; his claims go to Finance (ADR-0001) |
 | `fin.wanida` | `finance` | Finance Officer | – (NULL) | Reviews the Department Head's claims; cannot create claims (BR-15); final decisions in Sprint 3 |
 
-The seed also creates sample claims in every Sprint 1 status (`SUBMITTED`, `APPROVED`, `REJECTED`), each with history. `pgtest` (Go integration tests), MSW handlers (web tests), and Playwright (E2E) use the same seed users.
+The seed also creates sample claims in every Sprint 1 status (`SUBMITTED`, `APPROVED`, `REJECTED`), each with history. It creates no Receipt Files. `pgtest` (Go integration tests), MSW handlers (web tests), and Playwright (E2E) use the same seed users.
 
 ## 3. Claim module and lifecycle
 
@@ -345,6 +375,13 @@ func (s *Service) Create(ctx context.Context, actor Actor, in Input, submit bool
 func (s *Service) Edit(ctx context.Context, actor Actor, id uuid.UUID, version int, in Input) (Claim, error)
 func (s *Service) Delete(ctx context.Context, actor Actor, id uuid.UUID, version int) error
 func (s *Service) Act(ctx context.Context, actor Actor, id uuid.UUID, version int, a Action, comment string) (Claim, error)
+
+// Receipt Files (F-11, Section 3.4)
+func (s *Service) CreateReceiptFile(ctx context.Context, actor Actor, in ReceiptFileInput) (ReceiptUpload, error)
+func (s *Service) CompleteReceiptFile(ctx context.Context, actor Actor, id uuid.UUID) (ReceiptFile, error)
+func (s *Service) DeleteReceiptFile(ctx context.Context, actor Actor, id uuid.UUID) error
+func (s *Service) ReceiptFileURL(ctx context.Context, actor Actor, id uuid.UUID) (string, error)
+func (s *Service) SweepReceiptFiles(ctx context.Context) (SweepResult, error)
 ```
 
 - `Claim` includes `AllowedActions`, the actions this actor may take on this claim right now (Section 5.2).
@@ -382,6 +419,43 @@ Each call runs in one transaction (`pgx.BeginFunc`, NFR-06):
 4. Run `UPDATE claims SET status = $to, version = version + 1, ... WHERE id = $id AND version = $expected`, where `$expected` is the version the **client** sent in `If-Match`.
 5. If 0 rows are updated, the claim changed after the client loaded it, or another request won a race → `ErrConflict` (409) and roll back. This covers both concurrent decisions (BR-13) and a decision made on an out-of-date screen.
 6. Insert the `claim_history` row and commit.
+
+### 3.4 Receipt Files (F-11)
+
+Receipt File rules live in `internal/claim/receipt.go` behind the methods in Section 3.1. The bucket is reached through a small `Store` interface that `claim` defines and `internal/storage` implements, so `claim` never imports the AWS SDK.
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant A as API (claim module)
+    participant D as PostgreSQL
+    participant S as S3 bucket
+    B->>A: POST /receipt-files {filename, contentType, size}
+    A->>A: type and size checks (BR-18)
+    A->>D: insert receipt_files (UPLOADING)
+    A-->>B: 201 {id, uploadUrl, uploadHeaders, expiresAt}
+    B->>S: PUT uploadUrl (Content-Type, Content-Length signed)
+    B->>A: POST /receipt-files/{id}/complete
+    A->>S: HeadObject, then GET Range bytes=0-511
+    A->>D: state = READY
+    A-->>B: 200 ReceiptFile
+    B->>A: POST /claims {items: [{..., receiptFileIds}]}
+    A->>D: claim, line items, and links in one transaction
+```
+
+| Step | Rule |
+| --- | --- |
+| Create | The declared type must be JPEG, PNG, WebP, or PDF (415) and the size 1 byte to 10 MB (413), with a field message (NFR-08). The API inserts an `UPLOADING` row and returns a presigned `PUT` for `receipts/<id>` with `Content-Type` and `Content-Length` signed and a 5-minute expiry. |
+| Complete | Uploader only. `HeadObject` must find the object with the declared size and type. The first 512 bytes must sniff as the declared type. On a match the row becomes `READY`. A missing object → 409 `CONFLICT`; a wrong size or type → 415. On either failure the API deletes the object and the row. |
+| Attach | `items[].receiptFileIds` in the claim create, edit, and submit bodies. Each ID must exist, belong to the actor, be `READY`, and not be attached to another line item. A line item ends with at most 5. A failure is a 422 field error `items[i].receiptFileIds` with rule BR-18, and nothing is saved. Links are written in the claim's transaction (NFR-06). Omitting an attached ID from an edit detaches it, and the sweep removes it later. |
+| Frozen | A Receipt File attached to a claim that is not `DRAFT` or `RETURNED` cannot be detached or deleted: 409 `INVALID_TRANSITION`, rule BR-03. |
+| Delete | Uploader only, and only while the file is unattached or its claim is `DRAFT` or `RETURNED`. The row is deleted in the transaction and the object after the commit. If the object delete fails, the row stays deleted and the sweep removes the object. |
+| Download | `GET /receipt-files/{id}/content` → 302 to a presigned `GET` with a 5-minute expiry, `response-content-type` set to the stored type, and `response-content-disposition` set to `inline` with the original filename. Visibility follows Section 5.2. |
+| Sweep | Deletes unattached Receipt Files older than 24 hours (row and object), objects under `receipts/` with no row, and rows whose object is missing. |
+
+- **Two endpoints, one config.** The API calls the bucket at `S3_ENDPOINT`. It signs URLs for `S3_PUBLIC_ENDPOINT`, because the signed host must be the one the browser reaches (`localhost:9000` locally, while the API reaches `rustfs:9000` inside compose). Path-style addressing is on only when an endpoint is set. In production both are unset, so the SDK uses the regional AWS endpoint.
+- **Checksums.** Both SDK clients set `RequestChecksumCalculation` and `ResponseChecksumValidation` to `WhenRequired`, so RustFS and other S3-compatible stores accept the requests.
+- **History.** Attaching or removing a Receipt File writes no history entry of its own. Withdraw, reject, and approve keep the files.
 
 ## 4. API contract and conventions
 
@@ -422,10 +496,12 @@ Errors use **RFC 9457 Problem Details** (`Content-Type: application/problem+json
 | 400 | `BAD_REQUEST` | Malformed JSON, or the request does not match the contract (wrong types, missing fields, bad money format) |
 | 401 | `UNAUTHENTICATED` | No session, or the session is invalid or expired, or the user is banned |
 | 403 | `FORBIDDEN` | Wrong role for the route, not the owner, not the assigned reviewer, self-approval (BR-01, BR-02), no assigned reviewer (BR-15), or a cross-origin state change |
-| 404 | `NOT_FOUND` | Claim does not exist |
+| 404 | `NOT_FOUND` | Claim or Receipt File does not exist |
 | 409 | `INVALID_TRANSITION` | Action not allowed from the current status (BR-03, BR-10, BR-16), or return limit reached (BR-14). `errors[0].rule` names the rule. |
-| 409 | `CONFLICT` | The claim changed since the client loaded it, or a concurrent change won (BR-13) |
-| 422 | `VALIDATION_FAILED` | Business-rule validation failed (BR-04 to BR-07, BR-12) |
+| 409 | `CONFLICT` | The claim changed since the client loaded it, or a concurrent change won (BR-13). Also: a Receipt File is completed before its object is in the bucket (F-11). |
+| 413 | `FILE_TOO_LARGE` | A Receipt File is empty or larger than 10 MB (BR-18) |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | A Receipt File is not JPEG, PNG, WebP, or PDF, or its content does not match its type (BR-18) |
+| 422 | `VALIDATION_FAILED` | Business-rule validation failed (BR-04 to BR-07, BR-12, BR-18) |
 | 428 | `PRECONDITION_REQUIRED` | A change to an existing claim without `If-Match` |
 | 500 | `INTERNAL` | Unexpected error. Details are logged with `slog` only, under the same `requestId`. |
 
@@ -452,8 +528,12 @@ The contract holds the exact shapes. All paths are under `/api/v1`.
 | POST | `/claims/{id}/withdraw` | Withdraw a SUBMITTED/RETURNED claim | session; policy | 2 |
 | POST | `/claims/{id}/final-approve`, `/final-reject` | Finance final decision | session; policy | 3 |
 | GET | `/reports/summary?from=&to=` | Decision summary (Section 4.4) | `report:read` | 3 |
+| POST | `/receipt-files` | Start a Receipt File upload `{ filename, contentType, size }` → 201 `{ id, uploadUrl, uploadHeaders, expiresAt }` | `receipt:create` | 3 |
+| POST | `/receipt-files/{id}/complete` | Check the stored object and mark the Receipt File `READY` | session; uploader | 3 |
+| DELETE | `/receipt-files/{id}` | Delete an unattached or editable Receipt File | session; uploader | 3 |
+| GET | `/receipt-files/{id}/content` | 302 to a presigned download URL | session; policy | 3 |
 | GET | `/health` | Liveness, no auth, no DB: `{ status, version }` | none | 1 |
-| GET | `/ready` | Readiness, no auth: pings the database; 503 if it cannot reach it | none | 1 |
+| GET | `/ready` | Readiness, no auth: pings the database and runs `HeadBucket` (F-11); 503 if either fails | none | 1 |
 
 **Filters (FR-13, Sprint 3):** `status` and `category` match exactly (a claim matches `category` if any line item has it). `from`/`to` are inclusive Asia/Bangkok dates on the first submission date, or on the creation date for drafts. `q` is a case-insensitive substring match on the title.
 
@@ -501,11 +581,12 @@ var statement = Statement{
     "review":  {"list"},           // list the review queue
     "finance": {"list"},           // list the finance queue (Sprint 3)
     "report":  {"read"},           // decision summary (Sprint 3)
+    "receipt": {"create"},         // start a Receipt File upload (F-11)
 }
 
 var roles = map[Role]Permissions{
-    RoleRequester: {"claim": {"create", "list"}},
-    RoleReviewer:  {"claim": {"create", "list"}, "review": {"list"}, "report": {"read"}},
+    RoleRequester: {"claim": {"create", "list"}, "receipt": {"create"}},
+    RoleReviewer:  {"claim": {"create", "list"}, "receipt": {"create"}, "review": {"list"}, "report": {"read"}},
     RoleFinance:   {"review": {"list"}, "finance": {"list"}, "report": {"read"}},
 }
 ```
@@ -536,6 +617,8 @@ var roles = map[Role]Permissions{
 
 The "not own" check uses `requester_id` directly, so self-approval is blocked even if the assignment data is wrong (BR-01).
 
+**Receipt Files (F-11).** An attached Receipt File is visible exactly when its claim is visible. An unattached one is visible only to its uploader. Anyone else gets 403 with no data; an unknown ID gets 404. Changing a Receipt File needs the uploader and, if it is attached, the claim's `edit` action.
+
 ### 5.3 List scopes and permission matrix
 
 `GET /claims?scope=` selects one of these scopes. Each scope is the visible set from 5.2, narrowed further:
@@ -558,6 +641,9 @@ The "not own" check uses `requester_id` directly, so self-approval is blocked ev
 | Approve / reject / return | ✗ 403 | assigned **and** not own | assigned **and** not own | policy |
 | Final approve / reject (S3) | ✗ 403 | ✗ 403 | PENDING_FINANCE, not own | policy |
 | Decision summary (S3) | ✗ 403 | assigned claims | whole department | `report:read` + scope |
+| Start a Receipt File upload (F-11) | ✓ | ✓ | ✗ 403 | `receipt:create` |
+| Complete, attach, or delete a Receipt File (F-11) | uploader; claim `DRAFT`/`RETURNED` | uploader; claim `DRAFT`/`RETURNED` | ✗ 403 | claim module (3.4) |
+| Open a Receipt File (F-11) | uploader, or claim visible | uploader, or claim visible | claim visible | policy (5.2) |
 
 **Required access tests (Sprint 1, API integration level):**
 
@@ -598,8 +684,8 @@ TanStack Router file routes live in `apps/web/src/routes/`. Routes under `_auth`
 | --- | --- | --- | --- |
 | Login | `login.tsx` → `/login` | Anonymous | 1 |
 | My Claims (list) | `_auth/claims/index.tsx` → `/claims` | Requester, Reviewer | 1 |
-| New Claim (form with line-item rows) | `_auth/claims/new.tsx` → `/claims/new` | Requester, Reviewer | 1 |
-| Claim Detail (line items, total, status, history timeline, action buttons from `allowedActions`) | `_auth/claims/$claimId.tsx` → `/claims/:id` | Anyone the policy lets see the claim | 1 |
+| New Claim (form with line-item rows, each with a Receipt File picker from F-11) | `_auth/claims/new.tsx` → `/claims/new` | Requester, Reviewer | 1 |
+| Claim Detail (line items with their Receipt Files, total, status, history timeline, action buttons from `allowedActions`) | `_auth/claims/$claimId.tsx` → `/claims/:id` | Anyone the policy lets see the claim | 1 |
 | Review Queue | `_auth/reviews.tsx` → `/reviews` | Reviewer, Finance | 1 |
 | Edit Claim | `_auth/claims/$claimId.edit.tsx` | Owner (DRAFT/RETURNED) | 2 |
 | Finance Queue (final decisions) | `_auth/finance.tsx` → `/finance` | Finance | 3 |
@@ -624,6 +710,7 @@ TanStack Router file routes live in `apps/web/src/routes/`. Routes under `_auth`
 | Decisions | Reject/Return open a dialog with a required reason field. Approve asks for confirmation. The Return button shows "Returned 2 / 3" from `returnCount`; it is shown only when `return` is in `allowedActions`. |
 | Status badges | Draft (grey), Submitted (blue), Returned (amber), Pending finance (purple), Approved (green), Rejected (red), Withdrawn (grey, struck through). |
 | Money / dates | `฿1,250.00`; `31 Oct 2026` in Asia/Bangkok (AS-06). |
+| Receipt Files (F-11) | Picking a file starts its upload with `XMLHttpRequest`, because `fetch` reports no upload progress. Each file shows a progress bar, **Cancel** while it runs, and **Remove** once it is done. Type and size are checked in the browser first for quick feedback; the server checks again. Uploaded files stay on the form after a server rule error. On Claim Detail each file opens the download endpoint in a new tab. |
 
 ## 8. Configuration and secrets
 
@@ -645,12 +732,18 @@ Configuration is declared in each app's varlock `.env.schema`:
 | `SEED_USER_PASSWORD` | – | seed only | **yes** |
 | `APP_VERSION` | git SHA / release tag, set at build | no | no |
 | `WEB_DIR` | `/app/web` in the image; unset in development | no | no |
+| `S3_BUCKET` | `claimflow-receipts` | yes (F-11) | no |
+| `S3_REGION` | `ap-southeast-1`; any value for RustFS | yes (F-11) | no |
+| `S3_ENDPOINT` | `http://localhost:9000` locally, `http://rustfs:9000` in compose; unset in production | no | no |
+| `S3_PUBLIC_ENDPOINT` | `http://localhost:9000`; defaults to `S3_ENDPOINT` | no | no |
+| `AWS_ACCESS_KEY_ID` | – | yes (F-11) | **yes** |
+| `AWS_SECRET_ACCESS_KEY` | – | yes (F-11) | **yes** |
 
 Business limits (amount caps, the high-value threshold, the 8-hour session lifetime, the return limit) come from the SRS, so they are constants in code and not configuration.
 
 `apps/web` keeps its existing `API_URL` for the dev proxy. The web bundle contains no secrets.
 
-On GCP, sensitive values live in **Secret Manager** and are injected into Cloud Run as environment variables (Lab 5).
+On GCP, sensitive values live in **Secret Manager** and are injected into Cloud Run as environment variables (Lab 5). The AWS key pair for the Receipt File bucket is stored the same way (F-11).
 
 ## 9. Deployment design (implemented in Lab 5)
 
@@ -668,14 +761,16 @@ flowchart LR
     Mig --> CR[Cloud Run: claimflow]
     CR -- Cloud SQL connector --> SQL[(Cloud SQL<br/>PostgreSQL 17)]
     SM[Secret Manager] -. env vars .-> CR
+    CR -- "aws-sdk-go-v2" --> AS3[(AWS S3 bucket<br/>ap-southeast-1)]
 ```
 
 | Concern | Design |
 | --- | --- |
 | Image | One image from the root `Dockerfile`, built with the repository root as context. A web stage runs `vp build`, the Go stage builds the API, and the Alpine runtime (varlock, runs as `nobody`, port 8080) contains the binary and the web `dist/` at `/app/web` (`WEB_DIR`). The build argument `APP_VERSION` sets the version. Migrations and the seed are subcommands of the same binary. |
-| Web delivery | The Gin router serves `dist/` for every path outside `/api`, falling back to `index.html` for client-side routes. Hashed assets get `Cache-Control: public, max-age=31536000, immutable`, and `index.html` gets `no-cache`. One origin means the session cookie works without CORS. |
-| Local | `docker compose up --build` runs `postgres:17` (named volume, so data survives restarts – NFR-05), a one-shot `migrate` service (`migrate up`, then `seed`), and the image as `app` (NFR-10). |
+| Web delivery | The Gin router serves `dist/` for every path outside `/api`, falling back to `index.html` for client-side routes. Hashed assets get `Cache-Control: public, max-age=31536000, immutable`, and `index.html` gets `no-cache`. One origin means the session cookie works without CORS. Only the Receipt File bucket has CORS, for the web origin (F-11). |
+| Local | `docker compose up --build` runs `postgres:17` (named volume, so data survives restarts – NFR-05), a one-shot `migrate` service (`migrate up`, then `seed`), `rustfs/rustfs:1.0.7` (named volume, `/health` healthcheck, S3 port on loopback), a one-shot `rustfs-init` (`amazon/aws-cli`) that creates the bucket and sets CORS for `http://localhost:3000` and `http://localhost:8080`, and the image as `app`, which waits for `rustfs-init` (NFR-10). |
 | Cloud runtime | **Cloud Run** (stateless) + **Cloud SQL for PostgreSQL 17** (durable). Sessions are stored in the DB, so instance restarts do not log users out. The startup probe calls `/ready`, so a revision gets traffic only once it can reach the database. |
+| Object storage (F-11) | An AWS S3 bucket in `ap-southeast-1`, created by the idempotent `deploy/aws-storage.sh`: Block Public Access on, SSE-S3, versioning off, CORS for the Cloud Run URL, and a lifecycle rule that aborts incomplete multipart uploads after 1 day. The API uses an IAM user whose policy allows only `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, and `s3:ListBucket` on that bucket. The production image contains no storage server. |
 | Migrations | `goose up` runs as a Cloud Run job before the new revision gets traffic. The app never changes the schema on startup. |
 | Logs | `slog` JSON on stdout with Cloud Logging field names (`severity`, `message`), one line per request with `requestId`, method, route, status, and latency. Sensitive values are never logged. |
 | Release identity | Images are tagged with the full git SHA only and deployed by digest; `/health` returns that SHA as `version`. A semantic-release tag `vG.X.Y.Z` (G = generation, from `release.config.js`) maps to its SHA with `git rev-list -n 1 vG.X.Y.Z`. |
@@ -710,14 +805,14 @@ Tests go through each module's interface. They test behaviour, not internals, so
 | Policy matrix (Go) | `testing`, table-driven, in-process | `claim.Allowed`: every role × ownership/assignment × status → visible and allowed actions | `rev.malee` on her own `SUBMITTED` claim → no `approve` |
 | Value types (Go) | `testing`, table-driven | `money.Satang` JSON decoding, clock-based date window | BR-05 boundaries: `"0.00"`, `"0.01"`, `"20000.00"`, `"20000.01"`, `"1.005"`; BR-07 at Bangkok midnight |
 | Claim module (Go) | `claim.Service` against `pgtest` PostgreSQL, fixed clock | Every BR through `Create`/`Edit`/`Act`; transactions; history rows; the history trigger | Self-approval → `ErrForbidden`; status and history unchanged |
-| HTTP (Go) | `httptest` + full router + `pgtest` | Contract validation, problem responses, cookies, cross-origin protection, the route inventory and access tests (5.3) | Anonymous request to every operation → 401 |
+| HTTP (Go) | `httptest` + full router + `pgtest`; the real `internal/storage` adapter against an in-process `gofakes3` server (F-11) | Contract validation, problem responses, cookies, cross-origin protection, the route inventory and access tests (5.3), Receipt File rules | Anonymous request to every operation → 401 |
 | Concurrency (Go) | Two goroutines `Act` on the same claim with the same version | BR-13 | Exactly one success, one `ErrConflict`, one history row |
 | Unit/component (web) | Vitest via `vp test`, Testing Library, MSW handlers typed from the generated client | Forms, problem → field messages, `allowedActions` → buttons, navigation by permission | Finance user sees no "New Claim" link |
-| E2E | Playwright against a local seeded stack before each release, not in CI (Product DoD item 4) | Critical journeys | Requester submits → reviewer approves → requester sees Approved with history |
+| E2E | Playwright against a local seeded stack before each release, not in CI (Product DoD item 4) | Critical journeys; the only proof of the real presign, CORS, and RustFS path (F-11) | Requester submits → reviewer approves → requester sees Approved with history |
 
 Test files follow each language's standard layout:
 
-- **Go:** `_test.go` files sit in the same folder as the code they test. The Go toolchain requires this: `go test` finds tests only in the package folder, and only a test file in that folder can test unexported code. Shared test helpers live in `internal/pgtest`. It starts one PostgreSQL container per test package, migrates a template database once, and gives each test a fresh database copied from the template (`CREATE DATABASE ... TEMPLATE`), so tests stay independent without migrating again.
+- **Go:** `_test.go` files sit in the same folder as the code they test. The Go toolchain requires this: `go test` finds tests only in the package folder, and only a test file in that folder can test unexported code. Shared test helpers live in `internal/pgtest`. `gofakes3` does not check presigned signatures, so router tests write the object directly in place of the browser's `PUT`. It starts one PostgreSQL container per test package, migrates a template database once, and gives each test a fresh database copied from the template (`CREATE DATABASE ... TEMPLATE`), so tests stay independent without migrating again.
 - **Web:** `*.test.ts(x)` files sit in a `__test__/` folder (Section 1.4.2).
 
 Both apps require **100% coverage**: the API through `.testcoverage.yml`, the web through `test.coverage.thresholds` in `apps/web/vite.config.ts`. Only generated code is excluded. For the API that is `env/`, `internal/api/`, and `internal/db/`; for the web it is `src/lib/api/` and `src/routeTree.gen.ts`. The mapping from AC to test IDs is in each feature's STS and in `docs/traceability.md`.
@@ -740,8 +835,10 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | SD-12 | Feature-based folders in both apps, with boundaries enforced by lint (Section 1.4) | Layer folders at the top level (`handlers/`, `services/`, `components/`, `hooks/`) | A sprint feature changes one folder per app, and the boundaries stay visible as the app grows. |
 | SD-13 | Contract first: a hand-written OpenAPI file, with code generated for both apps | Code-first (Huma, swag); hand-written types in both apps | The spec is the feature contract the course asks for, and drift becomes a compile or CI error. |
 | SD-14 | RFC 9457 problem details with `code` and `errors` extensions | Custom error envelope | A standard format that HTTP tools understand, defined once in the contract. |
-| SD-15 | One image: the API serves the web build | Cloud Storage + CDN; a separate web service | One origin for the cookie, one deploy, no CORS. |
+| SD-15 | One image: the API serves the web build | Cloud Storage + CDN; a separate web service | One origin for the cookie, one deploy, no CORS for the app. Since F-11 only the Receipt File bucket has CORS (SD-17). |
 | SD-16 | Server-computed `allowedActions` on every claim | Web derives buttons from role and status | Rules live only in the claim policy; the web cannot drift from them. |
+| SD-17 | Receipt Files in S3; the browser moves the bytes with presigned URLs; downloads are a 302 to a presigned `GET` | Go CDK through the API (#61); GCS XML API with HMAC keys; keyless web identity federation | ADR-0002. The API stays small and fast, and one S3 API serves RustFS and AWS. |
+| SD-18 | Receipt File rules in `claim`; the bucket client in the shared `internal/storage` | A separate `receipt` feature | Who may see or change a file depends on its claim, and `depguard` forbids importing `claim` from another feature (1.4.1). |
 
 ## 12. Revision history
 
@@ -767,3 +864,4 @@ Both apps require **100% coverage**: the API through `.testcoverage.yml`, the we
 | 0.15 | 2026-11-19 | Release identity (9): images carry the SHA only; a version maps to its SHA (#54) | 1005 |
 | 0.14 | 2026-11-18 | 9.1 matches the live rulesets: admin bypass on `sprint` and `lab`, up to date before merging on all three, no last-push approval rule (#53) | 1005 |
 | 0.13 | 2026-11-17 | Lab 5 (#53): the root `Dockerfile` and `WEB_DIR` (8, 9); the `migrate` compose service (9); `image` replaces `api_image` and is a required check in the `main`, `sprint`, and `lab` rulesets; the `lab` ruleset is documented (9, 9.1) | 1005 |
+| 0.21 | 2026-11-28 | F-11 Receipt Files (Sprint 3), SRS 0.4 (ADR-0002): storage path (1.1); `aws-sdk-go-v2`, RustFS, `gofakes3` (1.2, 10); `internal/storage` and `receipt.go` (1.3, 1.4.1); `receipt_files` (2.1, 2.2); `deps:up` replaces `db:up`, and `sweep` (2.5); Receipt File methods and rules (3.1, 3.4); 413, 415 (4.2); the `/receipt-files` operations and the bucket check in `/ready` (4.3); `receipt:create` (5.1); Receipt File visibility (5.2, 5.3); upload UI (7.1, 7.2); `S3_*` and `AWS_*` (8); RustFS in compose and the AWS bucket (9); SD-15 amended; SD-17, SD-18 | beambeambeam |

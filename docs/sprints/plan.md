@@ -1,8 +1,8 @@
 # Three-Sprint Plan
 
 - **Product:** ClaimFlow – Department Expense Reimbursement System
-- **Baseline:** `docs/srs.md` v0.3 · Features: `docs/features.md` v1.0 · Design: `docs/system-sds.md` v0.18
-- **Issue:** #5 · **Version:** 0.3 · **Last updated:** 2026-11-25
+- **Baseline:** `docs/srs.md` v0.4 · Features: `docs/features.md` v1.1 · Design: `docs/system-sds.md` v0.21
+- **Issue:** #5 · **Version:** 0.4 · **Last updated:** 2026-11-28
 
 This plan orders the features in `docs/features.md` into three sprints. It shows the dependencies, fits the work around the labs and the exam period, and explains the Sprint 1 scope. Feature IDs and requirement IDs are unchanged from those documents. Work items for each feature are GitHub Issues titled `F-NN/NN` (see `docs/agents/issue-tracker.md`).
 
@@ -14,7 +14,7 @@ This plan orders the features in `docs/features.md` into three sprints. It shows
 | --- | --- | --- | --- |
 | 1 | Small working slice: authentication, permissions, persistence, submit → approve or reject with history | F-01, F-02, F-03, F-04 | D1, 8 Nov |
 | 2 | Core expansion: drafts, return and resubmit, withdraw | F-05, F-06, F-07 | D2, 29 Nov – must be complete |
-| 3 | Two-stage approval, filter and search, decision summaries, hardening | F-08, F-09, F-10 | F-08 working by 29 Nov (D2); all done by 13 Dec (Final) |
+| 3 | Two-stage approval, filter and search, decision summaries, Receipt Files, hardening | F-08, F-09, F-10, F-11 | F-08 working by 29 Nov (D2); all done by 13 Dec (Final) |
 
 Each feature is in exactly one sprint. Every dependency points to the same sprint or an earlier one (section 3).
 
@@ -58,16 +58,16 @@ After F-02/01, the work splits into three paths (rules, My Claims, detail → de
 
 ### 2.3 Sprint 3 – Completion and hardening (19 Nov → 13 Dec)
 
-- **Goal:** high-value claims need a final Finance decision; users can filter and search; reviewers and Finance see decision summaries; the product meets NFR-07 with realistic data.
-- **Features:** F-08 Two-stage high-value approval · F-09 Filter and search · F-10 Decision summaries
-- **Responsibilities established:** SR-05 (performance, NFR-07). SR-01, SR-04, SR-06 re-verified.
-- **Dependencies:** F-04 → F-08 → F-10. F-03 and F-04 → F-09. F-07 → F-08/01 (withdrawing a `PendingFinance` claim is tested in F-08).
+- **Goal:** high-value claims need a final Finance decision; users can filter and search; reviewers and Finance see decision summaries; requesters attach Receipt Files that reviewers and Finance can open; the product meets NFR-07 with realistic data.
+- **Features:** F-08 Two-stage high-value approval · F-09 Filter and search · F-10 Decision summaries · F-11 Receipt Files
+- **Responsibilities established:** SR-05 (performance, NFR-07). SR-01, SR-04, SR-06 re-verified; F-11 also re-verifies SR-02 (S3 credentials from env) and SR-07 (compose runs RustFS).
+- **Dependencies:** F-04 → F-08 → F-10. F-03 and F-04 → F-09. F-07 → F-08/01 (withdrawing a `PendingFinance` claim is tested in F-08). F-02, F-03, F-05, F-06 → F-11.
 - **Completion outcome:**
   - **By 29 Nov (D2):** all Sprint 3 contracts written; F-08 implemented, tested, and on `main` in the D2 candidate. This is the "at least one Sprint 3 workflow" that D2 asks for.
-  - **By 30 Nov:** F-09 and F-10 implemented and tested, so no main workflow is left for the exam period.
+  - **By 30 Nov:** F-09, F-10, and F-11 implemented and tested, so no main workflow is left for the exam period.
   - **1–11 Dec:** defect fixes, UAT re-tests, NFR-07 timed run on the deployed release, final regression, and the demo video only.
   - **By 13 Dec (Final):** final release on `main`, deployed on GCP.
-- **Work order (critical path):** the Sprint 3 contracts are one `docs:` PR into `sprint-3` (25–26 Nov), merged before any implementation.
+- **Work order (critical path):** the Sprint 3 contracts are one `docs:` PR into `sprint-3` (25–26 Nov), merged before any implementation. F-11 was added on 28 Nov; its contract is F-11/01, a `docs:` PR into `sprint-3` merged before F-11/02.
 
 ```mermaid
 flowchart LR
@@ -77,9 +77,12 @@ flowchart LR
     B --> E[F-10/01 decision summary]
     D --> F[F-10/02 load dataset and NFR-07 run]
     E --> F
+    G[F-11/01 F-11 contract] --> H[F-11/02 attach and open on a new claim]
+    H --> I[F-11/03 drafts, returned claims, and sweep]
+    H --> J[F-11/04 production S3]
 ```
 
-After F-08/02, the work splits into two paths (filters, summary), so both students can work at the same time with separate write scopes. F-08 is on the D2 path; F-09 and F-10 follow by 30 Nov.
+After F-08/02, the work splits into two paths (filters, summary), so both students can work at the same time with separate write scopes. F-08 is on the D2 path; F-09 and F-10 follow by 30 Nov. F-11 depends only on released features, so its path runs beside F-09 and F-10.
 
 ## 3. Feature dependency graph
 
@@ -100,6 +103,7 @@ flowchart LR
         F08[F-08 Two-stage approval]
         F09[F-09 Filter and search]
         F10[F-10 Decision summaries]
+        F11[F-11 Receipt Files]
     end
     F01 --> F02
     F01 --> F03
@@ -117,6 +121,10 @@ flowchart LR
     F04 --> F09
     F04 --> F10
     F08 --> F10
+    F02 --> F11
+    F03 --> F11
+    F05 --> F11
+    F06 --> F11
 ```
 
 The dashed edge is a work-item dependency, not a feature dependency in `docs/features.md`: F-08/01 tests withdrawal from `PendingFinance`, which needs F-07.
@@ -133,7 +141,7 @@ The dashed edge is a work-item dependency, not a feature dependency in `docs/fea
 | 19–22 Nov | Sprint 2 release to `main` (22 Nov); Sprint 3 contracts | **22 Nov: Lab 6 due** |
 | 23–28 Nov | F-08; D2 candidate released to `main` and deployed (28 Nov) | Lab 7: maintenance change, regression run, metrics, release readiness. 24, 26 Nov Final Exam Review |
 | 29 Nov | D2 report | **29 Nov: D2 and Lab 7 due** |
-| 29–30 Nov | F-09, F-10 | – |
+| 29–30 Nov | F-09, F-10, F-11 | – |
 | 1–11 Dec | Fixes, UAT re-tests, NFR-07 run, regression, video – no new workflows | **Final examination period** |
 | 12–13 Dec | Final release to `main`, deploy, report | **13 Dec: Final product, report, video due** |
 
@@ -178,9 +186,9 @@ ClaimFlow adds three items to the example: server-calculated totals and line-ite
 | --- | --- | --- |
 | F-01, F-02, F-03, F-04 | 1 | FR-01 to FR-07, BR-01, BR-03, BR-05 to BR-08, BR-11 to BR-13, BR-15, BR-17: Sprint 1 |
 | F-05, F-06, F-07 | 2 | FR-08 to FR-11, BR-10, BR-14, BR-16: Sprint 2 |
-| F-08, F-09, F-10 | 3 | FR-12 to FR-14, BR-09: Sprint 3 |
+| F-08, F-09, F-10, F-11 | 3 | FR-12 to FR-17, BR-09, BR-18: Sprint 3 |
 
-All 10 features in `docs/features.md` are in exactly one sprint. Every FR and BR is planned in the sprint the SRS gives it. Rules that span sprints (BR-02, BR-04, NFR-08) are tested again by every later feature that adds a path where they apply (`docs/features.md` §1.2).
+All 11 features in `docs/features.md` are in exactly one sprint. Every FR and BR is planned in the sprint the SRS gives it. Rules that span sprints (BR-02, BR-04, NFR-08) are tested again by every later feature that adds a path where they apply (`docs/features.md` §1.2).
 
 ### 6.2 Non-functional requirements
 
@@ -225,3 +233,4 @@ Record every scope or date change here with its reason. Do not rewrite earlier e
 | 2026-11-15 | Sprint 1 finished on 15 Nov, not 8 Nov. The four features merged into `sprint-1` between 13 and 15 Nov, and the release PR to `main` follows. F-05 and F-06/01 (planned for 12–15 Nov) and the Lab 5 implementation (#52 to #55) have not started, so Sprint 2 starts after the release. The feature scope of the three sprints is unchanged. | The eleven Sprint 1 tickets, each with a teammate review, needed more than the 6–8 Nov window in §4. | Pending review |
 | 2026-11-23 | Sprint 2 starts on 23 Nov from `sprint-2` (cut from `main` at the Sprint 1 release). The F-05, F-06, and F-07 contracts are written on 23–24 Nov and merged before any implementation; the seven tickets (#39 to #45) follow the §2 work order, and the Sprint 2 release to `main` is planned for 27–28 Nov, before the D2 and Lab 7 deadline on 29 Nov. F-08 for D2 (§2.3) overlaps Sprint 2: the F-08 contract is written on 25–26 Nov next to the Sprint 2 tickets, and `sprint-3` is cut from `sprint-2` once F-07/01 (#45) merges, because F-08/01 tests withdrawal from `PendingFinance`. The D2 candidate on 28 Nov is still the release PR from `sprint-3` (§7). If F-08 is not done by then, the D2 candidate is the Sprint 2 release alone and the D2 report lists F-08 as incomplete (Product DoD item 10). The feature scope is unchanged. | Sprint 1 ended on 15 Nov (entry above), and Lab 5 and Lab 6 used 16–22 Nov. | Pending review |
 | 2026-11-25 | The Sprint 2 release merged to `main` on 25 Nov (#109, tag `v0.1.1.0`), not on 27–28 Nov. `sprint-3` was cut from `main` after that release, not from `sprint-2` after F-07/01 as the 2026-11-23 entry says. This is the normal §7 flow, and F-08/01 builds on the released F-07. The Sprint 3 contracts (F-08, F-09, F-10, and the Sprint 3 Product DoD) are written on 25–26 Nov and merge into `sprint-3` before any implementation; the §2.3 work order now says so. F-08 (#46, #47) targets the D2 candidate release PR from `sprint-3` on 28 Nov. If F-08 is not done by then, the D2 report lists it as incomplete (Product DoD item 10). F-09 and F-10 (#48 to #50) are done by 30 Nov. The feature scope is unchanged. | Sprint 2 finished on 25 Nov. | Pending review |
+| 2026-11-28 | F-11 Receipt Files (SRS v0.4: FR-15 to FR-17, BR-18; D-09 and EX-05 revised) joins Sprint 3. It replaces the planned extra F-EXTRA-01 (#61). Its contract (`docs/sprints/sprint-3/F-11-receipt-files.md`) is F-11/01 and merges into `sprint-3` before F-11/02 to F-11/04, which are done by 30 Nov. F-11 depends only on released features, so the F-08, F-09, and F-10 work order is unchanged. | Receipt Files were the one planned extra, and S3 storage was ready to design. | Pending review |
